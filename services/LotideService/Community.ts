@@ -85,7 +85,7 @@ export async function getAllCommunities(
   do {
     if (nextPage) {
       if (seenPages.has(nextPage)) {
-        throw new Error("Lotide community pagination loop detected.");
+        throw new Error("Community pagination loop detected.");
       }
 
       seenPages.add(nextPage);
@@ -103,7 +103,7 @@ export async function getAllCommunities(
         foreground screen into an unbounded request loop.
     */
     if (nextPage && pageCount >= MAX_COMMUNITY_LIST_PAGES) {
-      throw new Error("Lotide community pagination exceeded the safety limit.");
+      throw new Error("Community pagination exceeded the safety limit.");
     }
   } while (nextPage);
 

@@ -96,7 +96,7 @@ export default function ForgotPasswordScreen({
     if (!trimmedEmail)
       return alertIfMounted(
         "Email address required",
-        "Enter the email address for your Lotide account.",
+        "Enter the email address for your server account.",
       );
 
     resetKeyEntryState();

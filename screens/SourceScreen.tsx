@@ -101,7 +101,7 @@ export default function SourceScreen({
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
         <Text style={{ color: theme.secondaryText }}>
-          This Lotide server does not provide source feeds yet.
+          This server does not provide source feeds yet.
         </Text>
       </View>
     );

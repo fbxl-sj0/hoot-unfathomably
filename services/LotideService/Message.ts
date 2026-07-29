@@ -32,7 +32,7 @@ import {
 
 function requirePrivateMessages(ctx: LotideContext) {
   if (!supportsPrivateMessages(ctx.apiVersion)) {
-    throw new Error("This Lotide server does not provide private messages.");
+    throw new Error("This server does not provide private messages.");
   }
 }
 

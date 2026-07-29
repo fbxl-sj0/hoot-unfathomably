@@ -45,7 +45,7 @@ describe("Lotide service utilities", () => {
       readJson({
         json: jest.fn().mockRejectedValue(new Error("bad json")),
       } as unknown as Parameters<typeof readJson>[0]),
-    ).rejects.toThrow("The Lotide server returned invalid JSON.");
+    ).rejects.toThrow("The server returned invalid JSON.");
   });
 
   test("sends JSON bodies with bearer authentication", async () => {
@@ -174,7 +174,7 @@ describe("Lotide service utilities", () => {
     jest.advanceTimersByTime(LOTIDE_REQUEST_TIMEOUT_MS);
 
     await expect(request).rejects.toMatchObject({
-      message: "The Lotide server did not respond within 30 seconds.",
+      message: "The server did not respond within 30 seconds.",
       method: "GET",
       path: "https://lotide.fbxl.net/api/unstable/instance",
     });

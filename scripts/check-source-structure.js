@@ -1,6 +1,6 @@
 /*
-    Project: Hoot Mobile
-    -------------------
+    Project: Hoot Unfathomably
+    --------------------------
 
     File: check-source-structure.js
 
@@ -13,7 +13,7 @@
 
         - Inspect tracked and untracked non-ignored source files.
         - Skip native/generated output paths owned by other tooling.
-        - Report missing Hoot file headers.
+        - Report missing Hoot project file headers.
         - Report missing exact end-of-file markers.
 
     This file intentionally does NOT contain:
@@ -39,6 +39,12 @@ const skippedPathPrefixes = [
   "android/",
   "dist/",
   "node_modules/",
+];
+
+const projectHeaders = [
+  "Project: Hoot Unfathomably",
+  // Accepted while untouched source modules retain their original header.
+  "Project: Hoot Mobile",
 ];
 
 function gitVisibleFiles() {
@@ -97,8 +103,8 @@ function checkFile(fileName, problems) {
     ? lines[lines.length - 2]
     : lines[lines.length - 1];
 
-  if (!headerWindow.includes("Project: Hoot Mobile")) {
-    problems.push(`${fileName}: missing Hoot Mobile file header`);
+  if (!projectHeaders.some(header => headerWindow.includes(header))) {
+    problems.push(`${fileName}: missing Hoot project file header`);
   }
 
   const footer = expectedFooter(fileName);

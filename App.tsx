@@ -1,25 +1,25 @@
 /*
-    Project: Hoot Mobile
-    -------------------
+    Project: Hoot Unfathomably
+    --------------------------
 
     File: App.tsx
 
     Purpose:
 
         The entry point for the Hoot Mobile application. Manages initialization,
-        context persistence, and the root navigation structure.
+        account persistence and the root navigation structure.
 
     Responsibilities:
 
         • Bootstrapping the application (Provider, StatusBar)
         • Loading cached resources and persistence data
-        • Handling Lotide context synchronization with the server
+        • Restoring the active Unfathomably account
         • Managing application state via Redux
 
     This file intentionally does NOT contain:
 
         • Specific screen implementations
-        • Direct API request logic (see services/LotideService)
+        • Direct API request logic (see services/UnfathomablyService)
 */
 
 import { StatusBar } from "expo-status-bar";
@@ -32,6 +32,7 @@ import useColorScheme from "./hooks/useColorScheme";
 import Navigation from "./navigation";
 import * as StorageService from "./services/StorageService";
 import * as UnfathomablyService from "./services/UnfathomablyService";
+import * as NotificationPoller from "./services/NotificationPoller";
 import { Provider, useDispatch } from "react-redux";
 import { setCtx } from "./slices/lotideSlice";
 import { setAppSettings } from "./slices/settingsSlice";
@@ -79,7 +80,10 @@ function App() {
         }
       })
       .catch(error => {
-        logWarning("Failed to load stored Lotide context", getErrorMessage(error));
+        logWarning(
+          "Failed to load stored account context",
+          getErrorMessage(error),
+        );
       });
   }, [dispatch]);
 
@@ -117,6 +121,15 @@ function App() {
       isActive = false;
     };
   }, [ctx]);
+
+  useEffect(() => {
+    NotificationPoller.registerNotificationPollTask().catch(error => {
+      logWarning(
+        "Failed to restore background notifications",
+        getErrorMessage(error),
+      );
+    });
+  }, [ctx?.login?.token]);
 
   /* ------------------------------------------------------------------------- */
   /* Render                                                                    */

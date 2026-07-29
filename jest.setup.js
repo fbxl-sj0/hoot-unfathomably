@@ -26,6 +26,8 @@
 global.IS_REACT_ACT_ENVIRONMENT = true;
 global.IS_REACT_NATIVE_TEST_ENVIRONMENT = true;
 
+require("react-native-gesture-handler/jestSetup");
+
 /*
     AsyncStorage exposes a native module at runtime.
 
@@ -153,6 +155,7 @@ jest.mock("expo-notifications", () => ({
     remove: jest.fn(),
   })),
   clearLastNotificationResponse: jest.fn(),
+  deleteNotificationChannelAsync: jest.fn(() => Promise.resolve()),
   getLastNotificationResponse: jest.fn(() => null),
   scheduleNotificationAsync: jest.fn(() => Promise.resolve("notification-id")),
   setNotificationChannelAsync: jest.fn(() => Promise.resolve()),

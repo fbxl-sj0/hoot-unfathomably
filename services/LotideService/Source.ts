@@ -42,7 +42,7 @@ export type CollectionTargetListOptions = {
 
 function requireCollectionTargets(ctx: LotideContext) {
   if (!supportsCollectionTargets(ctx.apiVersion)) {
-    throw new Error("This Lotide server does not provide source feeds.");
+    throw new Error("This server does not provide source feeds.");
   }
 }
 

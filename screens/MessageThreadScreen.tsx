@@ -131,7 +131,7 @@ export default function MessageThreadScreen({
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
         <Text style={{ color: theme.secondaryText }}>
-          This Lotide server does not provide private messages yet.
+          This server does not provide private messages yet.
         </Text>
       </View>
     );

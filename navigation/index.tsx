@@ -82,7 +82,7 @@ import MessageListScreen from "../screens/MessageListScreen";
 import MessageThreadScreen from "../screens/MessageThreadScreen";
 import { useLotideCtx } from "../hooks/useLotideCtx";
 import { createDrawerNavigator } from "@react-navigation/drawer";
-import * as LotideNotificationPoller from "../services/LotideNotificationPoller";
+import * as NotificationPoller from "../services/NotificationPoller";
 import {
   supportsCollectionTargets,
   supportsPrivateMessages,
@@ -164,7 +164,7 @@ export default function Navigation({
 }) {
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const pendingNotificationTarget =
-    useRef<LotideNotificationPoller.NotificationNavigationTarget | undefined>(
+    useRef<NotificationPoller.NotificationNavigationTarget | undefined>(
       undefined,
     );
   const navigationTheme = {
@@ -181,26 +181,23 @@ export default function Navigation({
   };
 
   const navigateToNotificationTarget = useCallback(
-    (target: LotideNotificationPoller.NotificationNavigationTarget) => {
+    (target: NotificationPoller.NotificationNavigationTarget) => {
       if (!navigationRef.isReady()) {
         pendingNotificationTarget.current = target;
         return;
       }
 
       switch (target.screen) {
-        case "Post":
-          navigationRef.navigate("Post", target.params);
+        case "Status":
+          navigationRef.navigate("Status", target.params);
           break;
         case "Notifications":
           navigationRef.navigate("Root", { screen: "NotificationScreen" });
           break;
-        case "MessageThread":
-          navigationRef.navigate("MessageThread", target.params);
-          break;
       }
 
       pendingNotificationTarget.current = undefined;
-      LotideNotificationPoller.clearLastNotificationResponse();
+      NotificationPoller.clearLastNotificationResponse();
     },
     [navigationRef],
   );
@@ -208,7 +205,7 @@ export default function Navigation({
   const flushPendingNotificationTarget = useCallback(() => {
     const target =
       pendingNotificationTarget.current ??
-      LotideNotificationPoller.getLastNotificationNavigationTarget();
+      NotificationPoller.getLastNotificationNavigationTarget();
 
     if (target) {
       navigateToNotificationTarget(target);
@@ -219,7 +216,7 @@ export default function Navigation({
     flushPendingNotificationTarget();
 
     const subscription =
-      LotideNotificationPoller.addNotificationResponseReceivedListener(
+      NotificationPoller.addNotificationResponseReceivedListener(
         navigateToNotificationTarget,
       );
 

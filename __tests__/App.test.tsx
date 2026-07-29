@@ -1,25 +1,9 @@
 /*
-    Project: Hoot Mobile
-    -------------------
+    Project: Hoot Unfathomably
+    --------------------------
 
-    File: App.test.tsx
-
-    Purpose:
-
-        Validate root application startup and session recovery behavior.
-
-    Responsibilities:
-
-        - Verify stored context load failures are logged instead of becoming
-          unhandled startup errors
-        - Verify expired logins clear the active context even when saved-profile
-          bookkeeping fails
-
-    This file intentionally does NOT contain:
-
-        - Navigation integration tests
-        - Native notification delivery tests
-        - Live Lotide API tests
+    Validate account restoration, settings restoration, server refresh
+    errors, and background notification registration at application startup.
 */
 
 import * as React from "react";
@@ -29,16 +13,12 @@ import { render, waitFor } from "@testing-library/react-native";
 import AppRoot from "../App";
 
 const mockDispatch = jest.fn();
-const mockLotideContextQuery = jest.fn();
-const mockLotideContextStore = jest.fn();
-const mockLotideContextKVStore = jest.fn();
-const mockLotideContextKVLogout = jest.fn();
+const mockAccountContextQuery = jest.fn();
+const mockAccountContextStore = jest.fn();
+const mockAccountProfilesStore = jest.fn();
 const mockAppSettingsQuery = jest.fn();
-const mockGetInstanceInfo = jest.fn();
-const mockGetUserData = jest.fn();
-const mockIsAuthenticationError = jest.fn();
+const mockGetInstance = jest.fn();
 const mockRegisterNotificationPollTask = jest.fn();
-const mockPollNotificationsNow = jest.fn();
 const mockLogWarning = jest.fn();
 
 let mockCurrentCtx: LotideContext | null | undefined;
@@ -76,12 +56,11 @@ jest.mock("../components/AppErrorBoundary", () => ({
 jest.mock("../services/StorageService", () => ({
   __esModule: true,
   lotideContext: {
-    query: (...args: unknown[]) => mockLotideContextQuery(...args),
-    store: (...args: unknown[]) => mockLotideContextStore(...args),
+    query: (...args: unknown[]) => mockAccountContextQuery(...args),
+    store: (...args: unknown[]) => mockAccountContextStore(...args),
   },
   lotideContextKV: {
-    store: (...args: unknown[]) => mockLotideContextKVStore(...args),
-    logout: (...args: unknown[]) => mockLotideContextKVLogout(...args),
+    store: (...args: unknown[]) => mockAccountProfilesStore(...args),
   },
   appSettings: {
     defaults: {
@@ -91,20 +70,15 @@ jest.mock("../services/StorageService", () => ({
   },
 }));
 
-jest.mock("../services/LotideService", () => ({
+jest.mock("../services/UnfathomablyService", () => ({
   __esModule: true,
-  getInstanceInfo: (...args: unknown[]) => mockGetInstanceInfo(...args),
-  getUserData: (...args: unknown[]) => mockGetUserData(...args),
-  isAuthenticationError: (...args: unknown[]) =>
-    mockIsAuthenticationError(...args),
+  getInstance: (...args: unknown[]) => mockGetInstance(...args),
 }));
 
-jest.mock("../services/LotideNotificationPoller", () => ({
+jest.mock("../services/NotificationPoller", () => ({
   __esModule: true,
   registerNotificationPollTask: (...args: unknown[]) =>
     mockRegisterNotificationPollTask(...args),
-  pollNotificationsNow: (...args: unknown[]) =>
-    mockPollNotificationsNow(...args),
 }));
 
 jest.mock("../store/reduxStore", () => ({
@@ -126,80 +100,138 @@ describe("AppRoot", () => {
     jest.clearAllMocks();
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
     mockCurrentCtx = undefined;
-    mockLotideContextQuery.mockResolvedValue(undefined);
-    mockLotideContextStore.mockResolvedValue(undefined);
-    mockLotideContextKVStore.mockResolvedValue(undefined);
-    mockLotideContextKVLogout.mockResolvedValue(undefined);
+    mockAccountContextQuery.mockResolvedValue(undefined);
+    mockAccountContextStore.mockResolvedValue(undefined);
+    mockAccountProfilesStore.mockResolvedValue(undefined);
     mockAppSettingsQuery.mockResolvedValue({ defaultFeedSort: "hot" });
-    mockGetInstanceInfo.mockResolvedValue({
-      apiVersion: 18,
-      software: { name: "Lotide", version: "0.18.0" },
+    mockGetInstance.mockResolvedValue({
+      title: "Social",
+      version: "1.0",
     });
-    mockGetUserData.mockResolvedValue({
-      id: 1,
-      username: "alice",
-      host: "lotide.fbxl.net",
-      local: true,
-    });
-    mockIsAuthenticationError.mockReturnValue(false);
     mockRegisterNotificationPollTask.mockResolvedValue("unchanged");
-    mockPollNotificationsNow.mockResolvedValue(0);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  test("logs stored context load failures during startup", async () => {
-    mockLotideContextQuery.mockRejectedValue(new Error("storage down"));
+  test("restores a current Unfathomably account and app settings", async () => {
+    const storedContext = {
+      apiUrl: "https://social.example",
+      login: {
+        token: "token-1",
+        user: {
+          id: "42",
+          username: "alice",
+        },
+      },
+    } as unknown as LotideContext;
+    mockAccountContextQuery.mockResolvedValue(storedContext);
+
+    await render(<AppRoot />);
+
+    await waitFor(() => {
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "lotide/setCtx",
+          payload: storedContext,
+        }),
+      );
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "settings/setAppSettings",
+          payload: { defaultFeedSort: "hot" },
+        }),
+      );
+    });
+  });
+
+  test("clears a pre-migration Lotide API context", async () => {
+    mockAccountContextQuery.mockResolvedValue({
+      apiUrl: "https://legacy.example/api/unstable",
+      login: {
+        token: "old-token",
+        user: { id: 1, username: "alice" },
+      },
+    });
+
+    await render(<AppRoot />);
+
+    await waitFor(() => {
+      expect(mockAccountContextStore).toHaveBeenCalledWith({});
+      expect(mockAccountProfilesStore).toHaveBeenCalledWith({});
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "lotide/setCtx",
+          payload: {},
+        }),
+      );
+    });
+  });
+
+  test("logs stored account failures without crashing startup", async () => {
+    mockAccountContextQuery.mockRejectedValue(new Error("storage down"));
 
     await render(<AppRoot />);
 
     await waitFor(() => {
       expect(mockLogWarning).toHaveBeenCalledWith(
-        "Failed to load stored Lotide context",
+        "Failed to load stored account context",
         "storage down",
       );
     });
   });
 
-  test("expires the active login when saved account expiry fails", async () => {
+  test("restores background notification registration", async () => {
     mockCurrentCtx = {
-      apiUrl: "https://lotide.fbxl.net/api/unstable",
-      apiVersion: 18,
+      apiUrl: "https://social.example",
       login: {
         token: "token-1",
-        user: {
-          id: 1,
-          username: "alice",
-          host: "lotide.fbxl.net",
-          local: true,
-        },
+        user: { id: 42, username: "alice" } as Profile,
       },
     };
-    mockGetUserData.mockRejectedValue(new Error("auth expired"));
-    mockIsAuthenticationError.mockReturnValue(true);
-    mockLotideContextKVLogout.mockRejectedValue(new Error("profile store down"));
+
+    await render(<AppRoot />);
+
+    await waitFor(() => {
+      expect(mockRegisterNotificationPollTask).toHaveBeenCalledTimes(1);
+      expect(mockGetInstance).toHaveBeenCalledWith(
+        "https://social.example",
+      );
+    });
+  });
+
+  test("reports notification restoration failures diagnostically", async () => {
+    mockRegisterNotificationPollTask.mockRejectedValue(
+      new Error("scheduler unavailable"),
+    );
 
     await render(<AppRoot />);
 
     await waitFor(() => {
       expect(mockLogWarning).toHaveBeenCalledWith(
-        "Failed to expire saved Lotide login",
-        "profile store down",
+        "Failed to restore background notifications",
+        "scheduler unavailable",
       );
-      expect(mockLotideContextStore).toHaveBeenCalledWith({
-        apiUrl: "https://lotide.fbxl.net/api/unstable",
-        apiVersion: 18,
-      });
-      expect(mockDispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: "lotide/setCtx",
-          payload: {
-            apiUrl: "https://lotide.fbxl.net/api/unstable",
-            apiVersion: 18,
-          },
-        }),
+    });
+  });
+
+  test("shows a server refresh error for the active account", async () => {
+    mockCurrentCtx = {
+      apiUrl: "https://social.example",
+      login: {
+        token: "token-1",
+        user: { id: 42, username: "alice" } as Profile,
+      },
+    };
+    mockGetInstance.mockRejectedValue(new Error("server unavailable"));
+
+    await render(<AppRoot />);
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "Cannot refresh server info",
+        "server unavailable",
       );
     });
   });

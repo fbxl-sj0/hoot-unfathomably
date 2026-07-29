@@ -558,7 +558,7 @@ describe("MessageThreadScreen", () => {
     });
 
     expect(
-      screen.getByText("This Lotide server does not provide private messages yet."),
+      screen.getByText("This server does not provide private messages yet."),
     ).toBeTruthy();
     expect(mockGetPrivateMessageThread).not.toHaveBeenCalled();
   });

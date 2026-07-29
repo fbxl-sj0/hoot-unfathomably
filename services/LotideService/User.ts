@@ -155,7 +155,7 @@ export async function getUserThings(
 
 function requireUserFollows(ctx: LotideContext) {
   if (!supportsUserFollows(ctx.apiVersion)) {
-    throw new Error("This Lotide server does not provide user follows.");
+    throw new Error("This server does not provide user follows.");
   }
 }
 

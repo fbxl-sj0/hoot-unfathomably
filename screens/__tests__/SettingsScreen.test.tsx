@@ -17,7 +17,7 @@
     This file intentionally does NOT contain:
 
         - Native Android notification delivery tests
-        - Live Lotide server requests
+        - Live Unfathomably server requests
 */
 
 import * as React from "react";
@@ -56,7 +56,7 @@ jest.mock("../../hooks/useTheme", () => ({
   }),
 }));
 
-jest.mock("../../services/LotideNotificationPoller", () => ({
+jest.mock("../../services/NotificationPoller", () => ({
   __esModule: true,
   getNotificationDiagnostics: (...args: unknown[]) =>
     mockGetNotificationDiagnostics(...args),
@@ -92,13 +92,13 @@ async function renderSettingsScreen() {
   const store = mockStore({
     lotide: {
       ctx: {
-        apiUrl: "https://lotide.fbxl.net/api/unstable",
+        apiUrl: "https://social.example",
         login: {
           token: "token-1",
           user: {
             id: 1,
             username: "alice",
-            host: "lotide.fbxl.net",
+            host: "social.example",
             local: true,
           },
         },
@@ -139,7 +139,7 @@ describe("SettingsScreen", () => {
       backgroundAvailable: true,
       backgroundStatus: "available",
       taskRegistered: true,
-      channelId: "lotide-notifications-v2",
+      channelId: "hoot-unfathomably-notifications-v1",
       poll: {
         lastAttemptAt: "2026-06-23T18:30:00.000Z",
         lastSuccessAt: "2026-06-23T18:30:00.000Z",
@@ -180,7 +180,7 @@ describe("SettingsScreen", () => {
       backgroundAvailable: true,
       backgroundStatus: "available",
       taskRegistered: true,
-      channelId: "lotide-notifications-v2",
+      channelId: "hoot-unfathomably-notifications-v1",
       poll: {
         lastAttemptAt: "2026-06-23T18:30:00.000Z",
         lastSuccessAt: "2026-06-23T18:30:00.000Z",
@@ -240,14 +240,14 @@ describe("SettingsScreen", () => {
     const screen = await renderSettingsScreen();
 
     await fireEvent.changeText(
-      screen.getByPlaceholderText("https://narwhal.city/api/unstable"),
+      screen.getByPlaceholderText("https://social.example"),
       "httpnot-a-url",
     );
     await fireEvent.press(screen.getByRole("button", { name: "Save Changes" }));
 
     expect(Alert.alert).toHaveBeenCalledWith(
       "Invalid URL",
-      "API URL must start with http:// or https://",
+      "Enter a valid HTTPS server URL. HTTP is allowed only for local development.",
     );
     await expect(AsyncStorage.getItem("@lotide_ctx")).resolves.toBeNull();
   });
@@ -256,20 +256,20 @@ describe("SettingsScreen", () => {
     const screen = await renderSettingsScreen();
 
     await fireEvent.changeText(
-      screen.getByPlaceholderText("https://narwhal.city/api/unstable"),
-      "  https://example.lotide.test/api/unstable///  ",
+      screen.getByPlaceholderText("https://social.example"),
+      "  https://community.example///  ",
     );
     await fireEvent.press(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(async () => {
       await expect(AsyncStorage.getItem("@lotide_ctx")).resolves.toBe(
         JSON.stringify({
-          apiUrl: "https://example.lotide.test/api/unstable",
+          apiUrl: "https://community.example",
           login: {
             user: {
               id: 1,
               username: "alice",
-              host: "lotide.fbxl.net",
+              host: "social.example",
               local: true,
             },
           },
@@ -279,7 +279,7 @@ describe("SettingsScreen", () => {
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith(expect.stringContaining("hoot.auth.token."), "token-1");
   });
 
-  test("checks Lotide notifications from settings", async () => {
+  test("checks Unfathomably notifications from settings", async () => {
     const screen = await renderSettingsScreen();
 
     await waitFor(() => {
@@ -297,7 +297,7 @@ describe("SettingsScreen", () => {
       expect(mockPollNotificationsNow).toHaveBeenCalledTimes(1);
       expect(mockPollNotificationsNow).toHaveBeenCalledWith(
         expect.objectContaining({
-          apiUrl: "https://lotide.fbxl.net/api/unstable",
+          apiUrl: "https://social.example",
         }),
       );
       expect(Alert.alert).toHaveBeenCalledWith(
@@ -418,7 +418,7 @@ describe("SettingsScreen", () => {
       backgroundAvailable: true,
       backgroundStatus: "available",
       taskRegistered: true,
-      channelId: "lotide-notifications-v2",
+      channelId: "hoot-unfathomably-notifications-v1",
       poll: {
         lastScheduledCount: 0,
       },
@@ -450,7 +450,7 @@ describe("SettingsScreen", () => {
       backgroundAvailable: true,
       backgroundStatus: "available",
       taskRegistered: false,
-      channelId: "lotide-notifications-v2",
+      channelId: "hoot-unfathomably-notifications-v1",
       poll: {
         lastScheduledCount: 0,
       },

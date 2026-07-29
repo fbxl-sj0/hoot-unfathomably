@@ -314,13 +314,13 @@ export default function ProfileScreen({
       try {
         await updateStoredAccount();
       } catch (error) {
-        logWarning("Failed to update saved Lotide account", getErrorMessage(error));
+        logWarning("Failed to update saved account", getErrorMessage(error));
       }
 
       try {
         await LotideService.logout(activeCtx);
       } catch (error) {
-        logWarning("Failed to invalidate Lotide login", getErrorMessage(error));
+        logWarning("Failed to invalidate server login", getErrorMessage(error));
       }
 
       try {

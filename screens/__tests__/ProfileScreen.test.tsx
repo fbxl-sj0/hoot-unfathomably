@@ -580,7 +580,7 @@ describe("ProfileScreen", () => {
       expect(mockLotideContextRemove).toHaveBeenCalledTimes(1);
     });
     expect(mockLogWarning).toHaveBeenCalledWith(
-      "Failed to invalidate Lotide login",
+      "Failed to invalidate server login",
       "offline",
     );
     expect(screen.reduxStore.getActions()).toContainEqual({

@@ -4,6 +4,9 @@ Hoot Unfathomably Changelog
 Unreleased
 ----------
 
+Version 0.2.1
+-------------
+
 - Fixed Android login failing after successful authentication because the
   generated Secure Store token key contained characters rejected by the native
   module.
@@ -11,6 +14,12 @@ Unreleased
   and restored the current Unfathomably login suite to the release test run.
 - Kept server-handled registration from leaving the login form permanently
   disabled.
+- Replaced the inherited Lotide notification poller with the
+  Mastodon-compatible Unfathomably notifications endpoint.
+- Migrated background notification settings to Hoot Unfathomably task,
+  storage, and Android channel identifiers without alerting old history.
+- Updated notification taps to open Unfathomably status discussions and
+  removed stale Lotide labels and errors from notification settings.
 
 Version 0.2.0
 -------------

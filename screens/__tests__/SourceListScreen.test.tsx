@@ -303,7 +303,7 @@ describe("SourceListScreen", () => {
     });
 
     expect(
-      screen.getByText("This Lotide server does not provide source feeds yet."),
+      screen.getByText("This server does not provide source feeds yet."),
     ).toBeTruthy();
     expect(mockGetCollectionTargets).not.toHaveBeenCalled();
   });

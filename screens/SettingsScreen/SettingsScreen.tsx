@@ -1,17 +1,17 @@
 /*
-    Project: Hoot Mobile
-    -------------------
+    Project: Hoot Unfathomably
+    --------------------------
 
     File: SettingsScreen.tsx
 
     Purpose:
 
         Provides a user interface for configuring application settings,
-        such as the Lotide API URL and default feed sorting.
+        including the Unfathomably server, feed sorting, and notifications.
 
     Responsibilities:
 
-        • Display and edit the API URL in the Lotide context
+        • Display and edit the active Unfathomably server URL
         • Configure default sorting preferences
         • Persist settings changes to local storage and Redux state
         • Manage Android notification diagnostics and test actions
@@ -42,8 +42,8 @@ import { setCtx } from "../../slices/lotideSlice";
 import { setAppSettings, setDefaultFeedSort } from "../../slices/settingsSlice";
 import { RootState } from "../../store/reduxStore";
 import * as StorageService from "../../services/StorageService";
-import * as LotideNotificationPoller from "../../services/LotideNotificationPoller";
-import { normalizeLotideApiUrl } from "../../services/LotideService";
+import * as NotificationPoller from "../../services/NotificationPoller";
+import { normalizeServerUrl } from "../../services/UnfathomablyService";
 import { getErrorMessage } from "../../utils/error";
 import { MINIMUM_TOUCH_TARGET_SIZE } from "../../constants/TouchTargets";
 
@@ -58,7 +58,7 @@ const feedSortOptions: { label: string; value: SortOption }[] = [
 ];
 
 function notificationPermissionText(
-  diagnostics?: LotideNotificationPoller.NotificationDiagnostics,
+  diagnostics?: NotificationPoller.NotificationDiagnostics,
 ): string {
   if (!diagnostics) return "Checking";
   if (!diagnostics.supported) return "Unsupported";
@@ -69,7 +69,7 @@ function notificationPermissionText(
 }
 
 function notificationBackgroundText(
-  diagnostics?: LotideNotificationPoller.NotificationDiagnostics,
+  diagnostics?: NotificationPoller.NotificationDiagnostics,
 ): string {
   if (!diagnostics) return "Checking";
   if (!diagnostics.supported) return "Unsupported";
@@ -91,7 +91,7 @@ function formatDiagnosticTime(value?: string): string {
 }
 
 function notificationLastCheckText(
-  diagnostics?: LotideNotificationPoller.NotificationDiagnostics,
+  diagnostics?: NotificationPoller.NotificationDiagnostics,
 ): string {
   if (!diagnostics) return "Checking";
   if (diagnostics.poll.lastError) return "Failed";
@@ -109,7 +109,7 @@ function notificationLastCheckText(
 }
 
 function notificationLastAlertText(
-  diagnostics?: LotideNotificationPoller.NotificationDiagnostics,
+  diagnostics?: NotificationPoller.NotificationDiagnostics,
 ): string {
   if (!diagnostics) return "Checking";
   if (diagnostics.poll.lastScheduledCount < 1) return "None";
@@ -120,7 +120,7 @@ function notificationLastAlertText(
 }
 
 function shouldOfferNotificationSettings(
-  diagnostics?: LotideNotificationPoller.NotificationDiagnostics,
+  diagnostics?: NotificationPoller.NotificationDiagnostics,
 ): boolean {
   if (!diagnostics) return false;
   if (!diagnostics.supported) return false;
@@ -131,11 +131,17 @@ function shouldOfferNotificationSettings(
 }
 
 function isSupportedApiUrl(value: string): boolean {
-  if (!/^https?:\/\//i.test(value)) return false;
-
   try {
-    const parsedUrl = new URL(value);
-    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:";
+    const parsedUrl = new URL(normalizeServerUrl(value));
+    const hostname = parsedUrl.hostname.toLowerCase();
+    const localHosts = new Set(["127.0.0.1", "10.0.2.2", "localhost", "::1"]);
+    const recognizableHost =
+      localHosts.has(hostname) || hostname.includes(".");
+
+    if (!recognizableHost) return false;
+    if (parsedUrl.protocol === "https:") return true;
+
+    return parsedUrl.protocol === "http:" && localHosts.has(hostname);
   } catch {
     return false;
   }
@@ -149,7 +155,7 @@ export default function SettingsScreen() {
     (state: RootState) => state.settings.defaultFeedSort,
   );
 
-  const [apiUrl, setApiUrl] = useState(ctx?.apiUrl || "https://narwhal.city/api/unstable");
+  const [apiUrl, setApiUrl] = useState(ctx?.apiUrl || "");
   const [updatingDefaultFeedSort, setUpdatingDefaultFeedSort] = useState(false);
   const [notificationEnabled, setNotificationEnabledState] = useState(false);
   const [updatingNotificationSetting, setUpdatingNotificationSetting] = useState(false);
@@ -159,7 +165,7 @@ export default function SettingsScreen() {
   const [openingNotificationSettings, setOpeningNotificationSettings] =
     useState(false);
   const [notificationDiagnostics, setNotificationDiagnostics] =
-    useState<LotideNotificationPoller.NotificationDiagnostics | undefined>();
+    useState<NotificationPoller.NotificationDiagnostics | undefined>();
   const isMountedRef = useRef(true);
   const defaultFeedSortRequestRef = useRef(false);
   const notificationSettingRequestRef = useRef(false);
@@ -195,10 +201,10 @@ export default function SettingsScreen() {
 
     notificationDiagnosticsRequestId.current = requestId;
 
-    let diagnostics: LotideNotificationPoller.NotificationDiagnostics;
+    let diagnostics: NotificationPoller.NotificationDiagnostics;
 
     try {
-      diagnostics = await LotideNotificationPoller.getNotificationDiagnostics();
+      diagnostics = await NotificationPoller.getNotificationDiagnostics();
     } catch (error) {
       if (
         !isMountedRef.current ||
@@ -243,12 +249,12 @@ export default function SettingsScreen() {
   const handleSave = async () => {
     if (saveSettingsRequestRef.current) return;
 
-    const nextApiUrl = normalizeLotideApiUrl(apiUrl);
+    const nextApiUrl = normalizeServerUrl(apiUrl);
 
     if (!isSupportedApiUrl(nextApiUrl)) {
       alertIfMounted(
         "Invalid URL",
-        "API URL must start with http:// or https://",
+        "Enter a valid HTTPS server URL. HTTP is allowed only for local development.",
       );
       return;
     }
@@ -308,7 +314,7 @@ export default function SettingsScreen() {
     setUpdatingNotificationSetting(true);
 
     try {
-      await LotideNotificationPoller.setNotificationEnabled(
+      await NotificationPoller.setNotificationEnabled(
         nextValue,
         ctx ?? undefined,
       );
@@ -318,7 +324,7 @@ export default function SettingsScreen() {
       await refreshNotificationDiagnostics();
     } catch (error) {
       const current =
-        await LotideNotificationPoller.getNotificationEnabled();
+        await NotificationPoller.getNotificationEnabled();
       if (isMountedRef.current) {
         setNotificationEnabledState(current);
       }
@@ -344,7 +350,7 @@ export default function SettingsScreen() {
     setSendingTestNotification(true);
 
     try {
-      await LotideNotificationPoller.sendTestNotification();
+      await NotificationPoller.sendTestNotification();
       await refreshNotificationDiagnostics();
       alertIfMounted(
         "Test notification sent",
@@ -369,7 +375,7 @@ export default function SettingsScreen() {
     if (!ctx?.login) {
       alertIfMounted(
         "Sign in required",
-        "Sign in before checking Lotide notifications.",
+        "Sign in to an Unfathomably account before checking notifications.",
       );
       return;
     }
@@ -386,7 +392,7 @@ export default function SettingsScreen() {
     setCheckingNotificationsNow(true);
 
     try {
-      const count = await LotideNotificationPoller.pollNotificationsNow(ctx);
+      const count = await NotificationPoller.pollNotificationsNow(ctx);
       await refreshNotificationDiagnostics();
       alertIfMounted(
         "Notification check complete",
@@ -433,9 +439,11 @@ export default function SettingsScreen() {
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.section}>
         <Text style={styles.header}>SERVER SETTINGS</Text>
-        <Text style={[styles.label, { color: theme.secondaryText }]}>Lotide API URL</Text>
+        <Text style={[styles.label, { color: theme.secondaryText }]}>
+          Unfathomably server URL
+        </Text>
         <TextInput
-          accessibilityLabel="Lotide API URL"
+          accessibilityLabel="Unfathomably server URL"
           style={[
             styles.input,
             {
@@ -446,14 +454,15 @@ export default function SettingsScreen() {
           ]}
           value={apiUrl}
           onChangeText={setApiUrl}
-          placeholder="https://narwhal.city/api/unstable"
+          placeholder="https://social.example"
           placeholderTextColor={theme.placeholderText}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
         />
         <Text style={[styles.hint, { color: theme.secondaryText }]}>
-          Changes the Lotide node your app connects to. Defaults to narwhal.city.
+          Server used by the active account. Sign in again after changing
+          servers so the saved access token belongs to the selected server.
         </Text>
       </View>
 
@@ -531,8 +540,8 @@ export default function SettingsScreen() {
             />
           </View>
           <Text style={[styles.hint, { color: theme.secondaryText }]}>
-            Checks Lotide in the background when the operating system allows it
-            and shows local alerts for notifications this phone has not already
+            Checks your Unfathomably account in the background when Android
+            allows it and shows local alerts this phone has not already
             surfaced.
           </Text>
           <View style={[styles.statusRow, { borderBottomColor: theme.tertiaryBackground }]}>

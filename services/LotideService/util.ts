@@ -191,7 +191,7 @@ function createRequestTimeout(
   let didTimeout = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const error = new Error(
-    "The Lotide server did not respond within 30 seconds.",
+    "The server did not respond within 30 seconds.",
   ) as LotideError;
 
   error.path = url;
@@ -223,7 +223,7 @@ export async function readJson(response: JsonResponse): Promise<unknown> {
   try {
     return await response.json();
   } catch {
-    throw new Error("The Lotide server returned invalid JSON.");
+    throw new Error("The server returned invalid JSON.");
   }
 }
 
