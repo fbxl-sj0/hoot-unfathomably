@@ -4,6 +4,14 @@ Hoot Unfathomably Changelog
 Unreleased
 ----------
 
+Version 0.2.4
+-------------
+
+- Fixed notification discussions being replaced by a fetch-canceled error when
+  a server returns an exceptionally large unpaginated status context.
+- Load the selected status independently, keep context timeout and retry state
+  non-blocking, and virtualize a bounded set of nearby discussion statuses.
+
 Version 0.2.3
 -------------
 

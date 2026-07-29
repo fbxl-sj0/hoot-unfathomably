@@ -32,6 +32,7 @@ import {
   reactToStatus,
   registerOAuthApplication,
   reblogStatus,
+  STATUS_CONTEXT_REQUEST_TIMEOUT_MS,
 } from "../UnfathomablyService";
 import {
   FEDIVERSE_SERVERS,
@@ -368,6 +369,34 @@ describe("UnfathomablyService", () => {
       `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/notifications?limit=30&max_id=older`,
       `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/accounts/account%2Fone/statuses?limit=30&max_id=older`,
     ]);
+  });
+
+  test("reports a stable timeout for an oversized status context", async () => {
+    jest.useFakeTimers();
+    mockFetch.mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () => {
+            reject(
+              new TypeError("fetch failed: Fetch request has been canceled"),
+            );
+          });
+        }),
+    );
+
+    const contextRequest = getStatusContext(
+      makeContext("unfathomably"),
+      "large-thread",
+    );
+    const capturedError = contextRequest.catch(error => error);
+
+    await jest.advanceTimersByTimeAsync(
+      STATUS_CONTEXT_REQUEST_TIMEOUT_MS,
+    );
+    await expect(capturedError).resolves.toThrow(
+      "did not respond within 120 seconds",
+    );
+    jest.useRealTimers();
   });
 });
 

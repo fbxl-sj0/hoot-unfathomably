@@ -72,6 +72,7 @@ export type OAuthApplication = {
 type OAuthToken = { access_token: string };
 
 export const OAUTH_SCOPES = "read write follow push";
+export const STATUS_CONTEXT_REQUEST_TIMEOUT_MS = 120_000;
 
 const LOCAL_SERVER_HOSTS = new Set([
   "127.0.0.1",
@@ -144,19 +145,38 @@ async function request<T>(
   ctx: LotideContext | { apiUrl: string; login?: { token?: string } },
   path: string,
   init: RequestInit = {},
+  timeoutMs = LOTIDE_REQUEST_TIMEOUT_MS,
 ): Promise<T> {
   const base = requireSupportedServerUrl(ctx.apiUrl || "");
   const controller = typeof AbortController !== "undefined" ? new AbortController() : undefined;
-  const timer = setTimeout(() => controller?.abort(), LOTIDE_REQUEST_TIMEOUT_MS);
+  let didTimeout = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const headers: Record<string, string> = {
     Accept: "application/json",
     ...(init.body && !(init.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
     ...(ctx.login?.token ? { Authorization: `Bearer ${ctx.login.token}` } : {}),
     ...(init.headers as Record<string, string> | undefined),
   };
+  const timeoutError = new Error(
+    `The Unfathomably server did not respond within ${Math.ceil(timeoutMs / 1000)} seconds.`,
+  );
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      didTimeout = true;
+      controller?.abort();
+      reject(timeoutError);
+    }, timeoutMs);
+  });
 
   try {
-    const response = await fetch(`${base}${path}`, { ...init, headers, signal: controller?.signal });
+    const response = await Promise.race([
+      fetch(`${base}${path}`, {
+        ...init,
+        headers,
+        signal: controller?.signal,
+      }),
+      timeout,
+    ]);
     if (!response.ok) {
       const body = await response.text();
       const error = new Error(body || `Unfathomably returned ${response.status}.`) as Error & { status?: number };
@@ -165,12 +185,16 @@ async function request<T>(
     }
     return await response.json() as T;
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("The Unfathomably server did not respond within 30 seconds.");
+    if (
+      didTimeout ||
+      error === timeoutError ||
+      (error instanceof Error && error.name === "AbortError")
+    ) {
+      throw timeoutError;
     }
     throw error;
   } finally {
-    clearTimeout(timer);
+    if (timer !== undefined) clearTimeout(timer);
   }
 }
 
@@ -331,7 +355,15 @@ export function getStatus(ctx: LotideContext, id: string) {
 }
 
 export function getStatusContext(ctx: LotideContext, id: string) {
-  return request<{ ancestors: UnfathomablyStatus[]; descendants: UnfathomablyStatus[] }>(ctx, `/api/v1/statuses/${encodeURIComponent(id)}/context`);
+  return request<{
+    ancestors: UnfathomablyStatus[];
+    descendants: UnfathomablyStatus[];
+  }>(
+    ctx,
+    `/api/v1/statuses/${encodeURIComponent(id)}/context`,
+    {},
+    STATUS_CONTEXT_REQUEST_TIMEOUT_MS,
+  );
 }
 
 export function favouriteStatus(ctx: LotideContext, id: string, remove = false) {

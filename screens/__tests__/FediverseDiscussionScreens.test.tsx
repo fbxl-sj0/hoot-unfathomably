@@ -24,7 +24,12 @@
 
 import * as React from "react";
 import { Alert } from "react-native";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import {
+  act,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react-native";
 
 import ComposeStatusScreen from "../ComposeStatusScreen";
 import StatusThreadScreen from "../StatusThreadScreen";
@@ -264,6 +269,112 @@ describe("Fediverse discussion screens", () => {
     expect(navigation.navigate).toHaveBeenCalledWith("NewPostScreen", {
       inReplyToId: current.id,
     });
+  });
+
+  test("shows the selected post while a very large context is still loading", async () => {
+    const current = makeStatus("unfathomably", {
+      id: "notification-status",
+    });
+    let resolveContext:
+      | ((value: {
+          ancestors: ReturnType<typeof makeStatus>[];
+          descendants: ReturnType<typeof makeStatus>[];
+        }) => void)
+      | undefined;
+    mockGetStatus.mockResolvedValue(current);
+    mockGetStatusContext.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveContext = resolve;
+        }),
+    );
+    const screen = await render(
+      <StatusThreadScreen
+        navigation={{ navigate: jest.fn() }}
+        route={{ params: { statusId: current.id } }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("status:notification-status")).toBeTruthy();
+      expect(
+        screen.getByText("Loading the rest of this discussion…"),
+      ).toBeTruthy();
+    });
+
+    await act(async () => {
+      resolveContext?.({
+        ancestors: [],
+        descendants: [],
+      });
+      await Promise.resolve();
+    });
+  });
+
+  test("keeps the selected post usable when context loading fails", async () => {
+    const current = makeStatus("pleroma", {
+      id: "large-thread-status",
+    });
+    mockGetStatus.mockResolvedValue(current);
+    mockGetStatusContext.mockRejectedValue(
+      new Error(
+        "The Unfathomably server did not respond within 120 seconds.",
+      ),
+    );
+    const screen = await render(
+      <StatusThreadScreen
+        navigation={{ navigate: jest.fn() }}
+        route={{ params: { statusId: current.id } }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("status:large-thread-status")).toBeTruthy();
+      expect(
+        screen.getByText(
+          /Could not load the rest of this discussion/,
+        ),
+      ).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+    });
+  });
+
+  test("bounds the retained statuses in an exceptionally large thread", async () => {
+    const current = makeStatus("unfathomably", {
+      id: "large-context-status",
+    });
+    const ancestors = Array.from({ length: 120 }, (_value, index) =>
+      makeStatus("unfathomably", { id: `ancestor-${index}` }),
+    );
+    const descendants = Array.from({ length: 260 }, (_value, index) =>
+      makeStatus("unfathomably", { id: `descendant-${index}` }),
+    );
+    mockGetStatus.mockResolvedValue(current);
+    mockGetStatusContext.mockResolvedValue({
+      ancestors,
+      descendants,
+    });
+    const screen = await render(
+      <StatusThreadScreen
+        navigation={{ navigate: jest.fn() }}
+        route={{ params: { statusId: current.id } }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "Earlier in this discussion (showing 100 of 120)",
+        ),
+      ).toBeTruthy();
+      expect(
+        screen.getByText("Showing 250 of 260 replies."),
+      ).toBeTruthy();
+    });
+    expect(screen.queryByText("compact:ancestor-19")).toBeNull();
+    expect(screen.getByText("compact:ancestor-20")).toBeTruthy();
+    expect(screen.getByText("status:descendant-249")).toBeTruthy();
+    expect(screen.queryByText("status:descendant-250")).toBeNull();
   });
 });
 

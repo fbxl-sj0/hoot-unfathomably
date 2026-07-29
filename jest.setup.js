@@ -211,6 +211,7 @@ jest.mock("@react-native/virtualized-lists/Lists/VirtualizedList", () => {
     renderItem,
     ListHeaderComponent,
     ListEmptyComponent,
+    ListFooterComponent,
     onEndReached,
     onRefresh,
     refreshing,
@@ -240,6 +241,7 @@ jest.mock("@react-native/virtualized-lists/Lists/VirtualizedList", () => {
       },
       renderOptionalComponent(ListHeaderComponent),
       itemCount > 0 ? items : renderOptionalComponent(ListEmptyComponent),
+      renderOptionalComponent(ListFooterComponent),
     );
   }
 
