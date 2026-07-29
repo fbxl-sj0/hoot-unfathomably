@@ -24,8 +24,10 @@ import {
   getLastNotificationNavigationTarget,
   getNotificationDiagnostics,
   getNotificationEnabled,
+  getNotificationOnboardingPrompted,
   getNotificationNavigationTarget,
   getNotificationNavigationTargetFromResponse,
+  markNotificationOnboardingPrompted,
   pollNotificationsNow,
   sendTestNotification,
   setNotificationEnabled,
@@ -73,6 +75,8 @@ const notificationTaskHandler = (TaskManager.defineTask as jest.Mock).mock
 const channelId = "hoot-unfathomably-notifications-v1";
 const settingKey =
   "@hoot_unfathomably/notification_background_enabled";
+const onboardingPromptedKey =
+  "@hoot_unfathomably/notification_onboarding_prompted";
 const stateKey = "@hoot_unfathomably/notification_poll_state";
 
 const account = makeAccount("pleroma");
@@ -153,6 +157,17 @@ describe("NotificationPoller", () => {
     });
     mockGetLastNotificationResponse.mockReturnValue(null);
     mockClearLastNotificationResponse.mockImplementation(() => undefined);
+  });
+
+  test("persists notification onboarding after its first presentation", async () => {
+    await expect(getNotificationOnboardingPrompted()).resolves.toBe(false);
+
+    await markNotificationOnboardingPrompted();
+
+    await expect(getNotificationOnboardingPrompted()).resolves.toBe(true);
+    await expect(
+      AsyncStorage.getItem(onboardingPromptedKey),
+    ).resolves.toBe("true");
   });
 
   test.each([

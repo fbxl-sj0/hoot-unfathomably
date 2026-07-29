@@ -7,8 +7,12 @@
 */
 
 import * as React from "react";
-import { Alert } from "react-native";
-import { render, waitFor } from "@testing-library/react-native";
+import { Alert, Platform } from "react-native";
+import {
+  act,
+  render,
+  waitFor,
+} from "@testing-library/react-native";
 
 import AppRoot from "../App";
 import {
@@ -22,7 +26,11 @@ const mockAccountContextStore = jest.fn();
 const mockAccountProfilesStore = jest.fn();
 const mockAppSettingsQuery = jest.fn();
 const mockGetInstance = jest.fn();
+const mockGetNotificationEnabled = jest.fn();
+const mockGetNotificationOnboardingPrompted = jest.fn();
+const mockMarkNotificationOnboardingPrompted = jest.fn();
 const mockRegisterNotificationPollTask = jest.fn();
+const mockSetNotificationEnabled = jest.fn();
 const mockLogWarning = jest.fn();
 
 let mockCurrentCtx: LotideContext | null | undefined;
@@ -81,8 +89,16 @@ jest.mock("../services/UnfathomablyService", () => ({
 
 jest.mock("../services/NotificationPoller", () => ({
   __esModule: true,
+  getNotificationEnabled: (...args: unknown[]) =>
+    mockGetNotificationEnabled(...args),
+  getNotificationOnboardingPrompted: (...args: unknown[]) =>
+    mockGetNotificationOnboardingPrompted(...args),
+  markNotificationOnboardingPrompted: (...args: unknown[]) =>
+    mockMarkNotificationOnboardingPrompted(...args),
   registerNotificationPollTask: (...args: unknown[]) =>
     mockRegisterNotificationPollTask(...args),
+  setNotificationEnabled: (...args: unknown[]) =>
+    mockSetNotificationEnabled(...args),
 }));
 
 jest.mock("../store/reduxStore", () => ({
@@ -100,6 +116,13 @@ jest.mock("expo-status-bar", () => ({
 }));
 
 describe("AppRoot", () => {
+  beforeAll(() => {
+    Object.defineProperty(Platform, "OS", {
+      configurable: true,
+      value: "android",
+    });
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
@@ -112,7 +135,11 @@ describe("AppRoot", () => {
       title: "Social",
       version: "1.0",
     });
+    mockGetNotificationEnabled.mockResolvedValue(false);
+    mockGetNotificationOnboardingPrompted.mockResolvedValue(true);
+    mockMarkNotificationOnboardingPrompted.mockResolvedValue(undefined);
     mockRegisterNotificationPollTask.mockResolvedValue("unchanged");
+    mockSetNotificationEnabled.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -196,6 +223,122 @@ describe("AppRoot", () => {
         "https://rebased.example",
       );
     });
+  });
+
+  test("offers notification activation after the first account becomes active", async () => {
+    const currentContext = makeContext("unfathomably");
+    mockCurrentCtx = currentContext;
+    mockGetNotificationOnboardingPrompted.mockResolvedValue(false);
+
+    await render(<AppRoot />);
+
+    await waitFor(() => {
+      expect(mockMarkNotificationOnboardingPrompted).toHaveBeenCalledTimes(1);
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "Turn on notifications?",
+        expect.stringContaining("check your account in the background"),
+        expect.arrayContaining([
+          expect.objectContaining({
+            style: "cancel",
+            text: "Not now",
+          }),
+          expect.objectContaining({
+            text: "Enable notifications",
+          }),
+        ]),
+      );
+    });
+
+    const promptCall = (Alert.alert as jest.Mock).mock.calls.find(
+      ([title]) => title === "Turn on notifications?",
+    );
+    const enableButton = promptCall?.[2].find(
+      (button: { text?: string }) =>
+        button.text === "Enable notifications",
+    );
+
+    await act(async () => {
+      enableButton?.onPress();
+      await Promise.resolve();
+    });
+
+    expect(mockSetNotificationEnabled).toHaveBeenCalledWith(
+      true,
+      currentContext,
+    );
+  });
+
+  test("does not offer notification activation before sign-in", async () => {
+    mockCurrentCtx = undefined;
+    mockGetNotificationOnboardingPrompted.mockResolvedValue(false);
+
+    await render(<AppRoot />);
+    await Promise.resolve();
+
+    expect(mockGetNotificationOnboardingPrompted).not.toHaveBeenCalled();
+    expect(mockMarkNotificationOnboardingPrompted).not.toHaveBeenCalled();
+    expect(Alert.alert).not.toHaveBeenCalledWith(
+      "Turn on notifications?",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  test("records onboarding without interrupting an already-enabled account", async () => {
+    mockCurrentCtx = makeContext("rebased");
+    mockGetNotificationOnboardingPrompted.mockResolvedValue(false);
+    mockGetNotificationEnabled.mockResolvedValue(true);
+
+    await render(<AppRoot />);
+
+    await waitFor(() => {
+      expect(mockMarkNotificationOnboardingPrompted).toHaveBeenCalledTimes(1);
+    });
+    expect(Alert.alert).not.toHaveBeenCalledWith(
+      "Turn on notifications?",
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(mockSetNotificationEnabled).not.toHaveBeenCalled();
+  });
+
+  test("reports notification activation failures without repeating onboarding", async () => {
+    mockCurrentCtx = makeContext("pleroma");
+    mockGetNotificationOnboardingPrompted.mockResolvedValue(false);
+    mockSetNotificationEnabled.mockRejectedValue(
+      new Error("permission denied"),
+    );
+
+    await render(<AppRoot />);
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "Turn on notifications?",
+        expect.any(String),
+        expect.any(Array),
+      );
+    });
+
+    const promptCall = (Alert.alert as jest.Mock).mock.calls.find(
+      ([title]) => title === "Turn on notifications?",
+    );
+    const enableButton = promptCall?.[2].find(
+      (button: { text?: string }) =>
+        button.text === "Enable notifications",
+    );
+
+    await act(async () => {
+      enableButton?.onPress();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "Cannot enable notifications",
+        "permission denied",
+      );
+    });
+    expect(mockMarkNotificationOnboardingPrompted).toHaveBeenCalledTimes(1);
   });
 
   test("reports notification restoration failures diagnostically", async () => {

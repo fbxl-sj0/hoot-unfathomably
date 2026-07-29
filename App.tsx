@@ -23,7 +23,7 @@
 */
 
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -38,7 +38,7 @@ import { setCtx } from "./slices/lotideSlice";
 import { setAppSettings } from "./slices/settingsSlice";
 import reduxStore from "./store/reduxStore";
 import { useLotideCtx } from "./hooks/useLotideCtx";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import { getErrorMessage } from "./utils/error";
 import AppErrorBoundary from "./components/AppErrorBoundary";
 import { logWarning } from "./utils/debugLog";
@@ -52,6 +52,7 @@ function App() {
   const colorScheme = useColorScheme();
   const ctx = useLotideCtx();
   const dispatch = useDispatch();
+  const notificationOnboardingStartedRef = useRef(false);
 
   /* ------------------------------------------------------------------------- */
   /* Initialization and Persistence                                            */
@@ -130,6 +131,62 @@ function App() {
       );
     });
   }, [ctx?.login?.token]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    if (!ctx?.login) return;
+    if (notificationOnboardingStartedRef.current) return;
+
+    notificationOnboardingStartedRef.current = true;
+    let isActive = true;
+
+    Promise.all([
+      NotificationPoller.getNotificationOnboardingPrompted(),
+      NotificationPoller.getNotificationEnabled(),
+    ])
+      .then(async ([alreadyPrompted, alreadyEnabled]) => {
+        if (alreadyPrompted) return;
+
+        await NotificationPoller.markNotificationOnboardingPrompted();
+        if (!isActive || alreadyEnabled) return;
+
+        Alert.alert(
+          "Turn on notifications?",
+          "Hoot Unfathomably can check your account in the background and alert you about new activity. You can change this later in Options → App settings.",
+          [
+            {
+              text: "Not now",
+              style: "cancel",
+            },
+            {
+              text: "Enable notifications",
+              onPress: () => {
+                NotificationPoller.setNotificationEnabled(true, ctx).catch(
+                  error => {
+                    if (!isActive) return;
+
+                    Alert.alert(
+                      "Cannot enable notifications",
+                      getErrorMessage(error),
+                    );
+                  },
+                );
+              },
+            },
+          ],
+        );
+      })
+      .catch(error => {
+        logWarning(
+          "Failed to run notification onboarding",
+          getErrorMessage(error),
+        );
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [ctx]);
 
   /* ------------------------------------------------------------------------- */
   /* Render                                                                    */

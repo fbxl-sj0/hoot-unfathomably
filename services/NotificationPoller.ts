@@ -18,6 +18,8 @@ import { logError } from "../utils/debugLog";
 
 const POLL_TASK_NAME = "hoot-unfathomably-notification-poll";
 const SETTINGS_KEY = "@hoot_unfathomably/notification_background_enabled";
+const ONBOARDING_PROMPTED_KEY =
+  "@hoot_unfathomably/notification_onboarding_prompted";
 const STATE_KEY = "@hoot_unfathomably/notification_poll_state";
 const DIAGNOSTICS_KEY = "@hoot_unfathomably/notification_poll_diagnostics";
 const NOTIFICATION_CHANNEL_ID = "hoot-unfathomably-notifications-v1";
@@ -623,6 +625,17 @@ export async function registerNotificationPollTask(
 
 export async function getNotificationEnabled(): Promise<boolean> {
   return readEnabledSetting();
+}
+
+export async function getNotificationOnboardingPrompted(): Promise<boolean> {
+  return parseBoolean(await AsyncStorage.getItem(ONBOARDING_PROMPTED_KEY));
+}
+
+export async function markNotificationOnboardingPrompted(): Promise<void> {
+  await AsyncStorage.setItem(
+    ONBOARDING_PROMPTED_KEY,
+    JSON.stringify(true),
+  );
 }
 
 export async function getNotificationDiagnostics(): Promise<NotificationDiagnostics> {

@@ -34,6 +34,10 @@ saved account therefore cannot silently redirect that account to FBXL Social.
 - Open a status thread, and open attached images in a full-screen zoomable
   viewer so long images remain readable.
 
+On Android, the app asks once after the first account becomes active whether
+to enable background notifications. The choice can be changed later under
+Options → App settings.
+
 The bottom navigation is Home, Group feed, Groups, New post, Notifications,
 and Options. Post controls are icon-only and finger-sized to keep the feed
 compact without making actions hard to tap.

@@ -4,6 +4,9 @@ Hoot Unfathomably Changelog
 Unreleased
 ----------
 
+- Added a one-time Android notification onboarding prompt after the first
+  account becomes active, using the same permission, baseline, and background
+  task checks as the Settings toggle.
 - Rebuilt the release test suite around explicit Unfathomably, Rebased, and
   Pleroma contracts for timelines, groups, discussions, reactions, accounts,
   OAuth, notifications, and persisted sessions.
