@@ -1,5 +1,5 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     -------------------
 
     File: TestSelection.test.ts
@@ -80,7 +80,7 @@ describe("test selection policy", () => {
       probePath,
       [
         "/*",
-        "    Project: Hoot Mobile",
+        "    Project: Hoot Unfathomably",
         "    -------------------",
         "",
         "    File: tmp-focused-test.test.ts",

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Project: Hoot Mobile
+# Project: Hoot Unfathomably
 # -------------------
 #
 # File: debian-test-hoot-mobile-android.sh

@@ -1,5 +1,5 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     -------------------
 
     File: useRefreshableData.test.ts
@@ -50,7 +50,7 @@ describe("useRefreshableData", () => {
     const mockEffect = jest.fn((stopLoading: () => void) => stopLoading());
 
     const screen = await render(
-      <RenderHookHarness effect={mockEffect} deps={["https://lotide.fbxl.net"]} />,
+      <RenderHookHarness effect={mockEffect} deps={["https://unfathomably.example"]} />,
     );
 
     await waitFor(() => {
@@ -69,7 +69,7 @@ describe("useRefreshableData", () => {
     const mockEffect = jest.fn((stopLoading: () => void) => stopLoading());
 
     const { rerender, getByText } = await render(
-      <RenderHookHarness effect={mockEffect} deps={["https://lotide.fbxl.net"]} />,
+      <RenderHookHarness effect={mockEffect} deps={["https://unfathomably.example"]} />,
     );
 
     await waitFor(() => {
@@ -96,7 +96,7 @@ describe("useRefreshableData", () => {
     });
 
     const screen = await render(
-      <RenderHookHarness effect={mockEffect} deps={["https://lotide.fbxl.net"]} />,
+      <RenderHookHarness effect={mockEffect} deps={["https://unfathomably.example"]} />,
     );
 
     expect(screen.getByText("loading")).toBeTruthy();
@@ -116,7 +116,7 @@ describe("useRefreshableData", () => {
     const mockEffect = jest.fn(() => cleanup);
 
     const screen = await render(
-      <RenderHookHarness effect={mockEffect} deps={["https://lotide.fbxl.net"]} />,
+      <RenderHookHarness effect={mockEffect} deps={["https://unfathomably.example"]} />,
     );
 
     await waitFor(() => {
@@ -144,7 +144,7 @@ describe("useRefreshableData", () => {
     });
 
     const screen = await render(
-      <RenderHookHarness effect={mockEffect} deps={["https://lotide.fbxl.net"]} />,
+      <RenderHookHarness effect={mockEffect} deps={["https://unfathomably.example"]} />,
     );
 
     await waitFor(() => {

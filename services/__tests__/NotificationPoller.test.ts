@@ -14,6 +14,12 @@ import { Platform } from "react-native";
 
 import * as UnfathomablyService from "../UnfathomablyService";
 import {
+  FEDIVERSE_SERVERS,
+  makeAccount,
+  makeContext,
+  makeNotification,
+} from "../../testing/fediverseFixtures";
+import {
   clearLastNotificationResponse,
   getLastNotificationNavigationTarget,
   getNotificationDiagnostics,
@@ -69,23 +75,8 @@ const settingKey =
   "@hoot_unfathomably/notification_background_enabled";
 const stateKey = "@hoot_unfathomably/notification_poll_state";
 
-const account: UnfathomablyService.UnfathomablyAccount = {
-  id: "42",
-  username: "alice",
-  acct: "alice",
-  display_name: "Alice",
-  avatar: "https://social.example/alice.png",
-  note: "",
-  url: "https://social.example/@alice",
-};
-
-const ctx: LotideContext = {
-  apiUrl: "https://social.example",
-  login: {
-    token: "token-1",
-    user: account as unknown as Profile,
-  },
-};
+const account = makeAccount("pleroma");
+const ctx = makeContext("pleroma");
 
 function notification(
   id: string,
@@ -164,22 +155,31 @@ describe("NotificationPoller", () => {
     mockClearLastNotificationResponse.mockImplementation(() => undefined);
   });
 
-  test("creates a baseline from the Unfathomably notification endpoint", async () => {
-    mockGetNotifications.mockResolvedValue([
-      notification("100"),
-      notification("99"),
-    ]);
+  test.each([
+    ["Unfathomably", "unfathomably"],
+    ["Rebased", "rebased"],
+    ["Pleroma", "pleroma"],
+  ] as const)(
+    "creates a baseline from the %s notification endpoint",
+    async (_label, family) => {
+      const familyContext = makeContext(family);
+      mockGetNotifications.mockResolvedValue([
+        makeNotification(family, { id: `${family}-100` }),
+        makeNotification(family, { id: `${family}-99` }),
+      ]);
 
-    await setNotificationEnabled(true, ctx);
+      await setNotificationEnabled(true, familyContext);
 
-    expect(mockGetNotifications).toHaveBeenCalledWith(ctx);
-    expect(mockScheduleNotification).not.toHaveBeenCalled();
-    await expect(AsyncStorage.getItem(settingKey)).resolves.toBe("true");
-    expect(mockRegisterTask).toHaveBeenCalledWith(
-      "hoot-unfathomably-notification-poll",
-      { minimumInterval: 15 },
-    );
-  });
+      expect(mockGetNotifications).toHaveBeenCalledWith(familyContext);
+      expect(mockScheduleNotification).not.toHaveBeenCalled();
+      await expect(AsyncStorage.getItem(settingKey)).resolves.toBe("true");
+      expect(mockRegisterTask).toHaveBeenCalledWith(
+        "hoot-unfathomably-notification-poll",
+        { minimumInterval: 15 },
+      );
+      expect(familyContext.apiUrl).toBe(FEDIVERSE_SERVERS[family].origin);
+    },
+  );
 
   test("delivers only notifications newer than the phone baseline", async () => {
     mockGetNotifications.mockResolvedValue([notification("100")]);

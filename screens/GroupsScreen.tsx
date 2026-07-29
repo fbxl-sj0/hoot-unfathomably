@@ -41,7 +41,7 @@ export default function GroupsScreen({ navigation }: { navigation: any }) {
       refreshing={false}
       onRefresh={() => void load()}
       ListEmptyComponent={error ? <RetryState message={error} onRetry={() => void load()} /> : <Text style={styles.empty}>No groups found.</Text>}
-      renderItem={({ item }) => <Pressable accessibilityRole="button" style={styles.row} onPress={() => navigation.navigate("Group", { groupId: item.id, title: item.display_name })}>
+      renderItem={({ item }) => <Pressable accessibilityLabel={`Open group ${item.display_name}`} accessibilityRole="button" style={styles.row} onPress={() => navigation.navigate("Group", { groupId: item.id, title: item.display_name })}>
         {!!item.avatar && <Image source={{ uri: item.avatar }} style={styles.avatar} />}
         <View style={styles.info}><Text style={styles.name}>{item.display_name}</Text><Text secondary numberOfLines={2}>{stripHtml(item.note) || "Group discussion"}</Text><Text secondary>{item.members_count} members</Text></View>
       </Pressable>}

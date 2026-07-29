@@ -1,5 +1,5 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     -------------------
 
     File: externalLink.test.ts
@@ -67,7 +67,7 @@ describe("externalLink", () => {
   test("rejects blank and unsupported schemes", () => {
     expect(getOpenableExternalUrl("   ")).toBeUndefined();
     expect(getOpenableExternalUrl("javascript:alert(1)")).toBeUndefined();
-    expect(getOpenableExternalUrl("lotide://post/1")).toBeUndefined();
+    expect(getOpenableExternalUrl("unsupported-social://post/1")).toBeUndefined();
   });
 
   test("opens normalized links", async () => {

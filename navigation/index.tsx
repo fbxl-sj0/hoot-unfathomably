@@ -62,31 +62,13 @@ import ProfileScreen from "../screens/UnfathomablyProfileScreen";
 import OptionsScreen from "../screens/OptionsScreen";
 import NewPostScreen from "../screens/ComposeStatusScreen";
 import SettingsScreen from "../screens/SettingsScreen/SettingsScreen";
-import CommunityScreen from "../screens/CommunityScreen";
-import CommentScreen from "../screens/CommentScreen";
-import ModalScreen from "../screens/ModalScreen";
 import NotFoundScreen from "../screens/NotFoundScreen";
 import NotificationScreen from "../screens/UnfathomablyNotificationsScreen";
 import StatusThreadScreen from "../screens/StatusThreadScreen";
 import ImageViewerScreen from "../screens/ImageViewerScreen";
 import GroupScreen from "../screens/GroupScreen";
-import NewCommunityScreen from "../screens/NewCommunity";
-import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
-import EditCommunityScreen from "../screens/EditCommunityScreen";
-import ProfileActivityScreen from "../screens/ProfileActivityScreen";
-import ModerationScreen from "../screens/ModerationScreen";
-import SourceListScreen from "../screens/SourceListScreen";
-import SourceScreen from "../screens/SourceScreen";
-import SourceItemScreen from "../screens/SourceItemScreen";
-import MessageListScreen from "../screens/MessageListScreen";
-import MessageThreadScreen from "../screens/MessageThreadScreen";
-import { useLotideCtx } from "../hooks/useLotideCtx";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import * as NotificationPoller from "../services/NotificationPoller";
-import {
-  supportsCollectionTargets,
-  supportsPrivateMessages,
-} from "../constants/LotideApi";
 import {
   MINIMUM_TOUCH_TARGET_SIZE,
   TOUCH_TARGET_HIT_SLOP,
@@ -252,64 +234,16 @@ function RootNavigator() {
         }
         options={{ headerShown: false }}
       />
-      <Stack.Screen name="Post" component={ModalScreen} />
       <Stack.Screen name="Status" component={StatusThreadScreen} options={{ title: "Discussion" }} />
       <Stack.Screen name="ImageViewer" component={ImageViewerScreen} options={{ title: "Image" }} />
       <Stack.Screen name="Group" component={GroupScreen} options={({ route }) => ({ title: route.params.title || "Group" })} />
       <Stack.Screen name="AccountProfile" component={ProfileScreen} options={{ title: "Your profile" }} />
-      <Stack.Screen name="Comment" component={CommentScreen} />
-      <Stack.Screen name="Community" component={CommunityScreen} />
-      <Stack.Screen
-        name="CollectionTarget"
-        component={SourceScreen}
-        options={{ title: "Feed" }}
-      />
-      <Stack.Screen
-        name="CollectionTargetItem"
-        component={SourceItemScreen}
-        options={({ route }) => ({
-          title: route.params?.title || "Feed Item",
-        })}
-      />
-      <Stack.Screen
-        name="MessageThread"
-        component={MessageThreadScreen}
-        options={({ route }) => ({
-          title: route.params?.username
-            ? `Messages with ${route.params.username}`
-            : "Messages",
-        })}
-      />
-      <Stack.Screen name="NewCommunity" component={NewCommunityScreen} />
-      <Stack.Screen name="EditCommunity" component={EditCommunityScreen} />
-      <Stack.Screen
-        name="ProfileActivity"
-        component={ProfileActivityScreen}
-        options={({ route }) => ({
-          title: route.params?.username
-            ? `${route.params.username}'s Activity`
-            : "Activity",
-        })}
-      />
-      <Stack.Screen
-        name="Moderation"
-        component={ModerationScreen}
-        options={{ title: "Moderation" }}
-      />
       <Stack.Screen name="Settings" component={SettingsScreen} />
-      <Stack.Screen
-        name="ForgotPassword"
-        component={ForgotPasswordScreen}
-        options={{ title: "Forgot Password" }}
-      />
       <Stack.Screen
         name="NotFound"
         component={NotFoundScreen}
         options={{ title: "Oops!" }}
       />
-      <Stack.Group screenOptions={{ presentation: "modal" }}>
-        <Stack.Screen name="Modal" component={ModalScreen} />
-      </Stack.Group>
     </Stack.Navigator>
   );
 }
@@ -321,11 +255,8 @@ function RootNavigator() {
 const BottomTab = createBottomTabNavigator<RootTabParamList>();
 
 function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
-  const ctx = useLotideCtx();
   const colorScheme = useColorScheme();
-  const supportsTop = (ctx?.apiVersion || 0) >= 10;
-  const supportsSources = supportsCollectionTargets(ctx?.apiVersion);
-  const supportsMessages = supportsPrivateMessages(ctx?.apiVersion);
+  const supportsTop = false;
   const { safeSort, changeSort } = useFeedSort(navigation, supportsTop);
 
   const sortMenu = [
@@ -422,18 +353,6 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
           ),
         }}
       />
-      {supportsSources && (
-        <BottomTab.Screen
-          name="SourceListScreen"
-          component={SourceListScreen}
-          options={{
-            title: "Feeds",
-            tabBarIcon: ({ color }) => (
-              <TabBarIcon name="radio-outline" color={color} />
-            ),
-          }}
-        />
-      )}
       <BottomTab.Screen
         name="NewPostScreen"
         component={NewPostScreen}
@@ -455,18 +374,6 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
           ),
         }}
       />
-      {supportsMessages && (
-        <BottomTab.Screen
-          name="MessageListScreen"
-          component={MessageListScreen}
-          options={{
-            title: "Messages",
-            tabBarIcon: ({ color }) => (
-              <TabBarIcon name="mail-outline" color={color} />
-            ),
-          }}
-        />
-      )}
       <BottomTab.Screen
         name="OptionsScreen"
         component={OptionsScreen}
@@ -484,11 +391,8 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
 const Drawer = createDrawerNavigator<RootTabParamList>();
 
 function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
-  const ctx = useLotideCtx();
   const colorScheme = useColorScheme();
-  const supportsTop = (ctx?.apiVersion || 0) >= 10;
-  const supportsSources = supportsCollectionTargets(ctx?.apiVersion);
-  const supportsMessages = supportsPrivateMessages(ctx?.apiVersion);
+  const supportsTop = false;
   const { safeSort, changeSort } = useFeedSort(navigation, supportsTop);
 
   return (
@@ -556,18 +460,6 @@ function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
           ),
         }}
       />
-      {supportsSources && (
-        <Drawer.Screen
-          name="SourceListScreen"
-          component={SourceListScreen}
-          options={{
-            title: "Feeds",
-            drawerIcon: ({ color }) => (
-              <TabBarIcon name="radio-outline" color={color} />
-            ),
-          }}
-        />
-      )}
       <Drawer.Screen
         name="NewPostScreen"
         component={NewPostScreen}
@@ -589,18 +481,6 @@ function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
           ),
         }}
       />
-      {supportsMessages && (
-        <Drawer.Screen
-          name="MessageListScreen"
-          component={MessageListScreen}
-          options={{
-            title: "Messages",
-            drawerIcon: ({ color }) => (
-              <TabBarIcon name="mail-outline" color={color} />
-            ),
-          }}
-        />
-      )}
       <Drawer.Screen
         name="OptionsScreen"
         component={OptionsScreen}

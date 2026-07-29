@@ -91,6 +91,13 @@ It runs strict ESLint and TypeScript checks, the Jest suite, Expo dependency
 and project diagnostics, a complete dependency-tree check, and a production
 dependency audit.
 
+The release suite uses canonical Unfathomably, Rebased, and Pleroma fixtures.
+It covers the Mastodon-compatible v1 API plus the group, quote-repost, and
+emoji-reaction extensions used by those server families. A strict contract
+check rejects retired service imports, old API routes, and old server-version
+matrices; the only retained pre-migration fixture verifies that existing users
+are moved safely away from an obsolete saved API URL.
+
 Build and smoke-test the Android release APK:
 
 ```bash

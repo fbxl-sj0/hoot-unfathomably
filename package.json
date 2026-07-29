@@ -16,10 +16,11 @@
     "lint:android": "node scripts/check-android-native-metadata.js",
     "lint:deps": "node scripts/check-deprecated-packages.js",
     "lint:diagnostics": "node scripts/check-diagnostics.js",
+    "lint:fediverse-tests": "node scripts/check-fediverse-test-contracts.js",
     "lint:source": "node scripts/check-source-structure.js",
     "lint:test-selection": "node scripts/check-test-selection.js",
     "lint:text": "node scripts/check-text-hygiene.js",
-    "lint:strict": "npm run lint -- --report-unused-disable-directives && npm run lint:text && npm run lint:source && npm run lint:android && npm run lint:deps && npm run lint:diagnostics && npm run lint:test-selection && npx tsc --noEmit --pretty false",
+    "lint:strict": "npm run lint -- --report-unused-disable-directives && npm run lint:text && npm run lint:source && npm run lint:android && npm run lint:deps && npm run lint:diagnostics && npm run lint:test-selection && npm run lint:fediverse-tests && npx tsc --noEmit --pretty false",
     "verify:release": "npm run lint:strict && npm test && expo install --check && npx expo-doctor && npm ls --all && npm audit --omit=dev --audit-level=moderate"
   },
   "dependencies": {

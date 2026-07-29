@@ -1,21 +1,30 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     -------------------
 
     File: UnfathomablyService.test.ts
 
     Purpose:
 
-        Verify the Mastodon-compatible request boundary used by Hoot
-        Unfathomably.
+        Verify the request boundary against Unfathomably, Rebased, and
+        Pleroma-compatible contracts.
 */
 
 import {
   buildOAuthAuthorizationUrl,
   createStatus,
+  favouriteStatus,
+  getAccountStatuses,
+  getGroups,
   getGroupTimeline,
+  getGroupStatuses,
   getHomeTimeline,
+  getInstance,
+  getNotifications,
+  getStatus,
+  getStatusContext,
   getSupportedServerUrl,
+  joinGroup,
   loginWithAuthorizationCode,
   loginWithPassword,
   normalizeServerUrl,
@@ -24,6 +33,12 @@ import {
   registerOAuthApplication,
   reblogStatus,
 } from "../UnfathomablyService";
+import {
+  FEDIVERSE_SERVERS,
+  makeContext,
+  makeNotification,
+  makeStatus,
+} from "../../testing/fediverseFixtures";
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -33,21 +48,19 @@ describe("UnfathomablyService", () => {
     mockFetch.mockReset();
   });
 
-  test("normalizes server URLs without changing an explicit scheme", () => {
-    expect(normalizeServerUrl(" example.test/ ")).toBe("https://example.test");
-    expect(normalizeServerUrl("http://example.test/")).toBe("http://example.test");
-    expect(normalizeServerUrl("https://example.test/a/pasted/path?x=1")).toBe(
-      "https://example.test",
+  test("normalizes a selected Rebased server to its origin", () => {
+    expect(normalizeServerUrl(" rebased.example/ ")).toBe(
+      FEDIVERSE_SERVERS.rebased.origin,
+    );
+    expect(normalizeServerUrl("https://rebased.example/a/pasted/path?x=1")).toBe(
+      FEDIVERSE_SERVERS.rebased.origin,
     );
   });
 
-  test("accepts arbitrary secure hosts and local development HTTP only", () => {
-    expect(getSupportedServerUrl("pleroma.example")).toBe(
-      "https://pleroma.example",
-    );
-    expect(getSupportedServerUrl("https://mastodon.example/path")).toBe(
-      "https://mastodon.example",
-    );
+  test("accepts secure Unfathomably, Rebased, and Pleroma hosts", () => {
+    Object.values(FEDIVERSE_SERVERS).forEach(server => {
+      expect(getSupportedServerUrl(server.origin)).toBe(server.origin);
+    });
     expect(getSupportedServerUrl("http://10.0.2.2:4000")).toBe(
       "http://10.0.2.2:4000",
     );
@@ -56,7 +69,12 @@ describe("UnfathomablyService", () => {
   });
 
   test("refuses to send credentials or tokens to a remote plaintext server", async () => {
-    await expect(getHomeTimeline({ apiUrl: "http://example.test", login: { token: "secret" } })).rejects.toThrow("must use HTTPS");
+    await expect(
+      getHomeTimeline({
+        apiUrl: "http://rebased.example",
+        login: { token: "secret" },
+      }),
+    ).rejects.toThrow("must use HTTPS");
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
@@ -79,7 +97,11 @@ describe("UnfathomablyService", () => {
       });
 
     await expect(
-      loginWithPassword("https://example.test", "alice", "password"),
+      loginWithPassword(
+        FEDIVERSE_SERVERS.pleroma.origin,
+        "alice",
+        "password",
+      ),
     ).resolves.toMatchObject({
       token: "access-token",
       account: { id: "1", username: "alice" },
@@ -87,7 +109,7 @@ describe("UnfathomablyService", () => {
 
     expect(mockFetch).toHaveBeenNthCalledWith(
       1,
-      "https://example.test/api/v1/apps",
+      `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/apps`,
       expect.objectContaining({ method: "POST" }),
     );
     const tokenBody = new URLSearchParams(mockFetch.mock.calls[1][1].body);
@@ -101,7 +123,7 @@ describe("UnfathomablyService", () => {
     });
     expect(mockFetch).toHaveBeenNthCalledWith(
       3,
-      "https://example.test/api/v1/accounts/verify_credentials",
+      `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/accounts/verify_credentials`,
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "Bearer access-token",
@@ -120,12 +142,12 @@ describe("UnfathomablyService", () => {
     });
 
     const application = await registerOAuthApplication(
-      "https://community.example",
+      FEDIVERSE_SERVERS.rebased.origin,
       "hoot-unfathomably://oauth/callback",
     );
     const authorizationUrl = new URL(
       buildOAuthAuthorizationUrl(
-        "https://community.example",
+        FEDIVERSE_SERVERS.rebased.origin,
         application,
         "hoot-unfathomably://oauth/callback",
         "state-123",
@@ -133,7 +155,7 @@ describe("UnfathomablyService", () => {
     );
 
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://community.example/api/v1/apps",
+      `${FEDIVERSE_SERVERS.rebased.origin}/api/v1/apps`,
       expect.objectContaining({
         body: expect.stringContaining(
           "hoot-unfathomably://oauth/callback",
@@ -141,7 +163,9 @@ describe("UnfathomablyService", () => {
         method: "POST",
       }),
     );
-    expect(authorizationUrl.origin).toBe("https://community.example");
+    expect(authorizationUrl.origin).toBe(
+      FEDIVERSE_SERVERS.rebased.origin,
+    );
     expect(authorizationUrl.pathname).toBe("/oauth/authorize");
     expect(Object.fromEntries(authorizationUrl.searchParams.entries())).toEqual({
       client_id: "custom-client",
@@ -186,7 +210,7 @@ describe("UnfathomablyService", () => {
 
     await expect(
       loginWithAuthorizationCode(
-        "https://remote.example",
+        FEDIVERSE_SERVERS.unfathomably.origin,
         {
           client_id: "client-id",
           client_secret: "client-secret",
@@ -201,7 +225,7 @@ describe("UnfathomablyService", () => {
 
     expect(mockFetch).toHaveBeenNthCalledWith(
       1,
-      "https://remote.example/oauth/token",
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/oauth/token`,
       expect.objectContaining({ method: "POST" }),
     );
     expect(
@@ -217,7 +241,7 @@ describe("UnfathomablyService", () => {
     });
     expect(mockFetch).toHaveBeenNthCalledWith(
       2,
-      "https://remote.example/api/v1/accounts/verify_credentials",
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/accounts/verify_credentials`,
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "Bearer browser-token",
@@ -226,18 +250,28 @@ describe("UnfathomablyService", () => {
     );
   });
 
-  test("loads the authenticated home timeline with a Mastodon cursor", async () => {
-    mockFetch.mockResolvedValue({ ok: true, json: async () => [] });
+  test.each([
+    ["Unfathomably", "unfathomably"],
+    ["Rebased", "rebased"],
+    ["Pleroma", "pleroma"],
+  ] as const)(
+    "loads the authenticated home timeline from %s",
+    async (_label, family) => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => [] });
+      const ctx = makeContext(family);
 
-    await getHomeTimeline({ apiUrl: "https://example.test", login: { token: "secret" } }, "123");
+      await getHomeTimeline(ctx, "123");
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      "https://example.test/api/v1/timelines/home?limit=30&max_id=123",
-      expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: "Bearer secret" }),
-      }),
-    );
-  });
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${FEDIVERSE_SERVERS[family].origin}/api/v1/timelines/home?limit=30&max_id=123`,
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${family}-access-token`,
+          }),
+        }),
+      );
+    },
+  );
 
   test("keeps only statuses with group context in the group feed", async () => {
     mockFetch.mockResolvedValue({
@@ -249,28 +283,91 @@ describe("UnfathomablyService", () => {
       ],
     });
 
-    await expect(getGroupTimeline({ apiUrl: "https://example.test", login: { token: "secret" } })).resolves.toEqual([
+    await expect(getGroupTimeline(makeContext("unfathomably"))).resolves.toEqual([
       { id: "group-post", group: { id: "group-1", display_name: "A group" } },
       { id: "boosted-group-post", reblog: { group: { id: "group-2", display_name: "Another group" } } },
     ]);
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://example.test/api/v1/timelines/groups?limit=30",
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/timelines/groups?limit=30`,
       expect.any(Object),
     );
   });
 
-  test("uses the Unfathomably endpoints for quote reposts, reposts, and emoji reactions", async () => {
+  test("uses Rebased quote/repost fields and the Pleroma reaction extension", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ id: "post-1" }) });
-    const ctx = { apiUrl: "https://example.test", login: { token: "secret" } };
+    const ctx = makeContext("rebased");
 
     await createStatus(ctx, "My thoughts", { quoteId: "quoted-post" });
     await reblogStatus(ctx, "post-1");
     await reactToStatus(ctx, "post-1", "👍");
 
-    expect(mockFetch).toHaveBeenNthCalledWith(1, "https://example.test/api/v1/statuses", expect.objectContaining({ method: "POST" }));
+    expect(mockFetch).toHaveBeenNthCalledWith(1, `${FEDIVERSE_SERVERS.rebased.origin}/api/v1/statuses`, expect.objectContaining({ method: "POST" }));
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual(expect.objectContaining({ status: "My thoughts", quote_id: "quoted-post" }));
-    expect(mockFetch).toHaveBeenNthCalledWith(2, "https://example.test/api/v1/statuses/post-1/reblog", expect.objectContaining({ method: "POST" }));
-    expect(mockFetch).toHaveBeenNthCalledWith(3, "https://example.test/api/v1/pleroma/statuses/post-1/reactions/%F0%9F%91%8D", expect.objectContaining({ method: "PUT" }));
+    expect(mockFetch).toHaveBeenNthCalledWith(2, `${FEDIVERSE_SERVERS.rebased.origin}/api/v1/statuses/post-1/reblog`, expect.objectContaining({ method: "POST" }));
+    expect(mockFetch).toHaveBeenNthCalledWith(3, `${FEDIVERSE_SERVERS.rebased.origin}/api/v1/pleroma/statuses/post-1/reactions/%F0%9F%91%8D`, expect.objectContaining({ method: "PUT" }));
+  });
+
+  test("uses the Unfathomably group contract for discovery, discussion, and membership", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => [] });
+    const ctx = makeContext("unfathomably");
+
+    await getGroups(ctx, "federation");
+    await getGroupStatuses(ctx, "group/one", "older");
+    await joinGroup(ctx, "group/one");
+    await joinGroup(ctx, "group/one", true);
+
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      1,
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/groups?q=federation`,
+      expect.any(Object),
+    );
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/groups/group%2Fone/statuses?limit=30&max_id=older`,
+      expect.any(Object),
+    );
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      3,
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/groups/group%2Fone/join`,
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      4,
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/groups/group%2Fone/leave`,
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  test("uses common Mastodon endpoints for statuses, context, notifications, and profiles", async () => {
+    const status = makeStatus("pleroma");
+    const notification = makeNotification("pleroma");
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ title: "Pleroma Test" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => status })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ancestors: [], descendants: [] }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => status })
+      .mockResolvedValueOnce({ ok: true, json: async () => [notification] })
+      .mockResolvedValueOnce({ ok: true, json: async () => [status] });
+    const ctx = makeContext("pleroma");
+
+    await getInstance(FEDIVERSE_SERVERS.pleroma.origin);
+    await getStatus(ctx, "status/one");
+    await getStatusContext(ctx, "status/one");
+    await favouriteStatus(ctx, "status/one");
+    await getNotifications(ctx, "older");
+    await getAccountStatuses(ctx, "account/one", "older");
+
+    expect(mockFetch.mock.calls.map(call => call[0])).toEqual([
+      `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/instance`,
+      `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/statuses/status%2Fone`,
+      `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/statuses/status%2Fone/context`,
+      `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/statuses/status%2Fone/favourite`,
+      `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/notifications?limit=30&max_id=older`,
+      `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/accounts/account%2Fone/statuses?limit=30&max_id=older`,
+    ]);
   });
 });
 

@@ -1,5 +1,5 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     -------------------
 
     File: Login.test.tsx
@@ -32,6 +32,10 @@ import {
 } from "@testing-library/react-native";
 
 import Login from "../Login";
+import {
+  FEDIVERSE_SERVERS,
+  makeAccount,
+} from "../../testing/fediverseFixtures";
 
 const mockDispatch = jest.fn();
 const mockLoginWithAuthorizationCode = jest.fn();
@@ -39,8 +43,8 @@ const mockLoginWithPassword = jest.fn();
 const mockOpenAuthSessionAsync = jest.fn();
 const mockOpenBrowserAsync = jest.fn();
 const mockRegisterOAuthApplication = jest.fn();
-const mockLotideContextStore = jest.fn();
-const mockLotideContextKVStore = jest.fn();
+const mockActiveAccountStore = jest.fn();
+const mockAccountProfilesStore = jest.fn();
 
 jest.mock("expo-web-browser", () => ({
   openAuthSessionAsync: (...args: unknown[]) =>
@@ -86,10 +90,10 @@ jest.mock("../../services/UnfathomablyService", () => {
 jest.mock("../../services/StorageService", () => ({
   __esModule: true,
   lotideContext: {
-    store: (...args: unknown[]) => mockLotideContextStore(...args),
+    store: (...args: unknown[]) => mockActiveAccountStore(...args),
   },
   lotideContextKV: {
-    store: (...args: unknown[]) => mockLotideContextKVStore(...args),
+    store: (...args: unknown[]) => mockAccountProfilesStore(...args),
   },
 }));
 
@@ -131,7 +135,7 @@ function deferred<T>(): Deferred<T> {
 
 async function renderLogin(props: Partial<React.ComponentProps<typeof Login>> = {}) {
   return await render(
-    <Login domain="social.fbxl.net" onGoBack={jest.fn()} {...props} />,
+    <Login domain="unfathomably.example" onGoBack={jest.fn()} {...props} />,
   );
 }
 
@@ -147,8 +151,8 @@ describe("Login", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
-    mockLotideContextStore.mockResolvedValue(undefined);
-    mockLotideContextKVStore.mockResolvedValue(undefined);
+    mockActiveAccountStore.mockResolvedValue(undefined);
+    mockAccountProfilesStore.mockResolvedValue(undefined);
     mockOpenAuthSessionAsync.mockResolvedValue({ type: "cancel" });
     mockOpenBrowserAsync.mockResolvedValue({ type: "opened" });
     mockRegisterOAuthApplication.mockResolvedValue({
@@ -188,7 +192,7 @@ describe("Login", () => {
 
     expect(mockLoginWithPassword).toHaveBeenCalledTimes(1);
     expect(mockLoginWithPassword).toHaveBeenCalledWith(
-      "https://social.fbxl.net",
+      "https://unfathomably.example",
       "alice",
       "secret",
     );
@@ -206,24 +210,24 @@ describe("Login", () => {
           display_name: "SJ",
           id: "1",
           note: "",
-          url: "https://social.fbxl.net/@alice",
+          url: "https://unfathomably.example/@alice",
           username: "alice",
         },
       });
       await login.promise;
     });
 
-    expect(mockLotideContextKVStore).toHaveBeenCalledWith(
+    expect(mockAccountProfilesStore).toHaveBeenCalledWith(
       expect.objectContaining({
-        apiUrl: "https://social.fbxl.net",
+        apiUrl: "https://unfathomably.example",
         login: expect.objectContaining({
           token: "token-1",
         }),
       }),
     );
-    expect(mockLotideContextStore).toHaveBeenCalledWith(
+    expect(mockActiveAccountStore).toHaveBeenCalledWith(
       expect.objectContaining({
-        apiUrl: "https://social.fbxl.net",
+        apiUrl: "https://unfathomably.example",
         login: expect.objectContaining({
           token: "token-1",
         }),
@@ -233,72 +237,87 @@ describe("Login", () => {
       expect.objectContaining({
         type: "lotide/setCtx",
         payload: expect.objectContaining({
-          apiUrl: "https://social.fbxl.net",
+          apiUrl: "https://unfathomably.example",
         }),
       }),
     );
   });
 
-  test("signs in through an arbitrary selected server with browser OAuth", async () => {
-    mockOpenAuthSessionAsync.mockResolvedValue({
-      type: "success",
-      url: "hoot://oauth/callback?code=authorization-code&state=state-123",
-    });
-    const screen = await renderLogin({ domain: "pleroma.example" });
+  test.each([
+    ["Unfathomably", "unfathomably"],
+    ["Rebased", "rebased"],
+    ["Pleroma", "pleroma"],
+  ] as const)(
+    "signs in to %s through browser OAuth",
+    async (_label, family) => {
+      const server = FEDIVERSE_SERVERS[family];
+      const account = makeAccount(family);
+      mockLoginWithAuthorizationCode.mockResolvedValue({
+        token: `${family}-browser-token`,
+        account,
+      });
+      mockOpenAuthSessionAsync.mockResolvedValue({
+        type: "success",
+        url: "hoot://oauth/callback?code=authorization-code&state=state-123",
+      });
+      const screen = await renderLogin({ domain: server.origin });
 
-    await fireEvent.press(
-      screen.getByRole("button", { name: "Sign in with Server" }),
-    );
+      await fireEvent.press(
+        screen.getByRole("button", { name: "Sign in with Server" }),
+      );
 
-    await waitFor(() => {
-      expect(mockRegisterOAuthApplication).toHaveBeenCalledWith(
-        "https://pleroma.example",
+      await waitFor(() => {
+        expect(mockRegisterOAuthApplication).toHaveBeenCalledWith(
+          server.origin,
+          "hoot://oauth/callback",
+        );
+        expect(mockOpenAuthSessionAsync).toHaveBeenCalledTimes(1);
+      });
+
+      const authorizationUrl = new URL(
+        mockOpenAuthSessionAsync.mock.calls[0][0],
+      );
+      expect(authorizationUrl.origin).toBe(server.origin);
+      expect(authorizationUrl.pathname).toBe("/oauth/authorize");
+      expect(authorizationUrl.searchParams.get("state")).toBe("state-123");
+      expect(mockOpenAuthSessionAsync).toHaveBeenCalledWith(
+        authorizationUrl.toString(),
         "hoot://oauth/callback",
       );
-      expect(mockOpenAuthSessionAsync).toHaveBeenCalledTimes(1);
-    });
 
-    const authorizationUrl = new URL(
-      mockOpenAuthSessionAsync.mock.calls[0][0],
-    );
-    expect(authorizationUrl.origin).toBe("https://pleroma.example");
-    expect(authorizationUrl.pathname).toBe("/oauth/authorize");
-    expect(authorizationUrl.searchParams.get("state")).toBe("state-123");
-    expect(mockOpenAuthSessionAsync).toHaveBeenCalledWith(
-      authorizationUrl.toString(),
-      "hoot://oauth/callback",
-    );
-
-    await waitFor(() => {
-      expect(mockLoginWithAuthorizationCode).toHaveBeenCalledWith(
-        "https://pleroma.example",
-        {
-          client_id: "client-id",
-          client_secret: "client-secret",
-        },
-        "hoot://oauth/callback",
-        "authorization-code",
-      );
-      expect(mockLotideContextKVStore).toHaveBeenCalledWith(
-        expect.objectContaining({
-          apiUrl: "https://pleroma.example",
-          login: expect.objectContaining({ token: "browser-token" }),
-        }),
-      );
-      expect(mockDispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          payload: expect.objectContaining({
-            apiUrl: "https://pleroma.example",
+      await waitFor(() => {
+        expect(mockLoginWithAuthorizationCode).toHaveBeenCalledWith(
+          server.origin,
+          {
+            client_id: "client-id",
+            client_secret: "client-secret",
+          },
+          "hoot://oauth/callback",
+          "authorization-code",
+        );
+        expect(mockAccountProfilesStore).toHaveBeenCalledWith(
+          expect.objectContaining({
+            apiUrl: server.origin,
+            login: expect.objectContaining({
+              token: `${family}-browser-token`,
+            }),
           }),
-        }),
-      );
-    });
-    expect(mockLoginWithPassword).not.toHaveBeenCalled();
-  });
+        );
+        expect(mockDispatch).toHaveBeenCalledWith(
+          expect.objectContaining({
+            payload: expect.objectContaining({
+              apiUrl: server.origin,
+            }),
+          }),
+        );
+      });
+      expect(mockLoginWithPassword).not.toHaveBeenCalled();
+    },
+  );
 
   test("leaves the form ready when browser login is cancelled", async () => {
     mockOpenAuthSessionAsync.mockResolvedValue({ type: "cancel" });
-    const screen = await renderLogin({ domain: "mastodon.example" });
+    const screen = await renderLogin({ domain: "rebased.example" });
 
     await fireEvent.press(
       screen.getByRole("button", { name: "Sign in with Server" }),
@@ -310,7 +329,7 @@ describe("Login", () => {
       ).toBeTruthy();
     });
     expect(mockLoginWithAuthorizationCode).not.toHaveBeenCalled();
-    expect(mockLotideContextKVStore).not.toHaveBeenCalled();
+    expect(mockAccountProfilesStore).not.toHaveBeenCalled();
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
@@ -356,7 +375,7 @@ describe("Login", () => {
         display_name: "SJ",
         id: "1",
         note: "",
-        url: "https://social.fbxl.net/@alice",
+        url: "https://unfathomably.example/@alice",
         username: "alice",
       },
     });
@@ -364,8 +383,8 @@ describe("Login", () => {
     await drainedLogin;
     await Promise.resolve();
 
-    expect(mockLotideContextKVStore).not.toHaveBeenCalled();
-    expect(mockLotideContextStore).not.toHaveBeenCalled();
+    expect(mockAccountProfilesStore).not.toHaveBeenCalled();
+    expect(mockActiveAccountStore).not.toHaveBeenCalled();
     expect(mockDispatch).not.toHaveBeenCalled();
   });
 
@@ -414,11 +433,11 @@ describe("Login", () => {
     });
     expect(Alert.alert).not.toHaveBeenCalled();
     expect(mockLoginWithPassword).not.toHaveBeenCalled();
-    expect(mockLotideContextStore).not.toHaveBeenCalled();
+    expect(mockActiveAccountStore).not.toHaveBeenCalled();
   });
 
   test("opens password recovery on the selected server", async () => {
-    const screen = await renderLogin({ domain: "mastodon.example" });
+    const screen = await renderLogin({ domain: "rebased.example" });
 
     await fireEvent.press(
       screen.getByRole("button", { name: "Reset forgotten password" }),
@@ -426,7 +445,7 @@ describe("Login", () => {
 
     await waitFor(() => {
       expect(mockOpenBrowserAsync).toHaveBeenCalledWith(
-        "https://mastodon.example",
+        "https://rebased.example",
       );
     });
     expect(Alert.alert).not.toHaveBeenCalled();
@@ -441,11 +460,11 @@ describe("Login", () => {
         display_name: "SJ",
         id: "1",
         note: "",
-        url: "https://social.fbxl.net/@alice",
+        url: "https://unfathomably.example/@alice",
         username: "alice",
       },
     });
-    mockLotideContextStore.mockRejectedValue(new Error("storage full"));
+    mockActiveAccountStore.mockRejectedValue(new Error("storage full"));
     const screen = await renderLogin();
 
     await fillLoginForm(screen);
@@ -468,9 +487,13 @@ describe("Login", () => {
     });
 
     expect(screen.getByText("Unfathomably Test")).toBeTruthy();
-    expect(screen.getByText("social.fbxl.net")).toBeTruthy();
+    expect(screen.getByText("unfathomably.example")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Unfathomably Test" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "social.fbxl.net" })).toBeNull();
+    expect(
+      screen.queryByRole("button", {
+        name: "unfathomably.example",
+      }),
+    ).toBeNull();
   });
 });
 

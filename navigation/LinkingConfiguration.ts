@@ -61,51 +61,16 @@ const linking: LinkingOptions<RootStackParamList> = {
             },
           },
           GroupFeedScreen: 'group-feed',
-          SearchScreen: 'search',
-          SourceListScreen: 'sources',
-          MessageListScreen: 'messages',
+          SearchScreen: 'groups',
           NewPostScreen: 'new-post',
           NotificationScreen: 'notifications',
           OptionsScreen: 'options',
         },
       },
-      Post: 'post/:postId',
       Status: 'status/:statusId',
       Group: 'groups/:groupId',
       AccountProfile: 'profile',
-      Comment: 'comment/:id',
-      Community: {
-        path: 'community/:id',
-        parse: {
-          id: (id: string) => Number(id),
-        },
-      },
-      CollectionTarget: {
-        path: 'collection-targets/:id',
-        parse: {
-          id: (id: string) => Number(id),
-        },
-      },
-      CollectionTargetItem: {
-        path: 'collection-targets/:collectionTargetId/items/:itemId',
-        parse: {
-          collectionTargetId: (id: string) => Number(id),
-          itemId: (id: string) => Number(id),
-        },
-      },
-      MessageThread: {
-        path: 'messages/users/:userId',
-        parse: {
-          userId: (userId: string) => Number(userId),
-        },
-      },
-      ProfileActivity: {
-        path: 'users/:userId/activity',
-        parse: {
-          userId: (userId: string) => Number(userId),
-        },
-      },
-      Moderation: 'moderation',
+      ImageViewer: 'image',
       Settings: 'settings',
       NotFound: '*',
     },

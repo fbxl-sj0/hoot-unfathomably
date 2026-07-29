@@ -1,5 +1,5 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     -------------------
 
     File: DiagnosticLogging.test.ts
@@ -76,7 +76,7 @@ describe("diagnostic logging policy", () => {
       probePath,
       [
         "/*",
-        "    Project: Hoot Mobile",
+        "    Project: Hoot Unfathomably",
         "    -------------------",
         "",
         "    File: tmp-diagnostic-logging-probe.ts",

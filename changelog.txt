@@ -4,6 +4,16 @@ Hoot Unfathomably Changelog
 Unreleased
 ----------
 
+- Rebuilt the release test suite around explicit Unfathomably, Rebased, and
+  Pleroma contracts for timelines, groups, discussions, reactions, accounts,
+  OAuth, notifications, and persisted sessions.
+- Removed retired server-version test matrices and added a strict,
+  self-tested release check that prevents obsolete service imports and API
+  routes from returning.
+- Removed retired screens and conditional legacy tabs from the active
+  navigation tree so the tested app surface matches the six current feeds,
+  groups, posting, notifications, and options destinations.
+
 Version 0.2.2
 -------------
 

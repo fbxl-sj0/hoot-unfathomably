@@ -36,12 +36,16 @@ import HostList, {
   normalizeServerSelection,
   updateKnownHostInstanceInfo,
 } from "../HostList";
+import {
+  FEDIVERSE_SERVERS,
+  makeContext,
+} from "../../testing/fediverseFixtures";
 
 const mockDispatch = jest.fn();
 const mockGetInstance = jest.fn();
 const mockGetStore = jest.fn();
-const mockLotideContextStore = jest.fn();
-const mockLotideContextKVStore = jest.fn();
+const mockActiveAccountStore = jest.fn();
+const mockAccountProfilesStore = jest.fn();
 
 jest.mock("../../hooks/useTheme", () => ({
   __esModule: true,
@@ -63,11 +67,11 @@ jest.mock("react-redux", () => ({
 jest.mock("../../services/StorageService", () => ({
   __esModule: true,
   lotideContext: {
-    store: (...args: unknown[]) => mockLotideContextStore(...args),
+    store: (...args: unknown[]) => mockActiveAccountStore(...args),
   },
   lotideContextKV: {
     getStore: (...args: unknown[]) => mockGetStore(...args),
-    store: (...args: unknown[]) => mockLotideContextKVStore(...args),
+    store: (...args: unknown[]) => mockAccountProfilesStore(...args),
   },
 }));
 
@@ -112,8 +116,8 @@ describe("HostList", () => {
       title: "FBXL Social",
       version: "4.3.0",
     });
-    mockLotideContextStore.mockResolvedValue(undefined);
-    mockLotideContextKVStore.mockResolvedValue(undefined);
+    mockActiveAccountStore.mockResolvedValue(undefined);
+    mockAccountProfilesStore.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -315,10 +319,10 @@ describe("HostList", () => {
     );
 
     await waitFor(() => {
-      expect(mockLotideContextKVStore).toHaveBeenCalledWith(
+      expect(mockAccountProfilesStore).toHaveBeenCalledWith(
         savedContext,
       );
-      expect(mockLotideContextStore).toHaveBeenCalledWith(savedContext);
+      expect(mockActiveAccountStore).toHaveBeenCalledWith(savedContext);
       expect(mockDispatch).toHaveBeenCalledWith(
         expect.objectContaining({
           payload: savedContext,
@@ -371,7 +375,7 @@ describe("HostList", () => {
     mockGetStore.mockResolvedValue({
       "alice@https://pleroma.example": savedContext,
     });
-    mockLotideContextKVStore.mockReturnValue(contextStore.promise);
+    mockAccountProfilesStore.mockReturnValue(contextStore.promise);
     const screen = await renderWithStore(
       <HostList onSelect={jest.fn()} />,
     );
@@ -388,12 +392,12 @@ describe("HostList", () => {
     await fireEvent.press(profileButton);
     await fireEvent.press(profileButton);
 
-    expect(mockLotideContextKVStore).toHaveBeenCalledTimes(1);
+    expect(mockAccountProfilesStore).toHaveBeenCalledTimes(1);
 
     contextStore.resolve(undefined);
 
     await waitFor(() => {
-      expect(mockLotideContextStore).toHaveBeenCalledTimes(1);
+      expect(mockActiveAccountStore).toHaveBeenCalledTimes(1);
       expect(
         screen.getByRole("button", {
           name: "Select profile alice@pleroma.example",
@@ -403,36 +407,32 @@ describe("HostList", () => {
   });
 
   test("normalizes server helpers independently of the seeded host list", () => {
-    expect(normalizeServerSelection("Mastodon.Example/path")).toBe(
-      "https://mastodon.example",
+    expect(normalizeServerSelection("Pleroma.Example/path")).toBe(
+      FEDIVERSE_SERVERS.pleroma.origin,
     );
-    expect(normalizeHostDomain("https://Mastodon.Example/path")).toBe(
-      "mastodon.example",
+    expect(normalizeHostDomain("https://Pleroma.Example/path")).toBe(
+      "pleroma.example",
     );
     expect(normalizeServerSelection("not a host")).toBe("");
 
     const hosts = [
       { domain: "social.fbxl.net", name: "FBXL Social" },
-      { domain: "another.example", name: "Another Server" },
+      { domain: "rebased.example", name: "Rebased Server" },
     ];
-    const instanceInfo: InstanceInfo = {
-      apiVersion: 1,
-      site_name: "Another Server",
-      software: { name: "Unfathomably", version: "1" },
-    };
+    const instanceInfo = makeContext("rebased").instanceInfo!;
 
     expect(
       updateKnownHostInstanceInfo(
         hosts,
-        "another.example",
+        "rebased.example",
         instanceInfo,
       ),
     ).toEqual([
       hosts[0],
       {
-        domain: "another.example",
+        domain: "rebased.example",
         instanceInfo,
-        name: "Another Server",
+        name: "Rebased Server",
       },
     ]);
   });

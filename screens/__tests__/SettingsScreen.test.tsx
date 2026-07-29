@@ -1,5 +1,5 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     -------------------
 
     File: SettingsScreen.test.tsx
@@ -92,13 +92,13 @@ async function renderSettingsScreen() {
   const store = mockStore({
     lotide: {
       ctx: {
-        apiUrl: "https://social.example",
+        apiUrl: "https://rebased.example",
         login: {
           token: "token-1",
           user: {
             id: 1,
             username: "alice",
-            host: "social.example",
+            host: "rebased.example",
             local: true,
           },
         },
@@ -240,7 +240,7 @@ describe("SettingsScreen", () => {
     const screen = await renderSettingsScreen();
 
     await fireEvent.changeText(
-      screen.getByPlaceholderText("https://social.example"),
+      screen.getByLabelText("Unfathomably server URL"),
       "httpnot-a-url",
     );
     await fireEvent.press(screen.getByRole("button", { name: "Save Changes" }));
@@ -256,27 +256,30 @@ describe("SettingsScreen", () => {
     const screen = await renderSettingsScreen();
 
     await fireEvent.changeText(
-      screen.getByPlaceholderText("https://social.example"),
-      "  https://community.example///  ",
+      screen.getByLabelText("Unfathomably server URL"),
+      "  https://pleroma.example///  ",
     );
     await fireEvent.press(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(async () => {
       await expect(AsyncStorage.getItem("@lotide_ctx")).resolves.toBe(
         JSON.stringify({
-          apiUrl: "https://community.example",
+          apiUrl: "https://pleroma.example",
           login: {
             user: {
               id: 1,
               username: "alice",
-              host: "social.example",
+              host: "rebased.example",
               local: true,
             },
           },
         }),
       );
     });
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(expect.stringContaining("hoot.auth.token."), "token-1");
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+      expect.stringContaining("hoot.auth.token."),
+      "token-1",
+    );
   });
 
   test("checks Unfathomably notifications from settings", async () => {
@@ -297,7 +300,7 @@ describe("SettingsScreen", () => {
       expect(mockPollNotificationsNow).toHaveBeenCalledTimes(1);
       expect(mockPollNotificationsNow).toHaveBeenCalledWith(
         expect.objectContaining({
-          apiUrl: "https://social.example",
+          apiUrl: "https://rebased.example",
         }),
       );
       expect(Alert.alert).toHaveBeenCalledWith(

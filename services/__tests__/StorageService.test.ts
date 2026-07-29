@@ -1,12 +1,12 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     -------------------
 
     File: StorageService.test.ts
 
     Purpose:
 
-        Validate defensive parsing for persisted Lotide account state.
+        Validate defensive parsing for persisted Fediverse account state.
 
     Responsibilities:
 
@@ -24,7 +24,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 
-import { appSettings, lotideContext, lotideContextKV } from "../StorageService";
+import {
+  appSettings,
+  lotideContext as accountContext,
+  lotideContextKV as accountProfiles,
+} from "../StorageService";
+import { makeContext } from "../../testing/fediverseFixtures";
 
 describe("StorageService", () => {
   beforeEach(async () => {
@@ -32,59 +37,75 @@ describe("StorageService", () => {
     (SecureStore as unknown as { __reset: () => void }).__reset();
   });
 
-  test("keeps bearer tokens out of AsyncStorage and restores them from Secure Store", async () => {
-    const context: LotideContext = {
-      apiUrl: "https://social.example",
-      login: {
-        token: "sensitive-token",
-        user: { id: 1, username: "alice", host: "social.example" },
-      },
-    };
+  test.each([
+    ["Unfathomably", "unfathomably"],
+    ["Rebased", "rebased"],
+    ["Pleroma", "pleroma"],
+  ] as const)(
+    "keeps %s bearer tokens out of AsyncStorage",
+    async (_label, family) => {
+      const context = makeContext(family);
 
-    await lotideContext.store(context);
+      await accountContext.store(context);
 
-    await expect(AsyncStorage.getItem("@lotide_ctx")).resolves.not.toContain("sensitive-token");
-    await expect(lotideContext.query()).resolves.toEqual(context);
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(expect.stringContaining("hoot.auth.token."), "sensitive-token");
-    const secureStoreKey = (SecureStore.setItemAsync as jest.Mock).mock.calls.at(-1)?.[0] as string;
-    expect(secureStoreKey).toMatch(/^[A-Za-z0-9._-]+$/);
-    expect(secureStoreKey).not.toContain("%");
-  });
+      await expect(
+        AsyncStorage.getItem("@lotide_ctx"),
+      ).resolves.not.toContain(`${family}-access-token`);
+      await expect(accountContext.query()).resolves.toEqual(context);
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+        expect.stringContaining("hoot.auth.token."),
+        `${family}-access-token`,
+      );
+      const secureStoreKey = (
+        SecureStore.setItemAsync as jest.Mock
+      ).mock.calls.at(-1)?.[0] as string;
+      expect(secureStoreKey).toMatch(/^[A-Za-z0-9._-]+$/);
+      expect(secureStoreKey).not.toContain("%");
+    },
+  );
 
   test("migrates a legacy plaintext token into Secure Store on read", async () => {
-    await AsyncStorage.setItem("@lotide_ctx", JSON.stringify({
-      apiUrl: "https://social.example",
-      login: {
-        token: "legacy-token",
-        user: { id: 1, username: "alice", host: "social.example" },
-      },
-    }));
+    await AsyncStorage.setItem(
+      "@lotide_ctx",
+      JSON.stringify({
+        apiUrl: "https://pleroma.example",
+        login: {
+          token: "legacy-token",
+          user: { id: 1, username: "alice", host: "pleroma.example" },
+        },
+      }),
+    );
 
-    await expect(lotideContext.query()).resolves.toMatchObject({
+    await expect(accountContext.query()).resolves.toMatchObject({
       login: { token: "legacy-token" },
     });
-    await expect(AsyncStorage.getItem("@lotide_ctx")).resolves.not.toContain("legacy-token");
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(expect.stringContaining("hoot.auth.token."), "legacy-token");
+    await expect(
+      AsyncStorage.getItem("@lotide_ctx"),
+    ).resolves.not.toContain("legacy-token");
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+      expect.stringContaining("hoot.auth.token."),
+      "legacy-token",
+    );
   });
 
   test("recovers from corrupt active context JSON", async () => {
     await AsyncStorage.setItem("@lotide_ctx", "{not json");
 
-    await expect(lotideContext.query()).resolves.toBeUndefined();
+    await expect(accountContext.query()).resolves.toBeUndefined();
     await expect(AsyncStorage.getItem("@lotide_ctx")).resolves.toBeNull();
   });
 
   test("canonicalizes active context API URLs", async () => {
-    await lotideContext.store({
-      apiUrl: " https://lotide.fbxl.net/api/unstable/// ",
+    await accountContext.store({
+      apiUrl: " https://unfathomably.example/// ",
     });
 
-    await expect(lotideContext.query()).resolves.toEqual({
-      apiUrl: "https://lotide.fbxl.net/api/unstable",
+    await expect(accountContext.query()).resolves.toEqual({
+      apiUrl: "https://unfathomably.example",
     });
     await expect(AsyncStorage.getItem("@lotide_ctx")).resolves.toBe(
       JSON.stringify({
-        apiUrl: "https://lotide.fbxl.net/api/unstable",
+        apiUrl: "https://unfathomably.example",
       }),
     );
   });
@@ -93,45 +114,45 @@ describe("StorageService", () => {
     await AsyncStorage.setItem(
       "@lotide_ctx_arr",
       JSON.stringify({
-        "alice@https://lotide.fbxl.net/api/unstable": {
-          apiUrl: "https://lotide.fbxl.net/api/unstable",
+        "alice@https://unfathomably.example": {
+          apiUrl: "https://unfathomably.example",
         },
-        "broken@https://lotide.fbxl.net/api/unstable": "not a context",
+        "broken@https://unfathomably.example": "not a context",
       }),
     );
 
-    await expect(lotideContextKV.getStore()).resolves.toEqual({
-      "alice@https://lotide.fbxl.net/api/unstable": {
-        apiUrl: "https://lotide.fbxl.net/api/unstable",
+    await expect(accountProfiles.getStore()).resolves.toEqual({
+      "alice@https://unfathomably.example": {
+        apiUrl: "https://unfathomably.example",
       },
     });
   });
 
   test("canonicalizes saved account keys and contexts", async () => {
-    await lotideContextKV.store({
-      apiUrl: " https://lotide.fbxl.net/api/unstable/// ",
+    await accountProfiles.store({
+      apiUrl: " https://unfathomably.example/// ",
       login: {
         token: "token-1",
         user: {
           id: 1,
           username: "alice",
-          host: "lotide.fbxl.net",
+          host: "unfathomably.example",
         },
       },
     });
 
-    await expect(lotideContextKV.listKeys()).resolves.toEqual([
-      "alice@https://lotide.fbxl.net/api/unstable",
+    await expect(accountProfiles.listKeys()).resolves.toEqual([
+      "alice@https://unfathomably.example",
     ]);
-    await expect(lotideContextKV.getStore()).resolves.toEqual({
-      "alice@https://lotide.fbxl.net/api/unstable": {
-        apiUrl: "https://lotide.fbxl.net/api/unstable",
+    await expect(accountProfiles.getStore()).resolves.toEqual({
+      "alice@https://unfathomably.example": {
+        apiUrl: "https://unfathomably.example",
         login: {
           token: "token-1",
           user: {
             id: 1,
             username: "alice",
-            host: "lotide.fbxl.net",
+            host: "unfathomably.example",
           },
         },
       },
@@ -142,43 +163,43 @@ describe("StorageService", () => {
     await AsyncStorage.setItem(
       "@lotide_ctx_arr",
       JSON.stringify({
-        "alice@https://lotide.fbxl.net/api/unstable///": {
-          apiUrl: "https://lotide.fbxl.net/api/unstable///",
+        "alice@https://unfathomably.example///": {
+          apiUrl: "https://unfathomably.example///",
           login: {
             token: "token-1",
             user: {
               id: 1,
               username: "alice",
-              host: "lotide.fbxl.net",
+              host: "unfathomably.example",
             },
           },
         },
       }),
     );
 
-    await expect(lotideContextKV.getStore()).resolves.toEqual({
-      "alice@https://lotide.fbxl.net/api/unstable": {
-        apiUrl: "https://lotide.fbxl.net/api/unstable",
+    await expect(accountProfiles.getStore()).resolves.toEqual({
+      "alice@https://unfathomably.example": {
+        apiUrl: "https://unfathomably.example",
         login: {
           token: "token-1",
           user: {
             id: 1,
             username: "alice",
-            host: "lotide.fbxl.net",
+            host: "unfathomably.example",
           },
         },
       },
     });
     await expect(
-      lotideContextKV.query("alice@https://lotide.fbxl.net/api/unstable///"),
+      accountProfiles.query("alice@https://unfathomably.example///"),
     ).resolves.toEqual({
-      apiUrl: "https://lotide.fbxl.net/api/unstable",
+      apiUrl: "https://unfathomably.example",
       login: {
         token: "token-1",
         user: {
           id: 1,
           username: "alice",
-          host: "lotide.fbxl.net",
+          host: "unfathomably.example",
         },
       },
     });
@@ -188,14 +209,14 @@ describe("StorageService", () => {
     await AsyncStorage.setItem(
       "@lotide_ctx_arr",
       JSON.stringify({
-        "alice@https://lotide.fbxl.net/api/unstable///": {
-          apiUrl: "https://lotide.fbxl.net/api/unstable///",
+        "alice@https://unfathomably.example///": {
+          apiUrl: "https://unfathomably.example///",
           login: {
             token: "token-1",
             user: {
               id: 1,
               username: "alice",
-              host: "lotide.fbxl.net",
+              host: "unfathomably.example",
             },
           },
         },
@@ -203,19 +224,19 @@ describe("StorageService", () => {
     );
 
     await expect(
-      lotideContextKV.remove("alice@https://lotide.fbxl.net/api/unstable"),
+      accountProfiles.remove("alice@https://unfathomably.example"),
     ).resolves.toEqual({
-      apiUrl: "https://lotide.fbxl.net/api/unstable",
+      apiUrl: "https://unfathomably.example",
       login: {
         token: "token-1",
         user: {
           id: 1,
           username: "alice",
-          host: "lotide.fbxl.net",
+          host: "unfathomably.example",
         },
       },
     });
-    await expect(lotideContextKV.getStore()).resolves.toEqual({});
+    await expect(accountProfiles.getStore()).resolves.toEqual({});
     await expect(AsyncStorage.getItem("@lotide_ctx_arr")).resolves.toBe(
       JSON.stringify({}),
     );
@@ -224,20 +245,20 @@ describe("StorageService", () => {
   test("continues to store accounts after a corrupt store is cleared", async () => {
     await AsyncStorage.setItem("@lotide_ctx_arr", "{not json");
 
-    await lotideContextKV.store({
-      apiUrl: "https://lotide.fbxl.net/api/unstable",
+    await accountProfiles.store({
+      apiUrl: "https://unfathomably.example",
       login: {
         token: "token-1",
         user: {
           id: 1,
           username: "alice",
-          host: "lotide.fbxl.net",
+          host: "unfathomably.example",
         },
       },
     });
 
-    await expect(lotideContextKV.listKeys()).resolves.toEqual([
-      "alice@https://lotide.fbxl.net/api/unstable",
+    await expect(accountProfiles.listKeys()).resolves.toEqual([
+      "alice@https://unfathomably.example",
     ]);
   });
 

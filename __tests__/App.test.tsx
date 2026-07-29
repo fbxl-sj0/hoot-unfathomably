@@ -11,6 +11,10 @@ import { Alert } from "react-native";
 import { render, waitFor } from "@testing-library/react-native";
 
 import AppRoot from "../App";
+import {
+  FEDIVERSE_SERVERS,
+  makeContext,
+} from "../testing/fediverseFixtures";
 
 const mockDispatch = jest.fn();
 const mockAccountContextQuery = jest.fn();
@@ -115,36 +119,35 @@ describe("AppRoot", () => {
     jest.restoreAllMocks();
   });
 
-  test("restores a current Unfathomably account and app settings", async () => {
-    const storedContext = {
-      apiUrl: "https://social.example",
-      login: {
-        token: "token-1",
-        user: {
-          id: "42",
-          username: "alice",
-        },
-      },
-    } as unknown as LotideContext;
-    mockAccountContextQuery.mockResolvedValue(storedContext);
+  test.each([
+    ["Unfathomably", "unfathomably"],
+    ["Rebased", "rebased"],
+    ["Pleroma", "pleroma"],
+  ] as const)(
+    "restores a current %s account and app settings",
+    async (_label, family) => {
+      const storedContext = makeContext(family);
+      mockAccountContextQuery.mockResolvedValue(storedContext);
 
-    await render(<AppRoot />);
+      await render(<AppRoot />);
 
-    await waitFor(() => {
-      expect(mockDispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: "lotide/setCtx",
-          payload: storedContext,
-        }),
-      );
-      expect(mockDispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: "settings/setAppSettings",
-          payload: { defaultFeedSort: "hot" },
-        }),
-      );
-    });
-  });
+      await waitFor(() => {
+        expect(mockDispatch).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type: "lotide/setCtx",
+            payload: storedContext,
+          }),
+        );
+        expect(mockDispatch).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type: "settings/setAppSettings",
+            payload: { defaultFeedSort: "hot" },
+          }),
+        );
+      });
+      expect(storedContext.apiUrl).toBe(FEDIVERSE_SERVERS[family].origin);
+    },
+  );
 
   test("clears a pre-migration Lotide API context", async () => {
     mockAccountContextQuery.mockResolvedValue({
@@ -183,20 +186,14 @@ describe("AppRoot", () => {
   });
 
   test("restores background notification registration", async () => {
-    mockCurrentCtx = {
-      apiUrl: "https://social.example",
-      login: {
-        token: "token-1",
-        user: { id: 42, username: "alice" } as Profile,
-      },
-    };
+    mockCurrentCtx = makeContext("rebased");
 
     await render(<AppRoot />);
 
     await waitFor(() => {
       expect(mockRegisterNotificationPollTask).toHaveBeenCalledTimes(1);
       expect(mockGetInstance).toHaveBeenCalledWith(
-        "https://social.example",
+        "https://rebased.example",
       );
     });
   });
@@ -217,13 +214,7 @@ describe("AppRoot", () => {
   });
 
   test("shows a server refresh error for the active account", async () => {
-    mockCurrentCtx = {
-      apiUrl: "https://social.example",
-      login: {
-        token: "token-1",
-        user: { id: 42, username: "alice" } as Profile,
-      },
-    };
+    mockCurrentCtx = makeContext("rebased");
     mockGetInstance.mockRejectedValue(new Error("server unavailable"));
 
     await render(<AppRoot />);

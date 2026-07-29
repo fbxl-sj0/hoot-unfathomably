@@ -53,6 +53,19 @@ describe("LinkingConfiguration", () => {
       }),
     );
   });
+
+  test.each([
+    ["feed/hot", "FeedScreen"],
+    ["group-feed", "GroupFeedScreen"],
+    ["groups", "SearchScreen"],
+    ["new-post", "NewPostScreen"],
+    ["notifications", "NotificationScreen"],
+    ["options", "OptionsScreen"],
+  ])("maps the current '%s' destination", (path, screenName) => {
+    const state = linking.getStateFromPath?.(path, linking.config);
+
+    expect(JSON.stringify(state)).toContain(`"name":"${screenName}"`);
+  });
 });
 
 /* end of LinkingConfiguration.test.ts */
