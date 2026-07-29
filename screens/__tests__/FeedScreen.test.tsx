@@ -98,7 +98,7 @@ async function renderFeed() {
           token: "token-1",
           user: {
             id: 1,
-            username: "sj_zero",
+            username: "alice",
             host: "lotide.fbxl.net",
           },
         },
@@ -139,7 +139,7 @@ describe("FeedScreen", () => {
         token: "token-1",
         user: {
           id: 1,
-          username: "sj_zero",
+          username: "alice",
           host: "lotide.fbxl.net",
         },
       },

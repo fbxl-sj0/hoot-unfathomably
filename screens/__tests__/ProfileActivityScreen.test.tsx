@@ -68,7 +68,7 @@ function renderWithStore(ui: React.ReactElement) {
               apiVersion: 18,
               login: {
                 token: "token-1",
-              user: { id: 1, username: "sj_zero", host: "lotide.fbxl.net" },
+              user: { id: 1, username: "alice", host: "lotide.fbxl.net" },
             },
           },
         },
@@ -115,7 +115,7 @@ describe("ProfileActivityScreen", () => {
     });
     mockGetUserData.mockResolvedValue({
       id: 1,
-      username: "sj_zero",
+      username: "alice",
       host: "lotide.fbxl.net",
       local: true,
       description: {
@@ -141,7 +141,7 @@ describe("ProfileActivityScreen", () => {
     const route = {
       key: "profile-activity",
       name: "ProfileActivity",
-      params: { userId: 1, username: "sj_zero" },
+      params: { userId: 1, username: "alice" },
     };
 
     const screen = await renderWithStore(
@@ -176,7 +176,7 @@ describe("ProfileActivityScreen", () => {
     const route = {
       key: "profile-activity",
       name: "ProfileActivity",
-      params: { userId: 1, username: "sj_zero" },
+      params: { userId: 1, username: "alice" },
     };
     mockGetUserThings.mockResolvedValue({
       items: [
@@ -186,7 +186,7 @@ describe("ProfileActivityScreen", () => {
           title: "Original post",
           author: {
             id: 1,
-            username: "sj_zero",
+            username: "alice",
             host: "lotide.fbxl.net",
             local: true,
           },
@@ -271,7 +271,7 @@ describe("ProfileActivityScreen", () => {
     const route = {
       key: "profile-activity",
       name: "ProfileActivity",
-      params: { userId: 1, username: "sj_zero" },
+      params: { userId: 1, username: "alice" },
     };
     mockGetUserThings
       .mockResolvedValueOnce({
@@ -293,7 +293,7 @@ describe("ProfileActivityScreen", () => {
     mockGetUserData
       .mockResolvedValueOnce({
         id: 1,
-        username: "sj_zero",
+        username: "alice",
         host: "lotide.fbxl.net",
         local: true,
         description: {
@@ -314,7 +314,7 @@ describe("ProfileActivityScreen", () => {
     await waitFor(() => {
       expect(screen.getByText("Parent post")).toBeTruthy();
       expect(screen.getByText("Useful reply")).toBeTruthy();
-      expect(screen.getByText("sj_zero")).toBeTruthy();
+      expect(screen.getByText("alice")).toBeTruthy();
     });
     expect(screen.getByTestId("profile-activity-list").props.refreshing)
       .toBe(false);
@@ -330,7 +330,7 @@ describe("ProfileActivityScreen", () => {
       expect(screen.getByText("Cannot load profile")).toBeTruthy();
       expect(screen.getByText("Parent post")).toBeTruthy();
       expect(screen.getByText("Useful reply")).toBeTruthy();
-      expect(screen.getByText("sj_zero")).toBeTruthy();
+      expect(screen.getByText("alice")).toBeTruthy();
       expect(screen.getByTestId("profile-activity-list").props.refreshing)
         .toBe(false);
     });
@@ -341,7 +341,7 @@ describe("ProfileActivityScreen", () => {
     const route = {
       key: "profile-activity",
       name: "ProfileActivity",
-      params: { userId: 1, username: "sj_zero" },
+      params: { userId: 1, username: "alice" },
     };
     const nextPage = deferred<{
       items: Record<string, unknown>[];
@@ -412,7 +412,7 @@ describe("ProfileActivityScreen", () => {
             title: "Second page post",
             author: {
               id: 1,
-              username: "sj_zero",
+              username: "alice",
               host: "lotide.fbxl.net",
               local: true,
             },

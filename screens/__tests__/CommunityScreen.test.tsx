@@ -112,7 +112,7 @@ describe("CommunityScreen", () => {
       apiUrl: "https://lotide.fbxl.net/api/unstable",
       login: {
         token: "token-1",
-        user: { id: 1, username: "sj_zero", host: "lotide.fbxl.net" },
+        user: { id: 1, username: "alice", host: "lotide.fbxl.net" },
       },
     });
     jest.spyOn(Alert, "alert").mockImplementation(() => {});

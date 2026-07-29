@@ -143,11 +143,11 @@ describe("ForgotPasswordScreen", () => {
 
     await changeTextAndFlush(
       screen.getByLabelText("Email address"),
-      "  sj_zero@example.com  ",
+      "  alice@example.com  ",
     );
     await waitFor(() => {
       expect(screen.getByLabelText("Email address").props.value).toBe(
-        "  sj_zero@example.com  ",
+        "  alice@example.com  ",
       );
     });
     await pressAndFlush(screen.getByRole("button", { name: "Send Reset Key" }));
@@ -157,7 +157,7 @@ describe("ForgotPasswordScreen", () => {
         {
           apiUrl: "https://lotide.fbxl.net/api/unstable",
         },
-        "sj_zero@example.com",
+        "alice@example.com",
       );
       expect(screen.getByLabelText("Reset key")).toBeTruthy();
     });

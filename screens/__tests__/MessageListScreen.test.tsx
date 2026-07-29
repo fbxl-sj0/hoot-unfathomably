@@ -70,7 +70,7 @@ const mockStore = configureStoreMock([]);
 
 const me: Profile = {
   id: 1,
-  username: "sj_zero",
+  username: "alice",
   host: "lotide.fbxl.net",
   local: true,
 };

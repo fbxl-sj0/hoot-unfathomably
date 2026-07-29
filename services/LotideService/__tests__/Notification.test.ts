@@ -262,7 +262,7 @@ describe("transformToFullNotification", () => {
           },
           recipient: {
             id: 1,
-            username: "sj_zero",
+            username: "alice",
             local: true,
             host: "lotide.example",
             is_bot: false,
@@ -310,7 +310,7 @@ describe("transformToFullNotification", () => {
           },
           recipient: {
             id: 1,
-            username: "sj_zero",
+            username: "alice",
             local: true,
             host: "lotide.example",
             is_bot: false,

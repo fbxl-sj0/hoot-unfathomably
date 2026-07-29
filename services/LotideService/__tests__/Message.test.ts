@@ -38,7 +38,7 @@ describe("Message service", () => {
       token: "token-1",
       user: {
         id: 1,
-        username: "sj_zero",
+        username: "alice",
         host: "lotide.fbxl.net",
       },
     },
@@ -57,7 +57,7 @@ describe("Message service", () => {
       },
       recipient: {
         id: 1,
-        username: "sj_zero",
+        username: "alice",
         local: true,
         host: "lotide.fbxl.net",
         remote_url: "https://lotide.fbxl.net/apub/users/1",

@@ -127,7 +127,7 @@ async function renderLogin(props: Partial<React.ComponentProps<typeof Login>> = 
 async function fillLoginForm(screen: LoginRenderResult) {
   await fireEvent.changeText(
     screen.getByPlaceholderText("Username"),
-    " sj_zero ",
+    " alice ",
   );
   await fireEvent.changeText(screen.getByPlaceholderText("Password"), "secret");
 }
@@ -160,7 +160,7 @@ describe("Login", () => {
     expect(mockLoginWithPassword).toHaveBeenCalledTimes(1);
     expect(mockLoginWithPassword).toHaveBeenCalledWith(
       "https://social.fbxl.net",
-      "sj_zero",
+      "alice",
       "secret",
     );
     expect(
@@ -172,13 +172,13 @@ describe("Login", () => {
       login.resolve({
         token: "token-1",
         account: {
-          acct: "sj_zero",
+          acct: "alice",
           avatar: "",
           display_name: "SJ",
           id: "1",
           note: "",
-          url: "https://social.fbxl.net/@sj_zero",
-          username: "sj_zero",
+          url: "https://social.fbxl.net/@alice",
+          username: "alice",
         },
       });
       await login.promise;
@@ -247,13 +247,13 @@ describe("Login", () => {
     login.resolve({
       token: "token-1",
       account: {
-        acct: "sj_zero",
+        acct: "alice",
         avatar: "",
         display_name: "SJ",
         id: "1",
         note: "",
-        url: "https://social.fbxl.net/@sj_zero",
-        username: "sj_zero",
+        url: "https://social.fbxl.net/@alice",
+        username: "alice",
       },
     });
 
@@ -301,11 +301,11 @@ describe("Login", () => {
     }));
     await fireEvent.changeText(
       screen.getByPlaceholderText("Email Address"),
-      " sj@example.com ",
+      " alice@example.test ",
     );
     await fireEvent.changeText(
       screen.getByPlaceholderText("Username"),
-      " sj_zero ",
+      " alice ",
     );
     await fireEvent.changeText(
       screen.getByPlaceholderText("Password"),
@@ -329,13 +329,13 @@ describe("Login", () => {
     mockLoginWithPassword.mockResolvedValue({
       token: "token-1",
       account: {
-        acct: "sj_zero",
+        acct: "alice",
         avatar: "",
         display_name: "SJ",
         id: "1",
         note: "",
-        url: "https://social.fbxl.net/@sj_zero",
-        username: "sj_zero",
+        url: "https://social.fbxl.net/@alice",
+        username: "alice",
       },
     });
     mockLotideContextStore.mockRejectedValue(new Error("storage full"));

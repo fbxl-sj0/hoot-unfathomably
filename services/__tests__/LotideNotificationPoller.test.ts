@@ -101,7 +101,7 @@ const ctx: LotideContext = {
     token: "token-1",
     user: {
       id: 1,
-      username: "sj_zero",
+      username: "alice",
       host: "lotide.fbxl.net",
       local: true,
     },
@@ -225,7 +225,7 @@ function privateMessageNotification(
       },
       recipient: {
         id: 1,
-        username: "sj_zero",
+        username: "alice",
         local: true,
         host: "lotide.fbxl.net",
       },
@@ -436,7 +436,7 @@ describe("LotideNotificationPoller", () => {
     const comment = commentSnapshot(
       22,
       "mira",
-      "@sj_zero this is the bit to look at.",
+      "@alice this is the bit to look at.",
     );
 
     mockGetNotifications.mockResolvedValue([]);
@@ -463,7 +463,7 @@ describe("LotideNotificationPoller", () => {
       expect.objectContaining({
         content: expect.objectContaining({
           title: "mira mentioned you in a comment",
-          body: "Mention thread: @sj_zero this is the bit to look at.",
+          body: "Mention thread: @alice this is the bit to look at.",
         }),
       }),
     );

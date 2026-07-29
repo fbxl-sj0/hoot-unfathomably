@@ -1,7 +1,7 @@
 {
   "main": "node_modules/expo/AppEntry.js",
   "typings": "types.d.ts",
-  "homepage": "https://github.com/fbxl-sj0/unfathomably-fe",
+  "homepage": "https://github.com/fbxl-sj0/hoot-unfathomably",
   "scripts": {
     "start": "expo start",
     "android": "./build_scripts/android-env.sh expo run:android",

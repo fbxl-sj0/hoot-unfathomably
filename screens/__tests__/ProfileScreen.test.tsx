@@ -115,7 +115,7 @@ describe("ProfileScreen", () => {
     mockLotideContextKVLogout.mockResolvedValue(undefined);
     mockGetUserData.mockResolvedValue({
       id: 1,
-      username: "sj_zero",
+      username: "alice",
       host: "lotide.fbxl.net",
       local: true,
       description: {
@@ -145,7 +145,7 @@ describe("ProfileScreen", () => {
             token: "token-1",
             user: {
               id: 1,
-              username: "sj_zero",
+              username: "alice",
               host: "lotide.fbxl.net",
             },
           },
@@ -179,7 +179,7 @@ describe("ProfileScreen", () => {
       );
     });
 
-    expect(screen.getByText("sj_zero")).toBeTruthy();
+    expect(screen.getByText("alice")).toBeTruthy();
     expect(screen.getByText("I use Lotide everywhere.")).toBeTruthy();
     expect(mockGetAllCommunities).toHaveBeenCalledWith(
       expect.objectContaining({ apiUrl: "https://lotide.fbxl.net/api/unstable" }),
@@ -239,7 +239,7 @@ describe("ProfileScreen", () => {
     mockGetUserData
       .mockResolvedValueOnce({
         id: 1,
-        username: "sj_zero",
+        username: "alice",
         host: "lotide.fbxl.net",
         local: true,
         description: {
@@ -263,7 +263,7 @@ describe("ProfileScreen", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("sj_zero")).toBeTruthy();
+      expect(screen.getByText("alice")).toBeTruthy();
       expect(screen.getByText("I use Lotide everywhere.")).toBeTruthy();
       expect(screen.getByText("lotide")).toBeTruthy();
     });
@@ -280,7 +280,7 @@ describe("ProfileScreen", () => {
       expect(mockGetAllCommunities).toHaveBeenCalledTimes(2);
       expect(screen.getByText("Cannot load profile")).toBeTruthy();
       expect(screen.getByText("Cannot load followed communities")).toBeTruthy();
-      expect(screen.getByText("sj_zero")).toBeTruthy();
+      expect(screen.getByText("alice")).toBeTruthy();
       expect(screen.getByText("I use Lotide everywhere.")).toBeTruthy();
       expect(screen.getByText("lotide")).toBeTruthy();
       expect(
@@ -313,7 +313,7 @@ describe("ProfileScreen", () => {
     );
     expect(navigation.navigate).toHaveBeenCalledWith("ProfileActivity", {
       userId: 1,
-      username: "sj_zero",
+      username: "alice",
     });
 
     await fireEvent.press(screen.getByRole("button", { name: "Moderation" }));
@@ -575,7 +575,7 @@ describe("ProfileScreen", () => {
 
     await waitFor(() => {
       expect(mockLotideContextKVRemove).toHaveBeenCalledWith(
-        "sj_zero@https://lotide.fbxl.net/api/unstable",
+        "alice@https://lotide.fbxl.net/api/unstable",
       );
       expect(mockLotideContextRemove).toHaveBeenCalledTimes(1);
     });
