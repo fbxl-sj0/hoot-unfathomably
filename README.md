@@ -79,6 +79,42 @@ the Android SDK. On macOS, run `npm run ios` for the iOS target. The app uses
 native Expo modules, so the local native project rather than Expo Go is the
 supported workflow.
 
+### Build on Debian or Ubuntu
+
+The [`build_scripts`](build_scripts) directory contains Linux helpers intended
+for Debian, Ubuntu, and related distributions:
+
+- [`debian-build-hoot-mobile-android.sh`](build_scripts/debian-build-hoot-mobile-android.sh)
+  locates Java 17, installs the project dependencies and Android SDK components,
+  runs Expo prebuild, and creates the release APK.
+- [`debian-test-hoot-mobile-android.sh`](build_scripts/debian-test-hoot-mobile-android.sh)
+  creates or starts an Android emulator and runs the install-and-launch smoke
+  test against the built APK.
+- [`android-env.sh`](build_scripts/android-env.sh) supplies the same Java and
+  Android SDK environment when running local Expo Android commands.
+
+Run the build and emulator smoke test from the repository root:
+
+```bash
+./build_scripts/debian-build-hoot-mobile-android.sh
+./build_scripts/debian-test-hoot-mobile-android.sh
+```
+
+The scripts do not run `apt-get` by default. On a machine where you want them
+to install the required Debian/Ubuntu host packages, opt in explicitly:
+
+```bash
+HOOT_MOBILE_INSTALL_SYSTEM_DEPS=1 \
+  ./build_scripts/debian-build-hoot-mobile-android.sh
+
+HOOT_MOBILE_INSTALL_EMULATOR_DEPS=1 \
+  ./build_scripts/debian-test-hoot-mobile-android.sh
+```
+
+The resulting APK is written under
+`android/app/build/outputs/apk/release/`. The `npm run build:android` command is
+a wrapper for the Debian/Ubuntu build helper.
+
 ## Validate a release
 
 Run the release gate before publishing a build:
