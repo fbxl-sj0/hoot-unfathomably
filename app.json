@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "Hoot Unfathomably",
+    "slug": "hoot-unfathomably",
+    "version": "0.2.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "hoot-unfathomably",
+    "userInterfaceStyle": "automatic",
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "userInterfaceStyle": "automatic",
+      "supportsTablet": true,
+      "bundleIdentifier": "org.brokenlamp.hootunfathomably"
+    },
+    "android": {
+      "versionCode": 3,
+      "userInterfaceStyle": "automatic",
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#1e2124"
+      },
+      "package": "org.brokenlamp.hootunfathomably"
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "095b592d-5c41-4395-a910-06e9c77b493b"
+      }
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-font",
+      "expo-background-task",
+      "expo-task-manager",
+      "expo-notifications",
+      "expo-system-ui",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#2c1324"
+        }
+      ],
+      "expo-status-bar",
+      "expo-web-browser",
+      "expo-secure-store"
+    ]
+  }
+}

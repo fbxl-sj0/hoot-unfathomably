@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "types": ["jest", "node"]
+  },
+  "include": [
+    "**/*.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "*.js"
+  ],
+  "files": [
+    "types.d.ts"
+  ],
+  "exclude": [
+    "android",
+    "dist",
+    "ios",
+    "node_modules",
+    "unfathomably"
+  ],
+  "extends": "expo/tsconfig.base"
+}

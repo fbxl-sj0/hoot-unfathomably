@@ -1,0 +1,26 @@
+Hoot Unfathomably Changelog
+===========================
+
+Version 0.2.0
+-------------
+
+Initial public Hoot Unfathomably release.
+
+- Reoriented the former Hoot Mobile client around the Unfathomably
+  Mastodon-compatible API and its group extensions.
+- Added Home, followed Group feed, Groups, New post, Notifications, and
+  Options navigation.
+- Added group discovery, membership, group timelines, and group posting.
+- Added account timelines, threaded status views, replies, reposts, quote
+  reposts, and server-supported emoji, positive, and negative reactions.
+- Added notification loading and navigation to the relevant discussion.
+- Added an accessible full-screen image viewer with zoom and pan support for
+  long or text-heavy images.
+- Stored authentication tokens in the platform secure store, migrated legacy
+  local tokens safely, and require HTTPS for remote servers.
+- Updated the mobile stack to Expo SDK 57, React 19, and React Native 0.86.
+- Added strict static checks, unit tests, Expo diagnostics, production
+  dependency auditing, Android release builds, and Android device smoke tests.
+
+The previous Lotide-focused changelog was intentionally retired with this
+project's public rename. This file records Hoot Unfathomably releases only.
