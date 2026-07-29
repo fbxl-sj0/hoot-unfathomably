@@ -66,6 +66,11 @@ const requiredContractFiles = [
   "screens/__tests__/FediverseOptionsScreen.test.tsx",
 ];
 const requiredFamilies = ["unfathomably", "rebased", "pleroma"];
+const degradedContractFiles = [
+  "components/__tests__/StatusCard.test.tsx",
+  "screens/__tests__/FediverseFeedScreens.test.tsx",
+  "services/__tests__/UnfathomablyService.test.ts",
+];
 
 function gitVisibleFiles() {
   const result = spawnSync(
@@ -149,6 +154,23 @@ for (const family of requiredFamilies) {
   if (!fixtureText.includes(`${family}: {`)) {
     problems.push(
       `testing/fediverseFixtures.ts: missing '${family}' server fixture`,
+    );
+  }
+}
+
+if (!fixtureText.includes("export function makeDegradedStatus(")) {
+  problems.push(
+    "testing/fediverseFixtures.ts: missing capability-degraded Rebased/Pleroma fixture",
+  );
+}
+
+for (const fileName of degradedContractFiles) {
+  const text = fs.existsSync(fileName)
+    ? fs.readFileSync(fileName, "utf8")
+    : "";
+  if (!text.includes("makeDegradedStatus")) {
+    problems.push(
+      `${fileName}: missing capability-degraded Rebased/Pleroma coverage`,
     );
   }
 }

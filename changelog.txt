@@ -4,6 +4,18 @@ Hoot Unfathomably Changelog
 Unreleased
 ----------
 
+Version 0.2.6
+-------------
+
+- Preserve baseline login, timelines, discussions, replies, reposts,
+  favourites, notifications, and profiles for capability-degraded Rebased and
+  Pleroma servers.
+- Detect quote reposts, emoji reactions, and thumbs-down support from status
+  response fields and hide only the unavailable extension controls.
+- Normalize unsupported group and reaction endpoints into clear degraded
+  states instead of displaying raw server errors.
+- Require degraded Rebased and Pleroma fixtures in the strict release gate.
+
 Version 0.2.5
 -------------
 

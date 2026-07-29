@@ -28,6 +28,7 @@ import UnfathomablyFeedScreen from "../UnfathomablyFeedScreen";
 import UnfathomablyGroupFeedScreen from "../UnfathomablyGroupFeedScreen";
 import {
   makeContext,
+  makeDegradedStatus,
   makeStatus,
 } from "../../testing/fediverseFixtures";
 
@@ -95,6 +96,30 @@ describe("Fediverse feed screens", () => {
     });
     expect(mockGetGroupTimeline).not.toHaveBeenCalled();
   });
+
+  test.each([
+    ["Rebased", "rebased"],
+    ["Pleroma", "pleroma"],
+  ] as const)(
+    "loads a capability-degraded %s home timeline",
+    async (_label, family) => {
+      mockCurrentContext = makeContext(family);
+      mockGetHomeTimeline.mockResolvedValue([
+        makeDegradedStatus(family, { id: `${family}-baseline-status` }),
+      ]);
+
+      const screen = await render(
+        <UnfathomablyFeedScreen navigation={{ navigate: jest.fn() }} />,
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(`status:${family}-baseline-status`),
+        ).toBeTruthy();
+      });
+      expect(mockGetGroupTimeline).not.toHaveBeenCalled();
+    },
+  );
 
   test("uses the Unfathomably group feed instead of substituting home posts", async () => {
     mockCurrentContext = makeContext("unfathomably");

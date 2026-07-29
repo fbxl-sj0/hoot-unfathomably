@@ -51,6 +51,8 @@ export type UnfathomablyStatus = {
   url?: string;
   in_reply_to_id?: string | null;
   in_reply_to_account_id?: string | null;
+  quote_id?: string | null;
+  quotes_count?: number;
   replies_count: number;
   reblogs_count: number;
   favourites_count: number;
@@ -59,11 +61,15 @@ export type UnfathomablyStatus = {
   disliked?: boolean;
   reblogged?: boolean;
   mentions?: UnfathomablyMention[];
-  emoji_reactions?: { name: string; count: number; me?: boolean; url?: string }[];
+  emoji_reactions?: { name: string; count: number; me?: boolean; url?: string }[] | null;
   pleroma?: {
-    emoji_reactions?: { name: string; count: number; me?: boolean; url?: string }[];
+    emoji_reactions?: { name: string; count: number; me?: boolean; url?: string }[] | null;
     in_reply_to_account_acct?: string | null;
     parent_visible?: boolean;
+    quote?: UnfathomablyStatus | null;
+    quote_id?: string | null;
+    quote_visible?: boolean;
+    quotes_count?: number;
   };
   sensitive: boolean;
   spoiler_text: string;
@@ -86,6 +92,12 @@ export type OAuthApplication = {
   client_secret: string;
 };
 type OAuthToken = { access_token: string };
+
+export type StatusCapabilities = {
+  dislike: boolean;
+  emojiReactions: boolean;
+  quote: boolean;
+};
 
 export const OAUTH_SCOPES = "read write follow push";
 export const STATUS_CONTEXT_REQUEST_TIMEOUT_MS = 120_000;
@@ -221,6 +233,34 @@ function query(params: Record<string, string | number | undefined>): string {
   }, new URLSearchParams());
   const value = search.toString();
   return value ? `?${value}` : "";
+}
+
+export function getStatusCapabilities(
+  status: UnfathomablyStatus,
+): StatusCapabilities {
+  return {
+    dislike:
+      typeof status.disliked === "boolean" ||
+      typeof status.dislikes_count === "number",
+    emojiReactions:
+      Array.isArray(status.emoji_reactions) ||
+      Array.isArray(status.pleroma?.emoji_reactions),
+    quote:
+      status.quote_id !== undefined ||
+      status.quotes_count !== undefined ||
+      status.pleroma?.quote !== undefined ||
+      status.pleroma?.quote_id !== undefined ||
+      status.pleroma?.quote_visible !== undefined ||
+      status.pleroma?.quotes_count !== undefined,
+  };
+}
+
+function rethrowUnavailableFeature(error: unknown, message: string): never {
+  const status = (error as Error & { status?: number })?.status;
+  if (status && [404, 405, 410, 501].includes(status)) {
+    throw new Error(message);
+  }
+  throw error;
 }
 
 export async function getInstance(serverUrl: string): Promise<{ title?: string; version?: string; description?: string }> {
@@ -360,10 +400,17 @@ export function getHomeTimeline(ctx: LotideContext, maxId?: string, scope: "home
 }
 
 export async function getGroupTimeline(ctx: LotideContext, maxId?: string) {
-  const statuses = await getHomeTimeline(ctx, maxId, "groups");
-  // A group timeline must never silently render ordinary home statuses if an
-  // instance returns a malformed aggregate response.
-  return statuses.filter(status => !!(status.group || status.reblog?.group));
+  try {
+    const statuses = await getHomeTimeline(ctx, maxId, "groups");
+    // A group timeline must never silently render ordinary home statuses if an
+    // instance returns a malformed aggregate response.
+    return statuses.filter(status => !!(status.group || status.reblog?.group));
+  } catch (error) {
+    rethrowUnavailableFeature(
+      error,
+      "Group timelines are not available on this server.",
+    );
+  }
 }
 
 export function getStatus(ctx: LotideContext, id: string) {
@@ -386,20 +433,34 @@ export function favouriteStatus(ctx: LotideContext, id: string, remove = false) 
   return request<UnfathomablyStatus>(ctx, `/api/v1/statuses/${encodeURIComponent(id)}/${remove ? "unfavourite" : "favourite"}`, { method: "POST" });
 }
 
-export function dislikeStatus(ctx: LotideContext, id: string, remove = false) {
-  return request<UnfathomablyStatus>(
-    ctx,
-    `/api/friendica/statuses/${encodeURIComponent(id)}/${remove ? "undislike" : "dislike"}`,
-    { method: "POST" },
-  );
+export async function dislikeStatus(ctx: LotideContext, id: string, remove = false) {
+  try {
+    return await request<UnfathomablyStatus>(
+      ctx,
+      `/api/friendica/statuses/${encodeURIComponent(id)}/${remove ? "undislike" : "dislike"}`,
+      { method: "POST" },
+    );
+  } catch (error) {
+    rethrowUnavailableFeature(
+      error,
+      "Thumbs-down reactions are not available on this server.",
+    );
+  }
 }
 
 export function reblogStatus(ctx: LotideContext, id: string, remove = false) {
   return request<UnfathomablyStatus>(ctx, `/api/v1/statuses/${encodeURIComponent(id)}/${remove ? "unreblog" : "reblog"}`, { method: "POST" });
 }
 
-export function reactToStatus(ctx: LotideContext, id: string, emoji: string, remove = false) {
-  return request<UnfathomablyStatus>(ctx, `/api/v1/pleroma/statuses/${encodeURIComponent(id)}/reactions/${encodeURIComponent(emoji)}`, { method: remove ? "DELETE" : "PUT" });
+export async function reactToStatus(ctx: LotideContext, id: string, emoji: string, remove = false) {
+  try {
+    return await request<UnfathomablyStatus>(ctx, `/api/v1/pleroma/statuses/${encodeURIComponent(id)}/reactions/${encodeURIComponent(emoji)}`, { method: remove ? "DELETE" : "PUT" });
+  } catch (error) {
+    rethrowUnavailableFeature(
+      error,
+      "Emoji reactions are not available on this server.",
+    );
+  }
 }
 
 export function createStatus(ctx: LotideContext, content: string, options: { inReplyToId?: string; quoteId?: string; groupId?: string; visibility?: string } = {}) {
@@ -415,16 +476,37 @@ export function createStatus(ctx: LotideContext, content: string, options: { inR
   });
 }
 
-export function getGroups(ctx: LotideContext, search = "") {
-  return request<UnfathomablyGroup[]>(ctx, `/api/v1/groups${query({ q: search })}`);
+export async function getGroups(ctx: LotideContext, search = "") {
+  try {
+    return await request<UnfathomablyGroup[]>(ctx, `/api/v1/groups${query({ q: search })}`);
+  } catch (error) {
+    rethrowUnavailableFeature(
+      error,
+      "Groups are not available on this server.",
+    );
+  }
 }
 
-export function getGroupStatuses(ctx: LotideContext, id: string, maxId?: string) {
-  return request<UnfathomablyStatus[]>(ctx, `/api/v1/groups/${encodeURIComponent(id)}/statuses${query({ limit: 30, max_id: maxId })}`);
+export async function getGroupStatuses(ctx: LotideContext, id: string, maxId?: string) {
+  try {
+    return await request<UnfathomablyStatus[]>(ctx, `/api/v1/groups/${encodeURIComponent(id)}/statuses${query({ limit: 30, max_id: maxId })}`);
+  } catch (error) {
+    rethrowUnavailableFeature(
+      error,
+      "Group discussions are not available on this server.",
+    );
+  }
 }
 
-export function joinGroup(ctx: LotideContext, id: string, leave = false) {
-  return request(ctx, `/api/v1/groups/${encodeURIComponent(id)}/${leave ? "leave" : "join"}`, { method: "POST" });
+export async function joinGroup(ctx: LotideContext, id: string, leave = false) {
+  try {
+    return await request(ctx, `/api/v1/groups/${encodeURIComponent(id)}/${leave ? "leave" : "join"}`, { method: "POST" });
+  } catch (error) {
+    rethrowUnavailableFeature(
+      error,
+      "Group membership is not available on this server.",
+    );
+  }
 }
 
 export function getNotifications(ctx: LotideContext, maxId?: string) {

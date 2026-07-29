@@ -127,6 +127,8 @@ export function makeStatus(
     url: `${server.origin}/notice/${family}-status-1`,
     in_reply_to_id: null,
     in_reply_to_account_id: null,
+    quote_id: null,
+    quotes_count: 0,
     replies_count: 2,
     reblogs_count: 3,
     favourites_count: 5,
@@ -143,6 +145,22 @@ export function makeStatus(
     media_attachments: [],
     ...overrides,
   };
+}
+
+export function makeDegradedStatus(
+  family: Extract<FediverseServerFamily, "rebased" | "pleroma">,
+  overrides: Partial<UnfathomablyStatus> = {},
+): UnfathomablyStatus {
+  return makeStatus(family, {
+    dislikes_count: undefined,
+    disliked: undefined,
+    emoji_reactions: undefined,
+    group: null,
+    pleroma: undefined,
+    quote_id: undefined,
+    quotes_count: undefined,
+    ...overrides,
+  });
 }
 
 export function makeNotification(

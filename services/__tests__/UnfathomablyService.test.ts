@@ -23,6 +23,7 @@ import {
   getInstance,
   getNotifications,
   getStatus,
+  getStatusCapabilities,
   getStatusContext,
   getSupportedServerUrl,
   joinGroup,
@@ -38,6 +39,7 @@ import {
 import {
   FEDIVERSE_SERVERS,
   makeContext,
+  makeDegradedStatus,
   makeNotification,
   makeStatus,
 } from "../../testing/fediverseFixtures";
@@ -292,6 +294,63 @@ describe("UnfathomablyService", () => {
     expect(mockFetch).toHaveBeenCalledWith(
       `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/timelines/groups?limit=30`,
       expect.any(Object),
+    );
+  });
+
+  test.each([
+    ["Rebased", "rebased"],
+    ["Pleroma", "pleroma"],
+  ] as const)(
+    "detects only baseline status capabilities for degraded %s responses",
+    (_label, family) => {
+      expect(getStatusCapabilities(makeDegradedStatus(family))).toEqual({
+        dislike: false,
+        emojiReactions: false,
+        quote: false,
+      });
+      expect(getStatusCapabilities(makeStatus(family))).toEqual({
+        dislike: true,
+        emojiReactions: true,
+        quote: true,
+      });
+    },
+  );
+
+  test("normalizes unsupported Pleroma group endpoints", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: async () => "{\"error\":\"Not found\"}",
+    });
+    const ctx = makeContext("pleroma");
+
+    await expect(getGroupTimeline(ctx)).rejects.toThrow(
+      "Group timelines are not available on this server.",
+    );
+    await expect(getGroups(ctx)).rejects.toThrow(
+      "Groups are not available on this server.",
+    );
+    await expect(getGroupStatuses(ctx, "missing")).rejects.toThrow(
+      "Group discussions are not available on this server.",
+    );
+    await expect(joinGroup(ctx, "missing")).rejects.toThrow(
+      "Group membership is not available on this server.",
+    );
+  });
+
+  test("normalizes unsupported optional reaction endpoints", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 501,
+      text: async () => "{\"error\":\"Not implemented\"}",
+    });
+    const ctx = makeContext("rebased");
+
+    await expect(dislikeStatus(ctx, "status-1")).rejects.toThrow(
+      "Thumbs-down reactions are not available on this server.",
+    );
+    await expect(reactToStatus(ctx, "status-1", "❤️")).rejects.toThrow(
+      "Emoji reactions are not available on this server.",
     );
   });
 

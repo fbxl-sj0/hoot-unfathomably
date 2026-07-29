@@ -29,6 +29,7 @@ import StatusCard, { getReplyAccount, stripHtml } from "../StatusCard";
 import * as UnfathomablyService from "../../services/UnfathomablyService";
 import {
   makeContext,
+  makeDegradedStatus,
   makeStatus,
 } from "../../testing/fediverseFixtures";
 
@@ -113,6 +114,42 @@ describe("StatusCard Fediverse contracts", () => {
       screen.getByRole("button", { name: "React with thumbs down" }),
     ).toBeTruthy();
   });
+
+  test.each([
+    ["Rebased", "rebased"],
+    ["Pleroma", "pleroma"],
+  ] as const)(
+    "keeps baseline %s actions while hiding unavailable extensions",
+    async (softwareName, family) => {
+      const screen = await render(
+        <StatusCard
+          status={makeDegradedStatus(family)}
+          ctx={makeContext(family)}
+          navigation={{ navigate: jest.fn() }}
+        />,
+      );
+
+      expect(screen.getByText(`${softwareName} Alice`)).toBeTruthy();
+      expect(
+        screen.getByRole("button", { name: "Reply to post" }),
+      ).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Repost" })).toBeTruthy();
+      expect(
+        screen.getByRole("button", { name: "React with thumbs up" }),
+      ).toBeTruthy();
+      expect(
+        screen.queryByRole("button", { name: "Quote repost" }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("button", {
+          name: "Choose an emoji reaction",
+        }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: "React with thumbs down" }),
+      ).toBeNull();
+    },
+  );
 
   test("opens Unfathomably group, reply, quote, and image destinations", async () => {
     const navigation = { navigate: jest.fn() };

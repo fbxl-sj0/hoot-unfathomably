@@ -9,6 +9,12 @@ group discussions, and the Mastodon-compatible features supported by
 It connects directly to an Unfathomably server. Compatible Pleroma and Rebased
 servers provide the normal timeline and discussion experience; group features
 appear when the server provides the Unfathomably-compatible group endpoints.
+Older or capability-degraded Rebased and Pleroma servers retain the shared
+Mastodon-compatible experience: login, home timeline, status discussions,
+replies, reposts, favourites, notifications, and account timelines. Optional
+quote, emoji, and negative-reaction controls appear only when the server's
+responses advertise the corresponding extension. Group screens use the group
+extension when present and show a clear unavailable state otherwise.
 
 ## Server login
 
@@ -133,10 +139,12 @@ dependency audit.
 
 The release suite uses canonical Unfathomably, Rebased, and Pleroma fixtures.
 It covers the Mastodon-compatible v1 API plus the group, quote-repost, and
-emoji-reaction extensions used by those server families. A strict contract
-check rejects retired service imports, old API routes, and old server-version
-matrices; the only retained pre-migration fixture verifies that existing users
-are moved safely away from an obsolete saved API URL.
+emoji-reaction extensions used by those server families. It also requires
+capability-degraded Rebased and Pleroma fixtures that omit every optional
+extension while preserving the baseline feed and discussion actions. A strict
+contract check rejects retired service imports, old API routes, and
+server-version branching; the only retained pre-migration fixture verifies
+that existing users are moved safely away from an obsolete saved API URL.
 
 Build and smoke-test the Android release APK:
 

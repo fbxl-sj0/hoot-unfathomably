@@ -68,6 +68,21 @@ describe("Fediverse test contracts", () => {
     expect(result.status).toBe(0);
   });
 
+  test("keeps capability-degraded server coverage in the release policy", () => {
+    const checker = fs.readFileSync(
+      path.join(projectRoot, "scripts/check-fediverse-test-contracts.js"),
+      "utf8",
+    );
+    const fixtures = fs.readFileSync(
+      path.join(projectRoot, "testing/fediverseFixtures.ts"),
+      "utf8",
+    );
+
+    expect(checker).toContain("degradedContractFiles");
+    expect(checker).toContain("makeDegradedStatus");
+    expect(fixtures).toContain("export function makeDegradedStatus(");
+  });
+
   test("rejects a retired service fixture", () => {
     const retiredServicePath = ["services", "LotideService"].join("/");
     fs.writeFileSync(

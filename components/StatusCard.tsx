@@ -35,6 +35,7 @@ export default function StatusCard({
   const account = visible.account;
   const group = visible.group || current.group;
   const replyAccount = getReplyAccount(visible);
+  const capabilities = Unfathomably.getStatusCapabilities(visible);
   const [emojiMenuOpen, setEmojiMenuOpen] = useState(false);
 
   async function toggleReblog() {
@@ -175,22 +176,26 @@ export default function StatusCard({
         >
           <Text style={[styles.actionText, { color: visible.reblogged ? theme.tint : theme.text }]}><Icon name="repeat-outline" size={22} /> {visible.reblogs_count || ""}</Text>
         </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Quote repost"
-          onPress={actionPress(() => openComposer({ quoteId: visible.id, groupId: group?.id, groupName: group?.display_name }))}
-          style={[styles.action, { backgroundColor: theme.secondaryBackground }]}
-        >
-          <Text style={styles.actionText}><Icon name="chatbox-ellipses-outline" size={22} /></Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Choose an emoji reaction"
-          onPress={actionPress(() => setEmojiMenuOpen(open => !open))}
-          style={[styles.action, emojiMenuOpen && { backgroundColor: theme.tint }]}
-        >
-          <Text style={[styles.actionText, emojiMenuOpen && { color: theme.background }]}><Icon name="happy-outline" size={23} /></Text>
-        </Pressable>
+        {capabilities.quote && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Quote repost"
+            onPress={actionPress(() => openComposer({ quoteId: visible.id, groupId: group?.id, groupName: group?.display_name }))}
+            style={[styles.action, { backgroundColor: theme.secondaryBackground }]}
+          >
+            <Text style={styles.actionText}><Icon name="chatbox-ellipses-outline" size={22} /></Text>
+          </Pressable>
+        )}
+        {capabilities.emojiReactions && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Choose an emoji reaction"
+            onPress={actionPress(() => setEmojiMenuOpen(open => !open))}
+            style={[styles.action, emojiMenuOpen && { backgroundColor: theme.tint }]}
+          >
+            <Text style={[styles.actionText, emojiMenuOpen && { color: theme.background }]}><Icon name="happy-outline" size={23} /></Text>
+          </Pressable>
+        )}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={visible.favourited ? "Remove thumbs up" : "React with thumbs up"}
@@ -199,15 +204,17 @@ export default function StatusCard({
         >
           <Text style={[styles.actionText, { color: visible.favourited ? theme.tint : theme.text }]}><Icon name="thumbs-up-outline" size={22} /> {visible.favourites_count || ""}</Text>
         </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={visible.disliked ? "Remove thumbs down" : "React with thumbs down"}
-          onPress={actionPress(() => { void toggleDislike(); })}
-          style={[styles.action, { backgroundColor: theme.secondaryBackground }]}
-        >
-          <Text style={[styles.actionText, { color: visible.disliked ? theme.tint : theme.text }]}><Icon name="thumbs-down-outline" size={22} /> {visible.dislikes_count || ""}</Text>
-        </Pressable>
-        {emojiMenuOpen && (
+        {capabilities.dislike && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={visible.disliked ? "Remove thumbs down" : "React with thumbs down"}
+            onPress={actionPress(() => { void toggleDislike(); })}
+            style={[styles.action, { backgroundColor: theme.secondaryBackground }]}
+          >
+            <Text style={[styles.actionText, { color: visible.disliked ? theme.tint : theme.text }]}><Icon name="thumbs-down-outline" size={22} /> {visible.dislikes_count || ""}</Text>
+          </Pressable>
+        )}
+        {capabilities.emojiReactions && emojiMenuOpen && (
           <View style={[styles.emojiMenu, { backgroundColor: theme.secondaryBackground }]}>
             {["❤️", "😂", "😮", "😢", "🔥", "🎉"].map(emoji => (
               <Pressable
