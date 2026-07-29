@@ -4,6 +4,9 @@ Hoot Unfathomably Changelog
 Unreleased
 ----------
 
+Version 0.2.3
+-------------
+
 - Added a one-time Android notification onboarding prompt after the first
   account becomes active, using the same permission, baseline, and background
   task checks as the Settings toggle.
