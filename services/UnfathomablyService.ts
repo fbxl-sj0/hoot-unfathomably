@@ -45,7 +45,9 @@ export type UnfathomablyStatus = {
   replies_count: number;
   reblogs_count: number;
   favourites_count: number;
+  dislikes_count?: number;
   favourited?: boolean;
+  disliked?: boolean;
   reblogged?: boolean;
   emoji_reactions?: { name: string; count: number; me?: boolean; url?: string }[];
   pleroma?: { emoji_reactions?: { name: string; count: number; me?: boolean; url?: string }[] };
@@ -368,6 +370,14 @@ export function getStatusContext(ctx: LotideContext, id: string) {
 
 export function favouriteStatus(ctx: LotideContext, id: string, remove = false) {
   return request<UnfathomablyStatus>(ctx, `/api/v1/statuses/${encodeURIComponent(id)}/${remove ? "unfavourite" : "favourite"}`, { method: "POST" });
+}
+
+export function dislikeStatus(ctx: LotideContext, id: string, remove = false) {
+  return request<UnfathomablyStatus>(
+    ctx,
+    `/api/friendica/statuses/${encodeURIComponent(id)}/${remove ? "undislike" : "dislike"}`,
+    { method: "POST" },
+  );
 }
 
 export function reblogStatus(ctx: LotideContext, id: string, remove = false) {

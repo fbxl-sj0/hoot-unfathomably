@@ -266,8 +266,11 @@ describe("Fediverse discussion screens", () => {
     );
 
     await fireEvent.press(screen.getByText(/Reply/));
-    expect(navigation.navigate).toHaveBeenCalledWith("NewPostScreen", {
-      inReplyToId: current.id,
+    expect(navigation.navigate).toHaveBeenCalledWith("Root", {
+      screen: "NewPostScreen",
+      params: {
+        inReplyToId: current.id,
+      },
     });
   });
 

@@ -13,6 +13,7 @@
 import {
   buildOAuthAuthorizationUrl,
   createStatus,
+  dislikeStatus,
   favouriteStatus,
   getAccountStatuses,
   getGroups,
@@ -350,6 +351,7 @@ describe("UnfathomablyService", () => {
         json: async () => ({ ancestors: [], descendants: [] }),
       })
       .mockResolvedValueOnce({ ok: true, json: async () => status })
+      .mockResolvedValueOnce({ ok: true, json: async () => status })
       .mockResolvedValueOnce({ ok: true, json: async () => [notification] })
       .mockResolvedValueOnce({ ok: true, json: async () => [status] });
     const ctx = makeContext("pleroma");
@@ -358,6 +360,7 @@ describe("UnfathomablyService", () => {
     await getStatus(ctx, "status/one");
     await getStatusContext(ctx, "status/one");
     await favouriteStatus(ctx, "status/one");
+    await dislikeStatus(ctx, "status/one");
     await getNotifications(ctx, "older");
     await getAccountStatuses(ctx, "account/one", "older");
 
@@ -366,6 +369,7 @@ describe("UnfathomablyService", () => {
       `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/statuses/status%2Fone`,
       `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/statuses/status%2Fone/context`,
       `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/statuses/status%2Fone/favourite`,
+      `${FEDIVERSE_SERVERS.pleroma.origin}/api/friendica/statuses/status%2Fone/dislike`,
       `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/notifications?limit=30&max_id=older`,
       `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/accounts/account%2Fone/statuses?limit=30&max_id=older`,
     ]);

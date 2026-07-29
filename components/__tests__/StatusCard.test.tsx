@@ -22,6 +22,7 @@
 */
 
 import * as React from "react";
+import { Alert } from "react-native";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import StatusCard, { stripHtml } from "../StatusCard";
@@ -48,11 +49,21 @@ jest.mock("../../services/UnfathomablyService", () => {
   return {
     __esModule: true,
     ...actual,
+    dislikeStatus: jest.fn(),
+    favouriteStatus: jest.fn(),
     reactToStatus: jest.fn(),
     reblogStatus: jest.fn(),
   };
 });
 
+const mockDislikeStatus =
+  UnfathomablyService.dislikeStatus as jest.MockedFunction<
+    typeof UnfathomablyService.dislikeStatus
+  >;
+const mockFavouriteStatus =
+  UnfathomablyService.favouriteStatus as jest.MockedFunction<
+    typeof UnfathomablyService.favouriteStatus
+  >;
 const mockReactToStatus =
   UnfathomablyService.reactToStatus as jest.MockedFunction<
     typeof UnfathomablyService.reactToStatus
@@ -65,6 +76,11 @@ const mockReblogStatus =
 describe("StatusCard Fediverse contracts", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   test.each([
@@ -134,20 +150,26 @@ describe("StatusCard Fediverse contracts", () => {
       screen.getByRole("button", { name: "Reply to post" }),
       { stopPropagation: jest.fn() },
     );
-    expect(navigation.navigate).toHaveBeenCalledWith("NewPostScreen", {
-      groupId: "unfathomably-group-1",
-      groupName: "Unfathomably Test Group",
-      inReplyToId: "unfathomably-status-1",
+    expect(navigation.navigate).toHaveBeenCalledWith("Root", {
+      screen: "NewPostScreen",
+      params: {
+        groupId: "unfathomably-group-1",
+        groupName: "Unfathomably Test Group",
+        inReplyToId: "unfathomably-status-1",
+      },
     });
 
     await fireEvent.press(
       screen.getByRole("button", { name: "Quote repost" }),
       { stopPropagation: jest.fn() },
     );
-    expect(navigation.navigate).toHaveBeenCalledWith("NewPostScreen", {
-      groupId: "unfathomably-group-1",
-      groupName: "Unfathomably Test Group",
-      quoteId: "unfathomably-status-1",
+    expect(navigation.navigate).toHaveBeenCalledWith("Root", {
+      screen: "NewPostScreen",
+      params: {
+        groupId: "unfathomably-group-1",
+        groupName: "Unfathomably Test Group",
+        quoteId: "unfathomably-status-1",
+      },
     });
 
     await fireEvent.press(
@@ -161,18 +183,18 @@ describe("StatusCard Fediverse contracts", () => {
     });
   });
 
-  test("uses the Pleroma reaction extension and removes an existing reaction", async () => {
+  test("uses the Pleroma reaction extension and removes an existing emoji", async () => {
     const updated = makeStatus("pleroma", {
       emoji_reactions: undefined,
       pleroma: {
-        emoji_reactions: [{ name: "👍", count: 1, me: false }],
+        emoji_reactions: [{ name: "❤️", count: 1, me: false }],
       },
     });
     mockReactToStatus.mockResolvedValue(updated);
     const status = makeStatus("pleroma", {
       emoji_reactions: undefined,
       pleroma: {
-        emoji_reactions: [{ name: "👍", count: 2, me: true }],
+        emoji_reactions: [{ name: "❤️", count: 2, me: true }],
       },
     });
     const screen = await render(
@@ -184,7 +206,11 @@ describe("StatusCard Fediverse contracts", () => {
     );
 
     await fireEvent.press(
-      screen.getByRole("button", { name: "React with thumbs up" }),
+      screen.getByRole("button", { name: "Choose an emoji reaction" }),
+      { stopPropagation: jest.fn() },
+    );
+    await fireEvent.press(
+      screen.getByRole("button", { name: "React with ❤️" }),
       { stopPropagation: jest.fn() },
     );
 
@@ -192,8 +218,84 @@ describe("StatusCard Fediverse contracts", () => {
       expect(mockReactToStatus).toHaveBeenCalledWith(
         makeContext("pleroma"),
         "pleroma-status-1",
-        "👍",
+        "❤️",
         true,
+      );
+    });
+  });
+
+  test("uses favourite and dislike endpoints for thumbs up and down", async () => {
+    mockFavouriteStatus.mockResolvedValue(
+      makeStatus("rebased", {
+        favourited: true,
+        favourites_count: 6,
+      }),
+    );
+    mockDislikeStatus.mockResolvedValue(
+      makeStatus("rebased", {
+        disliked: true,
+        dislikes_count: 2,
+      }),
+    );
+    const context = makeContext("rebased");
+    const screen = await render(
+      <StatusCard
+        status={makeStatus("rebased")}
+        ctx={context}
+        navigation={{ navigate: jest.fn() }}
+      />,
+    );
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "React with thumbs up" }),
+      { stopPropagation: jest.fn() },
+    );
+    await waitFor(() => {
+      expect(mockFavouriteStatus).toHaveBeenCalledWith(
+        context,
+        "rebased-status-1",
+        false,
+      );
+      expect(
+        screen.getByRole("button", { name: "Remove thumbs up" }),
+      ).toBeTruthy();
+    });
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "React with thumbs down" }),
+      { stopPropagation: jest.fn() },
+    );
+    await waitFor(() => {
+      expect(mockDislikeStatus).toHaveBeenCalledWith(
+        context,
+        "rebased-status-1",
+        false,
+      );
+      expect(
+        screen.getByRole("button", { name: "Remove thumbs down" }),
+      ).toBeTruthy();
+    });
+  });
+
+  test("reports a failed status action instead of silently doing nothing", async () => {
+    mockFavouriteStatus.mockRejectedValue(new Error("permission denied"));
+    const screen = await render(
+      <StatusCard
+        status={makeStatus("unfathomably")}
+        ctx={makeContext("unfathomably")}
+        navigation={{ navigate: jest.fn() }}
+      />,
+    );
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "React with thumbs up" }),
+      { stopPropagation: jest.fn() },
+    );
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "Could not add thumbs up",
+        "permission denied",
       );
     });
   });

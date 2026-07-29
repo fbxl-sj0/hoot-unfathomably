@@ -11,11 +11,12 @@
 
 import Icon from "@expo/vector-icons/Ionicons";
 import React, { useState } from "react";
-import { Image, Pressable, StyleSheet } from "react-native";
+import { Alert, Image, Pressable, StyleSheet } from "react-native";
 
 import { Text, View } from "./Themed";
 import useTheme from "../hooks/useTheme";
 import * as Unfathomably from "../services/UnfathomablyService";
+import { getErrorMessage } from "../utils/error";
 
 export default function StatusCard({
   status,
@@ -39,8 +40,34 @@ export default function StatusCard({
     try {
       const next = await Unfathomably.reblogStatus(ctx, visible.id, !!visible.reblogged);
       setCurrent(next);
-    } catch {
-      // Leave the server state visible until a successful response is received.
+    } catch (error) {
+      Alert.alert("Could not repost", getErrorMessage(error));
+    }
+  }
+
+  async function toggleFavourite() {
+    try {
+      const next = await Unfathomably.favouriteStatus(
+        ctx,
+        visible.id,
+        !!visible.favourited,
+      );
+      setCurrent(next);
+    } catch (error) {
+      Alert.alert("Could not add thumbs up", getErrorMessage(error));
+    }
+  }
+
+  async function toggleDislike() {
+    try {
+      const next = await Unfathomably.dislikeStatus(
+        ctx,
+        visible.id,
+        !!visible.disliked,
+      );
+      setCurrent(next);
+    } catch (error) {
+      Alert.alert("Could not add thumbs down", getErrorMessage(error));
     }
   }
 
@@ -51,14 +78,20 @@ export default function StatusCard({
       const next = await Unfathomably.reactToStatus(ctx, visible.id, emoji, ownReaction);
       setCurrent(next);
       setEmojiMenuOpen(false);
-    } catch {
-      // A failed reaction should not look as if it was sent.
+    } catch (error) {
+      Alert.alert("Could not add emoji reaction", getErrorMessage(error));
     }
   }
 
   const actionPress = (callback: () => void) => (event: { stopPropagation: () => void }) => {
     event.stopPropagation();
     callback();
+  };
+  const openComposer = (params: Record<string, unknown>) => {
+    navigation.navigate("Root", {
+      screen: "NewPostScreen",
+      params,
+    });
   };
 
   return (
@@ -106,7 +139,7 @@ export default function StatusCard({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Reply to post"
-          onPress={actionPress(() => navigation.navigate("NewPostScreen", { inReplyToId: visible.id, groupId: group?.id, groupName: group?.display_name }))}
+          onPress={actionPress(() => openComposer({ inReplyToId: visible.id, groupId: group?.id, groupName: group?.display_name }))}
           style={[styles.action, { backgroundColor: theme.secondaryBackground }]}
         >
           <Text style={styles.actionText}><Icon name="arrow-undo-outline" size={22} /> {visible.replies_count || ""}</Text>
@@ -122,7 +155,7 @@ export default function StatusCard({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Quote repost"
-          onPress={actionPress(() => navigation.navigate("NewPostScreen", { quoteId: visible.id, groupId: group?.id, groupName: group?.display_name }))}
+          onPress={actionPress(() => openComposer({ quoteId: visible.id, groupId: group?.id, groupName: group?.display_name }))}
           style={[styles.action, { backgroundColor: theme.secondaryBackground }]}
         >
           <Text style={styles.actionText}><Icon name="chatbox-ellipses-outline" size={22} /></Text>
@@ -137,19 +170,19 @@ export default function StatusCard({
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="React with thumbs up"
-          onPress={actionPress(() => { void reactWithEmoji("👍"); })}
+          accessibilityLabel={visible.favourited ? "Remove thumbs up" : "React with thumbs up"}
+          onPress={actionPress(() => { void toggleFavourite(); })}
           style={[styles.action, { backgroundColor: theme.secondaryBackground }]}
         >
-          <Text style={styles.actionText}><Icon name="thumbs-up-outline" size={22} /></Text>
+          <Text style={[styles.actionText, { color: visible.favourited ? theme.tint : theme.text }]}><Icon name="thumbs-up-outline" size={22} /> {visible.favourites_count || ""}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="React with thumbs down"
-          onPress={actionPress(() => { void reactWithEmoji("👎"); })}
+          accessibilityLabel={visible.disliked ? "Remove thumbs down" : "React with thumbs down"}
+          onPress={actionPress(() => { void toggleDislike(); })}
           style={[styles.action, { backgroundColor: theme.secondaryBackground }]}
         >
-          <Text style={styles.actionText}><Icon name="thumbs-down-outline" size={22} /></Text>
+          <Text style={[styles.actionText, { color: visible.disliked ? theme.tint : theme.text }]}><Icon name="thumbs-down-outline" size={22} /> {visible.dislikes_count || ""}</Text>
         </Pressable>
         {emojiMenuOpen && (
           <View style={[styles.emojiMenu, { backgroundColor: theme.secondaryBackground }]}>

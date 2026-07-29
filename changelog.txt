@@ -11,6 +11,10 @@ Version 0.2.4
   a server returns an exceptionally large unpaginated status context.
 - Load the selected status independently, keep context timeout and retry state
   non-blocking, and virtualize a bounded set of nearby discussion statuses.
+- Fixed reply, quote repost, and group-compose navigation from root discussion
+  screens.
+- Use the server favourite and dislike actions for thumbs up and thumbs down,
+  and show actionable errors when repost or reaction requests fail.
 
 Version 0.2.3
 -------------

@@ -184,8 +184,11 @@ export default function StatusThreadScreen({
                 <Pressable
                   accessibilityRole="button"
                   onPress={() =>
-                    navigation.navigate("NewPostScreen", {
-                      inReplyToId: status.id,
+                    navigation.navigate("Root", {
+                      screen: "NewPostScreen",
+                      params: {
+                        inReplyToId: status.id,
+                      },
                     })
                   }
                 >

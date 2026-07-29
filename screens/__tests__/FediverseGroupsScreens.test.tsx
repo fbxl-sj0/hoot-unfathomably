@@ -208,9 +208,12 @@ describe("Fediverse group screens", () => {
     await fireEvent.press(
       screen.getByRole("button", { name: "Write to group" }),
     );
-    expect(navigation.navigate).toHaveBeenCalledWith("NewPostScreen", {
-      groupId: group.id,
-      groupName: group.display_name,
+    expect(navigation.navigate).toHaveBeenCalledWith("Root", {
+      screen: "NewPostScreen",
+      params: {
+        groupId: group.id,
+        groupName: group.display_name,
+      },
     });
   });
 
