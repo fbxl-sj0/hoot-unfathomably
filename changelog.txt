@@ -4,6 +4,14 @@ Hoot Unfathomably Changelog
 Unreleased
 ----------
 
+Version 0.2.5
+-------------
+
+- Mark replies in every feed with a tappable parent-context row.
+- Show the replied-to account using Pleroma/Rebased metadata or the standard
+  Mastodon mentions list, with a clear conversation fallback when the server
+  omits the account handle.
+
 Version 0.2.4
 -------------
 

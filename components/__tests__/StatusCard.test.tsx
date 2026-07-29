@@ -25,7 +25,7 @@ import * as React from "react";
 import { Alert } from "react-native";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
-import StatusCard, { stripHtml } from "../StatusCard";
+import StatusCard, { getReplyAccount, stripHtml } from "../StatusCard";
 import * as UnfathomablyService from "../../services/UnfathomablyService";
 import {
   makeContext,
@@ -183,6 +183,81 @@ describe("StatusCard Fediverse contracts", () => {
     });
   });
 
+  test("marks a Pleroma reply and opens its parent post", async () => {
+    const navigation = { navigate: jest.fn() };
+    const status = makeStatus("pleroma", {
+      in_reply_to_id: "pleroma-parent-1",
+      in_reply_to_account_id: "pleroma-parent-account",
+      pleroma: {
+        in_reply_to_account_acct: "parent@pleroma.example",
+        parent_visible: true,
+      },
+    });
+    const screen = await render(
+      <StatusCard
+        status={status}
+        ctx={makeContext("pleroma")}
+        navigation={navigation}
+      />,
+    );
+
+    expect(
+      screen.getByText("Replying to @parent@pleroma.example"),
+    ).toBeTruthy();
+
+    await fireEvent.press(
+      screen.getByRole("button", {
+        name: "Open post this replies to by @parent@pleroma.example",
+      }),
+      { stopPropagation: jest.fn() },
+    );
+
+    expect(navigation.navigate).toHaveBeenCalledWith("Status", {
+      statusId: "pleroma-parent-1",
+    });
+  });
+
+  test("uses standard Mastodon mention metadata for reply context", async () => {
+    const status = makeStatus("rebased", {
+      in_reply_to_id: "rebased-parent-1",
+      in_reply_to_account_id: "rebased-parent-account",
+      mentions: [
+        {
+          id: "rebased-parent-account",
+          username: "parent",
+          acct: "parent@remote.example",
+          url: "https://remote.example/@parent",
+        },
+      ],
+    });
+    const screen = await render(
+      <StatusCard
+        status={status}
+        ctx={makeContext("rebased")}
+        navigation={{ navigate: jest.fn() }}
+      />,
+    );
+
+    expect(
+      screen.getByText("Replying to @parent@remote.example"),
+    ).toBeTruthy();
+  });
+
+  test("still identifies a reply when the server omits its parent handle", async () => {
+    const screen = await render(
+      <StatusCard
+        status={makeStatus("unfathomably", {
+          in_reply_to_id: "unfathomably-parent-1",
+          in_reply_to_account_id: "unfathomably-parent-account",
+        })}
+        ctx={makeContext("unfathomably")}
+        navigation={{ navigate: jest.fn() }}
+      />,
+    );
+
+    expect(screen.getByText("Reply in conversation")).toBeTruthy();
+  });
+
   test("uses the Pleroma reaction extension and removes an existing emoji", async () => {
     const updated = makeStatus("pleroma", {
       emoji_reactions: undefined,
@@ -335,6 +410,16 @@ describe("StatusCard Fediverse contracts", () => {
     expect(
       stripHtml("<p>Unfathomably &amp; Pleroma<br>Rebased &#128077;</p>"),
     ).toBe("Unfathomably & Pleroma\nRebased 👍");
+  });
+
+  test("normalizes reply handles from compatible extensions", () => {
+    expect(
+      getReplyAccount(
+        makeStatus("pleroma", {
+          pleroma: { in_reply_to_account_acct: "@parent@remote.example" },
+        }),
+      ),
+    ).toBe("parent@remote.example");
   });
 });
 

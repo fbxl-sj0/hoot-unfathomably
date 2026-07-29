@@ -34,6 +34,7 @@ export default function StatusCard({
   const visible = current.reblog || current;
   const account = visible.account;
   const group = visible.group || current.group;
+  const replyAccount = getReplyAccount(visible);
   const [emojiMenuOpen, setEmojiMenuOpen] = useState(false);
 
   async function toggleReblog() {
@@ -114,6 +115,28 @@ export default function StatusCard({
         </View>
         <Text secondary>{new Date(visible.created_at).toLocaleDateString()}</Text>
       </View>
+      {!!visible.in_reply_to_id && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            replyAccount
+              ? `Open post this replies to by @${replyAccount}`
+              : "Open post this replies to"
+          }
+          onPress={event => {
+            event.stopPropagation();
+            navigation.navigate("Status", {
+              statusId: visible.in_reply_to_id,
+            });
+          }}
+          style={styles.replyContext}
+        >
+          <Icon name="arrow-undo-outline" size={16} color={theme.secondaryText} />
+          <Text secondary numberOfLines={1} style={styles.replyContextText}>
+            {replyAccount ? `Replying to @${replyAccount}` : "Reply in conversation"}
+          </Text>
+        </Pressable>
+      )}
       {!!group && (
         <Pressable
           accessibilityRole="button"
@@ -213,6 +236,18 @@ export function stripHtml(html: string): string {
   ).trim();
 }
 
+export function getReplyAccount(
+  status: Unfathomably.UnfathomablyStatus,
+): string | undefined {
+  const pleromaAccount = status.pleroma?.in_reply_to_account_acct?.trim();
+  if (pleromaAccount) return pleromaAccount.replace(/^@/, "");
+
+  const mentionedAccount = status.mentions?.find(
+    mention => mention.id === status.in_reply_to_account_id,
+  )?.acct.trim();
+  return mentionedAccount?.replace(/^@/, "") || undefined;
+}
+
 function decodeHtmlEntities(value: string): string {
   const namedEntities: Record<string, string> = {
     amp: "&",
@@ -249,6 +284,8 @@ const styles = StyleSheet.create({
   avatar: { height: 40, width: 40, borderRadius: 20 },
   author: { flex: 1 },
   displayName: { fontWeight: "700", fontSize: 16 },
+  replyContext: { alignItems: "center", flexDirection: "row", gap: 5, marginLeft: 49, marginTop: 7 },
+  replyContextText: { flex: 1, fontSize: 13 },
   group: { alignSelf: "flex-start", flexDirection: "row", gap: 5, alignItems: "center", borderRadius: 14, paddingHorizontal: 9, paddingVertical: 5, marginTop: 12 },
   spoiler: { fontWeight: "700", marginTop: 12 },
   content: { fontSize: 16, lineHeight: 22, marginTop: 12 },

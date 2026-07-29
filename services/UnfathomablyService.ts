@@ -26,6 +26,13 @@ export type UnfathomablyAccount = {
   url: string;
 };
 
+export type UnfathomablyMention = {
+  id: string;
+  username: string;
+  acct: string;
+  url: string;
+};
+
 export type UnfathomablyGroup = {
   id: string;
   display_name: string;
@@ -42,6 +49,8 @@ export type UnfathomablyStatus = {
   created_at: string;
   content: string;
   url?: string;
+  in_reply_to_id?: string | null;
+  in_reply_to_account_id?: string | null;
   replies_count: number;
   reblogs_count: number;
   favourites_count: number;
@@ -49,8 +58,13 @@ export type UnfathomablyStatus = {
   favourited?: boolean;
   disliked?: boolean;
   reblogged?: boolean;
+  mentions?: UnfathomablyMention[];
   emoji_reactions?: { name: string; count: number; me?: boolean; url?: string }[];
-  pleroma?: { emoji_reactions?: { name: string; count: number; me?: boolean; url?: string }[] };
+  pleroma?: {
+    emoji_reactions?: { name: string; count: number; me?: boolean; url?: string }[];
+    in_reply_to_account_acct?: string | null;
+    parent_visible?: boolean;
+  };
   sensitive: boolean;
   spoiler_text: string;
   account: UnfathomablyAccount;
