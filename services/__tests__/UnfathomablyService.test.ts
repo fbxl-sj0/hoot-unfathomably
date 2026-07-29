@@ -14,6 +14,7 @@ import {
   createStatus,
   getGroupTimeline,
   getHomeTimeline,
+  loginWithPassword,
   normalizeServerUrl,
   reactToStatus,
   reblogStatus,
@@ -35,6 +36,56 @@ describe("UnfathomablyService", () => {
   test("refuses to send credentials or tokens to a remote plaintext server", async () => {
     await expect(getHomeTimeline({ apiUrl: "http://example.test", login: { token: "secret" } })).rejects.toThrow("must use HTTPS");
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test("registers an OAuth app, exchanges credentials, and verifies the account", async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          client_id: "client-id",
+          client_secret: "client-secret",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ access_token: "access-token" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: "1", username: "alice" }),
+      });
+
+    await expect(
+      loginWithPassword("https://example.test", "alice", "password"),
+    ).resolves.toMatchObject({
+      token: "access-token",
+      account: { id: "1", username: "alice" },
+    });
+
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      1,
+      "https://example.test/api/v1/apps",
+      expect.objectContaining({ method: "POST" }),
+    );
+    const tokenBody = new URLSearchParams(mockFetch.mock.calls[1][1].body);
+    expect(Object.fromEntries(tokenBody.entries())).toEqual({
+      grant_type: "password",
+      client_id: "client-id",
+      client_secret: "client-secret",
+      username: "alice",
+      password: "password",
+      scope: "read write follow push",
+    });
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      3,
+      "https://example.test/api/v1/accounts/verify_credentials",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
   });
 
   test("loads the authenticated home timeline with a Mastodon cursor", async () => {

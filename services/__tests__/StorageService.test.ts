@@ -46,6 +46,9 @@ describe("StorageService", () => {
     await expect(AsyncStorage.getItem("@lotide_ctx")).resolves.not.toContain("sensitive-token");
     await expect(lotideContext.query()).resolves.toEqual(context);
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith(expect.stringContaining("hoot.auth.token."), "sensitive-token");
+    const secureStoreKey = (SecureStore.setItemAsync as jest.Mock).mock.calls.at(-1)?.[0] as string;
+    expect(secureStoreKey).toMatch(/^[A-Za-z0-9._-]+$/);
+    expect(secureStoreKey).not.toContain("%");
   });
 
   test("migrates a legacy plaintext token into Secure Store on read", async () => {

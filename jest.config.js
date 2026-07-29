@@ -44,8 +44,8 @@ module.exports = {
   setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
   testPathIgnorePatterns: [
     "/unfathomably/",
-    // These suites assert the retired Lotide login/instance contract.
-    "/components/__tests__/(HostList|Login)\\.test\\.tsx$",
+    // This suite still asserts the retired Lotide instance contract.
+    "/components/__tests__/HostList\\.test\\.tsx$",
     "/__tests__/App\\.test\\.tsx$",
   ],
   moduleNameMapper: {

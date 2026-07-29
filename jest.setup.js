@@ -103,14 +103,30 @@ jest.mock("expo-linking", () => ({
 
 jest.mock("expo-secure-store", () => {
   const values = new Map();
+  const validateKey = key => {
+    if (
+      typeof key !== "string" ||
+      !/^[A-Za-z0-9._-]+$/.test(key)
+    ) {
+      throw new Error(
+        'Invalid key provided to SecureStore. Keys must not be empty and contain only alphanumeric characters, ".", "-", and "_".',
+      );
+    }
+  };
+
   return {
     __reset: () => values.clear(),
     deleteItemAsync: jest.fn(key => {
+      validateKey(key);
       values.delete(key);
       return Promise.resolve();
     }),
-    getItemAsync: jest.fn(key => Promise.resolve(values.get(key) || null)),
+    getItemAsync: jest.fn(key => {
+      validateKey(key);
+      return Promise.resolve(values.get(key) || null);
+    }),
     setItemAsync: jest.fn((key, value) => {
+      validateKey(key);
       values.set(key, value);
       return Promise.resolve();
     }),

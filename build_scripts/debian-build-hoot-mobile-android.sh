@@ -166,10 +166,27 @@ normalize_generated_android_xml() {
 
 normalize_generated_android_gradle() {
   local app_gradle="$PROJECT_ROOT/android/app/build.gradle"
+  local gradle_properties="$PROJECT_ROOT/android/gradle.properties"
   local root_gradle="$PROJECT_ROOT/android/build.gradle"
+  local settings_gradle="$PROJECT_ROOT/android/settings.gradle"
 
   if [ -f "$root_gradle" ]; then
     perl -0pi -e "s/maven \\{ url '([^']+)' \\}/maven { url = uri('\\1') }/g" "$root_gradle"
+  fi
+
+  if [ -f "$settings_gradle" ]; then
+    perl -0pi -e 's/[ \t]+$//mg' "$settings_gradle"
+  fi
+
+  if [ -f "$gradle_properties" ]; then
+    # Expo's default can exhaust metaspace during a clean four-ABI release.
+    # Keep the release builder's previously validated memory ceiling.
+    perl -0pi -e '
+      s/^org\.gradle\.jvmargs=.*$/org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError/m;
+    ' "$gradle_properties"
+    if [ -s "$gradle_properties" ] && [ -n "$(tail -c 1 "$gradle_properties")" ]; then
+      printf "\n" >> "$gradle_properties"
+    fi
   fi
 
   if [ ! -f "$app_gradle" ]; then

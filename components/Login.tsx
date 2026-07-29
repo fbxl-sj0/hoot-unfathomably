@@ -112,9 +112,8 @@ export default function Login(props: LoginProps) {
       );
     } catch (e) {
       alertIfMounted("Failed to register", getErrorMessage(e));
-      if (isMountedRef.current) {
-        setIsSubmitting(false);
-      }
+    } finally {
+      if (isMountedRef.current) setIsSubmitting(false);
     }
   }
 

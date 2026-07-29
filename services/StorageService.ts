@@ -29,6 +29,19 @@ const ACTIVE_CONTEXT_KEY = "@lotide_ctx";
 const ACCOUNT_CONTEXTS_KEY = "@lotide_ctx_arr";
 const TOKEN_KEY_PREFIX = "hoot.auth.token.";
 
+/*
+    Expo Secure Store only accepts alphanumeric characters plus ".", "-", and
+    "_" in keys. Encoding the server URL with encodeURIComponent is not enough:
+    its "%" escape marker is rejected by the native module. Fixed-width
+    code-point hex is deterministic, collision-free, and uses only accepted
+    characters.
+*/
+function secureStoreKeyFragment(value: string): string {
+  return Array.from(value, character =>
+    character.codePointAt(0)!.toString(16).padStart(6, "0"),
+  ).join("");
+}
+
 /* ------------------------------------------------------------------------- */
 /* JSON Storage Helpers                                                      */
 /* ------------------------------------------------------------------------- */
@@ -100,7 +113,8 @@ function contextTokenKey(ctx: LotideContext): string | undefined {
 
   const user = ctx.login?.user as unknown as { id?: string | number; username?: string } | undefined;
   const identity = user?.username || (user?.id !== undefined ? String(user.id) : "active");
-  return `${TOKEN_KEY_PREFIX}${encodeURIComponent(`${normalizeLotideApiUrl(ctx.apiUrl)}:${identity}`)}`;
+  const keyIdentity = `${normalizeLotideApiUrl(ctx.apiUrl)}:${identity}`;
+  return `${TOKEN_KEY_PREFIX}${secureStoreKeyFragment(keyIdentity)}`;
 }
 
 function withoutToken(ctx: LotideContext): LotideContext {

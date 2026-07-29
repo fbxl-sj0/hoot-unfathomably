@@ -1,6 +1,17 @@
 Hoot Unfathomably Changelog
 ===========================
 
+Unreleased
+----------
+
+- Fixed Android login failing after successful authentication because the
+  generated Secure Store token key contained characters rejected by the native
+  module.
+- Added native-compatible Secure Store key validation to the test environment
+  and restored the current Unfathomably login suite to the release test run.
+- Kept server-handled registration from leaving the login form permanently
+  disabled.
+
 Version 0.2.0
 -------------
 

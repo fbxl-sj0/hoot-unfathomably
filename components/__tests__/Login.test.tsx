@@ -6,7 +6,8 @@
 
     Purpose:
 
-        Validate the Lotide credential form used by the first-run login flow.
+        Validate the Unfathomably credential form used by the first-run login
+        flow.
 
     Responsibilities:
 
@@ -18,7 +19,7 @@
 
         - Host picker tests
         - Native keyboard tests
-        - Live Lotide authentication requests
+        - Live Unfathomably authentication requests
 */
 
 import * as React from "react";
@@ -33,8 +34,7 @@ import {
 import Login from "../Login";
 
 const mockDispatch = jest.fn();
-const mockLogin = jest.fn();
-const mockRegister = jest.fn();
+const mockLoginWithPassword = jest.fn();
 const mockLotideContextStore = jest.fn();
 const mockLotideContextKVStore = jest.fn();
 const mockNavigate = jest.fn();
@@ -63,11 +63,14 @@ jest.mock("../../hooks/useTheme", () => ({
   }),
 }));
 
-jest.mock("../../services/LotideService", () => ({
-  __esModule: true,
-  login: (...args: unknown[]) => mockLogin(...args),
-  register: (...args: unknown[]) => mockRegister(...args),
-}));
+jest.mock("../../services/UnfathomablyService", () => {
+  const actual = jest.requireActual("../../services/UnfathomablyService");
+  return {
+    __esModule: true,
+    ...actual,
+    loginWithPassword: (...args: unknown[]) => mockLoginWithPassword(...args),
+  };
+});
 
 jest.mock("../../services/StorageService", () => ({
   __esModule: true,
@@ -88,10 +91,13 @@ type Deferred<T> = {
 type LoginRenderResult = Awaited<ReturnType<typeof render>>;
 type LoginResponse = {
   token: string;
-  user: {
-    host: string;
-    id: UserId;
-    local: boolean;
+  account: {
+    acct: string;
+    avatar: string;
+    display_name: string;
+    id: string;
+    note: string;
+    url: string;
     username: string;
   };
 };
@@ -114,7 +120,7 @@ function deferred<T>(): Deferred<T> {
 
 async function renderLogin(props: Partial<React.ComponentProps<typeof Login>> = {}) {
   return await render(
-    <Login domain="lotide.fbxl.net" onGoBack={jest.fn()} {...props} />,
+    <Login domain="social.fbxl.net" onGoBack={jest.fn()} {...props} />,
   );
 }
 
@@ -140,7 +146,7 @@ describe("Login", () => {
 
   test("trims login usernames and blocks duplicate submits", async () => {
     const login = deferred<LoginResponse>();
-    mockLogin.mockReturnValue(login.promise);
+    mockLoginWithPassword.mockReturnValue(login.promise);
     const screen = await renderLogin();
 
     await fillLoginForm(screen);
@@ -151,9 +157,9 @@ describe("Login", () => {
     });
     await fireEvent.press(screen.getByRole("button", { name: "Logging in..." }));
 
-    expect(mockLogin).toHaveBeenCalledTimes(1);
-    expect(mockLogin).toHaveBeenCalledWith(
-      "https://lotide.fbxl.net/api/unstable",
+    expect(mockLoginWithPassword).toHaveBeenCalledTimes(1);
+    expect(mockLoginWithPassword).toHaveBeenCalledWith(
+      "https://social.fbxl.net",
       "sj_zero",
       "secret",
     );
@@ -165,11 +171,14 @@ describe("Login", () => {
     await act(async () => {
       login.resolve({
         token: "token-1",
-        user: {
-          id: 1,
+        account: {
+          acct: "sj_zero",
+          avatar: "",
+          display_name: "SJ",
+          id: "1",
+          note: "",
+          url: "https://social.fbxl.net/@sj_zero",
           username: "sj_zero",
-          host: "lotide.fbxl.net",
-          local: true,
         },
       });
       await login.promise;
@@ -177,7 +186,7 @@ describe("Login", () => {
 
     expect(mockLotideContextKVStore).toHaveBeenCalledWith(
       expect.objectContaining({
-        apiUrl: "https://lotide.fbxl.net/api/unstable",
+        apiUrl: "https://social.fbxl.net",
         login: expect.objectContaining({
           token: "token-1",
         }),
@@ -185,7 +194,7 @@ describe("Login", () => {
     );
     expect(mockLotideContextStore).toHaveBeenCalledWith(
       expect.objectContaining({
-        apiUrl: "https://lotide.fbxl.net/api/unstable",
+        apiUrl: "https://social.fbxl.net",
         login: expect.objectContaining({
           token: "token-1",
         }),
@@ -195,14 +204,14 @@ describe("Login", () => {
       expect.objectContaining({
         type: "lotide/setCtx",
         payload: expect.objectContaining({
-          apiUrl: "https://lotide.fbxl.net/api/unstable",
+          apiUrl: "https://social.fbxl.net",
         }),
       }),
     );
   });
 
   test("keeps the login form usable when the server rejects credentials", async () => {
-    mockLogin.mockRejectedValue(new Error("bad password"));
+    mockLoginWithPassword.mockRejectedValue(new Error("bad password"));
     const screen = await renderLogin();
 
     await fillLoginForm(screen);
@@ -220,14 +229,14 @@ describe("Login", () => {
 
   test("does not activate a login that completes after leaving the form", async () => {
     const login = deferred<LoginResponse>();
-    mockLogin.mockReturnValue(login.promise);
+    mockLoginWithPassword.mockReturnValue(login.promise);
     const screen = await renderLogin();
 
     await fillLoginForm(screen);
     await fireEvent.press(screen.getByRole("button", { name: "Login" }));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledTimes(1);
+      expect(mockLoginWithPassword).toHaveBeenCalledTimes(1);
     });
 
     await act(async () => {
@@ -237,11 +246,14 @@ describe("Login", () => {
     const drainedLogin = login.promise.then(() => undefined);
     login.resolve({
       token: "token-1",
-      user: {
-        id: 1,
+      account: {
+        acct: "sj_zero",
+        avatar: "",
+        display_name: "SJ",
+        id: "1",
+        note: "",
+        url: "https://social.fbxl.net/@sj_zero",
         username: "sj_zero",
-        host: "lotide.fbxl.net",
-        local: true,
       },
     });
 
@@ -255,14 +267,14 @@ describe("Login", () => {
 
   test("ignores login failures after leaving the form", async () => {
     const login = deferred<LoginResponse>();
-    mockLogin.mockReturnValue(login.promise);
+    mockLoginWithPassword.mockReturnValue(login.promise);
     const screen = await renderLogin();
 
     await fillLoginForm(screen);
     await fireEvent.press(screen.getByRole("button", { name: "Login" }));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledTimes(1);
+      expect(mockLoginWithPassword).toHaveBeenCalledTimes(1);
     });
 
     await act(async () => {
@@ -281,16 +293,7 @@ describe("Login", () => {
     );
   });
 
-  test("trims registration usernames and email addresses", async () => {
-    mockRegister.mockResolvedValue({
-      token: "token-1",
-      user: {
-        id: 1,
-        username: "sj_zero",
-        host: "lotide.fbxl.net",
-        local: true,
-      },
-    });
+  test("directs registration to the server and restores the form", async () => {
     const screen = await renderLogin();
 
     await fireEvent.press(screen.getByRole("button", {
@@ -311,40 +314,28 @@ describe("Login", () => {
 
     await fireEvent.press(screen.getByRole("button", { name: "Register" }));
 
-    expect(mockRegister).toHaveBeenCalledWith(
-      "https://lotide.fbxl.net/api/unstable",
-      "sj_zero",
-      "secret",
-      "sj@example.com",
-    );
     await waitFor(() => {
-      expect(mockLotideContextKVStore).toHaveBeenCalledWith(
-        expect.objectContaining({
-          apiUrl: "https://lotide.fbxl.net/api/unstable",
-          login: expect.objectContaining({
-            token: "token-1",
-          }),
-        }),
+      expect(Alert.alert).toHaveBeenCalledWith(
+        "Registration is handled by the server",
+        "Open your Unfathomably server in a browser to create an account, then sign in here.",
       );
-      expect(mockLotideContextStore).toHaveBeenCalledWith(
-        expect.objectContaining({
-          apiUrl: "https://lotide.fbxl.net/api/unstable",
-          login: expect.objectContaining({
-            token: "token-1",
-          }),
-        }),
-      );
+      expect(screen.getByRole("button", { name: "Register" })).toBeTruthy();
     });
+    expect(mockLoginWithPassword).not.toHaveBeenCalled();
+    expect(mockLotideContextStore).not.toHaveBeenCalled();
   });
 
   test("keeps the login form active when local login persistence fails", async () => {
-    mockLogin.mockResolvedValue({
+    mockLoginWithPassword.mockResolvedValue({
       token: "token-1",
-      user: {
-        id: 1,
+      account: {
+        acct: "sj_zero",
+        avatar: "",
+        display_name: "SJ",
+        id: "1",
+        note: "",
+        url: "https://social.fbxl.net/@sj_zero",
         username: "sj_zero",
-        host: "lotide.fbxl.net",
-        local: true,
       },
     });
     mockLotideContextStore.mockRejectedValue(new Error("storage full"));
@@ -366,13 +357,13 @@ describe("Login", () => {
 
   test("renders host identity as static text instead of a fake button", async () => {
     const screen = await renderLogin({
-      hostName: "Lotide Test",
+      hostName: "Unfathomably Test",
     });
 
-    expect(screen.getByText("Lotide Test")).toBeTruthy();
-    expect(screen.getByText("lotide.fbxl.net")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Lotide Test" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "lotide.fbxl.net" })).toBeNull();
+    expect(screen.getByText("Unfathomably Test")).toBeTruthy();
+    expect(screen.getByText("social.fbxl.net")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Unfathomably Test" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "social.fbxl.net" })).toBeNull();
   });
 });
 
