@@ -1,37 +1,45 @@
 /*
-    Project: Hoot Mobile
-    -------------------
+    Project: Hoot Unfathomably
+    --------------------------
 
     File: HostList.test.tsx
 
     Purpose:
 
-        Validate the Lotide host/profile picker shown during login.
+        Verify selection and restoration of arbitrary compatible servers.
 
     Responsibilities:
 
-        • Verify known hosts and saved profiles render
-        • Verify known hosts call onSelect only when compatible
-        • Verify typed custom hostnames are normalized before selection
+        • Cover the optional FBXL Social shortcut
+        • Verify custom HTTPS and local-development server selection
+        • Verify saved profiles retain their original server
+        • Prevent unavailable seeded hosts from being selected
 
     This file intentionally does NOT contain:
 
-        • Login form submission tests
-        • Persistent storage implementation tests
-        • Live instance discovery tests
+        • Credential or browser OAuth tests
+        • Live Fediverse requests
 */
 
 import * as React from "react";
 import { Alert } from "react-native";
-import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
+import {
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react-native";
 import { Provider } from "react-redux";
 import configureStoreMock from "redux-mock-store";
 
-import HostList, { updateKnownHostInstanceInfo } from "../HostList";
+import HostList, {
+  normalizeHostDomain,
+  normalizeServerSelection,
+  updateKnownHostInstanceInfo,
+} from "../HostList";
 
-const mockGetStore = jest.fn();
-const mockGetInstanceInfo = jest.fn();
 const mockDispatch = jest.fn();
+const mockGetInstance = jest.fn();
+const mockGetStore = jest.fn();
 const mockLotideContextStore = jest.fn();
 const mockLotideContextKVStore = jest.fn();
 
@@ -42,6 +50,7 @@ jest.mock("../../hooks/useTheme", () => ({
     secondaryText: "#333",
     secondaryBackground: "#ddd",
     tertiaryBackground: "#eee",
+    text: "#000",
     tint: "#f5a524",
   }),
 }));
@@ -53,31 +62,36 @@ jest.mock("react-redux", () => ({
 
 jest.mock("../../services/StorageService", () => ({
   __esModule: true,
-  ...jest.requireActual("../../services/StorageService"),
   lotideContext: {
-    ...jest.requireActual("../../services/StorageService").lotideContext,
     store: (...args: unknown[]) => mockLotideContextStore(...args),
   },
   lotideContextKV: {
-    ...jest.requireActual("../../services/StorageService").lotideContextKV,
     getStore: (...args: unknown[]) => mockGetStore(...args),
     store: (...args: unknown[]) => mockLotideContextKVStore(...args),
   },
 }));
 
-jest.mock("../../services/LotideService", () => ({
-  __esModule: true,
-  ...jest.requireActual("../../services/LotideService"),
-  getInstanceInfo: (...args: unknown[]) => mockGetInstanceInfo(...args),
-}));
+jest.mock("../../services/UnfathomablyService", () => {
+  const actual = jest.requireActual("../../services/UnfathomablyService");
+
+  return {
+    __esModule: true,
+    ...actual,
+    getInstance: (...args: unknown[]) => mockGetInstance(...args),
+  };
+});
 
 const mockStore = configureStoreMock([]);
 
-function renderWithStore(ui: React.ReactElement, ctx: LotideContext = {}) {
-  return render(<Provider store={mockStore({ lotide: { ctx } })}>{ui}</Provider>);
+async function renderWithStore(ui: React.ReactElement) {
+  return await render(
+    <Provider store={mockStore({ lotide: { ctx: {} } })}>
+      {ui}
+    </Provider>,
+  );
 }
 
-function createDeferred<T>() {
+function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: unknown) => void;
   const promise = new Promise<T>((promiseResolve, promiseReject) => {
@@ -85,7 +99,7 @@ function createDeferred<T>() {
     reject = promiseReject;
   });
 
-  return { promise, resolve, reject };
+  return { promise, reject, resolve };
 }
 
 describe("HostList", () => {
@@ -93,342 +107,334 @@ describe("HostList", () => {
     jest.clearAllMocks();
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
     mockGetStore.mockResolvedValue({});
+    mockGetInstance.mockResolvedValue({
+      description: "A compatible server",
+      title: "FBXL Social",
+      version: "4.3.0",
+    });
     mockLotideContextStore.mockResolvedValue(undefined);
     mockLotideContextKVStore.mockResolvedValue(undefined);
-    mockGetInstanceInfo.mockResolvedValue({
-      software: { name: "Hoot", version: "0.19.0" },
-      apiVersion: 19,
-    });
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  test("renders the seeded known hosts and existing profiles", async () => {
-    mockGetStore.mockResolvedValue({
-      "alice@https://lotide.fbxl.net": {
-        login: { user: { id: 1, username: "alice" } },
-        apiUrl: "https://lotide.fbxl.net",
-      },
-    });
-
+  test("makes the seeded FBXL host an optional shortcut", async () => {
     const onSelect = jest.fn();
-
     const screen = await renderWithStore(<HostList onSelect={onSelect} />);
 
     expect(screen.getByText("Login to continue")).toBeTruthy();
-    expect(screen.getByText("Or sign into a new account")).toBeTruthy();
-    expect(screen.getByPlaceholderText("Host domain")).toBeTruthy();
+    expect(
+      screen.getByText(/FBXL Social is only a shortcut/),
+    ).toBeTruthy();
+    expect(
+      screen.getByPlaceholderText(
+        "Server domain, e.g. example.social",
+      ),
+    ).toBeTruthy();
 
     await waitFor(() => {
-      expect(screen.getAllByText("FBXL Lotide").length).toBeGreaterThan(0);
-      expect(screen.getByText("Narwhal City")).toBeTruthy();
-      expect(screen.getByText("Narwhal City (Dev)")).toBeTruthy();
-      expect(screen.getAllByText("Hoot 0.19.0")).toHaveLength(3);
+      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
     });
 
-    expect(screen.getByText("alice")).toBeTruthy();
-    expect(screen.getAllByText("lotide.fbxl.net").length).toBeGreaterThan(0);
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Select host FBXL Social" }),
+    );
+
+    expect(onSelect).toHaveBeenCalledWith(
+      "https://social.fbxl.net",
+      "FBXL Social",
+    );
+    expect(mockGetInstance).toHaveBeenCalledWith(
+      "https://social.fbxl.net",
+    );
+  });
+
+  test("keeps a seeded host disabled until its compatibility probe succeeds", async () => {
+    const instance = deferred<{
+      title: string;
+      version: string;
+      description: string;
+    }>();
+    mockGetInstance.mockReturnValue(instance.promise);
+    const screen = await renderWithStore(
+      <HostList onSelect={jest.fn()} />,
+    );
+    const hostButton = screen.getByRole("button", {
+      name: "Select host FBXL Social",
+    });
+
+    expect(hostButton.props.accessibilityState).toEqual({
+      disabled: true,
+    });
+
+    instance.resolve({
+      description: "Ready",
+      title: "FBXL Social",
+      version: "4.3.0",
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", {
+          name: "Select host FBXL Social",
+        }).props.accessibilityState,
+      ).toEqual({ disabled: false });
+    });
+  });
+
+  test("keeps a failed seeded shortcut disabled and offers retry", async () => {
+    mockGetInstance
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({
+        description: "Ready after retry",
+        title: "FBXL Social",
+        version: "4.3.0",
+      });
+    const screen = await renderWithStore(
+      <HostList onSelect={jest.fn()} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Failed to load info")).toBeTruthy();
+      expect(
+        screen.getByRole("button", {
+          name: "Select host FBXL Social",
+        }).props.accessibilityState,
+      ).toEqual({ disabled: true });
+    });
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Retry host" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
+      expect(mockGetInstance).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  test("selects a typed non-FBXL HTTPS server and removes pasted paths", async () => {
+    const onSelect = jest.fn();
+    const screen = await renderWithStore(<HostList onSelect={onSelect} />);
+    const input = screen.getByPlaceholderText(
+      "Server domain, e.g. example.social",
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
+    });
+    await fireEvent.changeText(
+      input,
+      " https://Pleroma.Example/a/pasted/path?from=browser ",
+    );
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Continue" }),
+    );
+
+    expect(onSelect).toHaveBeenCalledWith("https://pleroma.example");
+  });
+
+  test("preserves explicit local HTTP ports for development servers", async () => {
+    const onSelect = jest.fn();
+    const screen = await renderWithStore(<HostList onSelect={onSelect} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
+    });
+    await fireEvent.changeText(
+      screen.getByPlaceholderText(
+        "Server domain, e.g. example.social",
+      ),
+      "http://10.0.2.2:4000/path",
+    );
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Continue" }),
+    );
+
+    expect(onSelect).toHaveBeenCalledWith("http://10.0.2.2:4000");
+  });
+
+  test("rejects invalid and remote plaintext custom servers", async () => {
+    const onSelect = jest.fn();
+    const screen = await renderWithStore(<HostList onSelect={onSelect} />);
+    const input = screen.getByPlaceholderText(
+      "Server domain, e.g. example.social",
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
+    });
+    await fireEvent.changeText(input, "http://remote.example");
+    expect(
+      screen.getByRole("button", { name: "Continue" }).props
+        .accessibilityState,
+    ).toEqual({ disabled: true });
+
+    await fireEvent(input, "submitEditing");
+
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "Enter a server",
+      "Enter a valid HTTPS Unfathomably, Pleroma, Rebased, or Mastodon-compatible server.",
+    );
   });
 
   test("persists a selected saved profile before activating it", async () => {
     const savedContext = {
+      apiUrl: "https://pleroma.example",
       login: {
         token: "token-1",
         user: {
           id: 1,
           username: "alice",
-          host: "lotide.fbxl.net",
-          local: true,
         },
       },
-      apiUrl: "https://lotide.fbxl.net/api/unstable",
     };
     mockGetStore.mockResolvedValue({
-      "alice@https://lotide.fbxl.net/api/unstable": savedContext,
+      "alice@https://pleroma.example": savedContext,
     });
-
-    const screen = await renderWithStore(<HostList onSelect={jest.fn()} />);
+    const screen = await renderWithStore(
+      <HostList onSelect={jest.fn()} />,
+    );
 
     await waitFor(() => {
-      expect(screen.getByText("alice")).toBeTruthy();
+      expect(
+        screen.getByRole("button", {
+          name: "Select profile alice@pleroma.example",
+        }),
+      ).toBeTruthy();
+      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
     });
 
     await fireEvent.press(
       screen.getByRole("button", {
-        name: "Select profile alice@lotide.fbxl.net",
+        name: "Select profile alice@pleroma.example",
       }),
     );
 
     await waitFor(() => {
-      expect(mockLotideContextKVStore).toHaveBeenCalledWith(savedContext);
+      expect(mockLotideContextKVStore).toHaveBeenCalledWith(
+        savedContext,
+      );
       expect(mockLotideContextStore).toHaveBeenCalledWith(savedContext);
       expect(mockDispatch).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: "lotide/setCtx",
           payload: savedContext,
+          type: "lotide/setCtx",
         }),
       );
     });
   });
 
-  test("ignores duplicate saved profile activation while storage is pending", async () => {
-    const savedContext = {
-      login: {
-        token: "token-1",
-        user: {
-          id: 1,
-          username: "alice",
-          host: "lotide.fbxl.net",
-          local: true,
-        },
-      },
-      apiUrl: "https://lotide.fbxl.net/api/unstable",
-    };
-    const kvStore = createDeferred<void>();
-    const activeStore = createDeferred<void>();
-
+  test("returns a locked saved profile to its original custom server", async () => {
     mockGetStore.mockResolvedValue({
-      "alice@https://lotide.fbxl.net/api/unstable": savedContext,
+      "alice@https://rebased.example": {
+        apiUrl: "https://rebased.example",
+      },
     });
-    mockLotideContextKVStore.mockReturnValue(kvStore.promise);
-    mockLotideContextStore.mockReturnValue(activeStore.promise);
-
-    const screen = await renderWithStore(<HostList onSelect={jest.fn()} />);
+    const onSelect = jest.fn();
+    const screen = await renderWithStore(<HostList onSelect={onSelect} />);
 
     await waitFor(() => {
-      expect(screen.getByText("alice")).toBeTruthy();
-      expect(screen.getAllByText("Hoot 0.19.0")).toHaveLength(3);
-    });
-
-    fireEvent.press(
-      screen.getByRole("button", {
-        name: "Select profile alice@lotide.fbxl.net",
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockLotideContextKVStore).toHaveBeenCalledTimes(1);
       expect(
         screen.getByRole("button", {
-          name: "Select profile alice@lotide.fbxl.net",
-        }).props.accessibilityState,
-      ).toEqual({ busy: true, disabled: true });
+          name: "Select profile alice@rebased.example",
+        }),
+      ).toBeTruthy();
+      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
     });
 
-    fireEvent.press(
+    await fireEvent.press(
       screen.getByRole("button", {
-        name: "Select profile alice@lotide.fbxl.net",
+        name: "Select profile alice@rebased.example",
       }),
     );
+
+    expect(onSelect).toHaveBeenCalledWith(
+      "https://rebased.example",
+      undefined,
+      "alice",
+    );
+  });
+
+  test("blocks duplicate saved-profile activation while storage is pending", async () => {
+    const savedContext = {
+      apiUrl: "https://pleroma.example",
+      login: {
+        token: "token-1",
+        user: { id: 1, username: "alice" },
+      },
+    };
+    const contextStore = deferred<void>();
+    mockGetStore.mockResolvedValue({
+      "alice@https://pleroma.example": savedContext,
+    });
+    mockLotideContextKVStore.mockReturnValue(contextStore.promise);
+    const screen = await renderWithStore(
+      <HostList onSelect={jest.fn()} />,
+    );
+
+    const profileButton = await waitFor(() =>
+      screen.getByRole("button", {
+        name: "Select profile alice@pleroma.example",
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
+    });
+
+    await fireEvent.press(profileButton);
+    await fireEvent.press(profileButton);
+
     expect(mockLotideContextKVStore).toHaveBeenCalledTimes(1);
 
-    await act(async () => {
-      kvStore.resolve(undefined);
-      await kvStore.promise;
-    });
+    contextStore.resolve(undefined);
 
     await waitFor(() => {
       expect(mockLotideContextStore).toHaveBeenCalledTimes(1);
-    });
-
-    await act(async () => {
-      activeStore.resolve(undefined);
-      await activeStore.promise;
-    });
-
-    await waitFor(() => {
-      expect(mockDispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: "lotide/setCtx",
-          payload: savedContext,
-        }),
-      );
       expect(
         screen.getByRole("button", {
-          name: "Select profile alice@lotide.fbxl.net",
+          name: "Select profile alice@pleroma.example",
         }).props.accessibilityState,
       ).toEqual({ busy: false, disabled: false });
     });
   });
 
-  test("does not alert when saved profile activation fails after unmount", async () => {
-    const savedContext = {
-      login: {
-        token: "token-1",
-        user: {
-          id: 1,
-          username: "alice",
-          host: "lotide.fbxl.net",
-          local: true,
-        },
-      },
-      apiUrl: "https://lotide.fbxl.net/api/unstable",
-    };
-    const kvStore = createDeferred<void>();
-
-    mockGetStore.mockResolvedValue({
-      "alice@https://lotide.fbxl.net/api/unstable": savedContext,
-    });
-    mockLotideContextKVStore.mockReturnValue(kvStore.promise);
-
-    const screen = await renderWithStore(<HostList onSelect={jest.fn()} />);
-
-    await waitFor(() => {
-      expect(screen.getByText("alice")).toBeTruthy();
-    });
-
-    fireEvent.press(
-      screen.getByRole("button", {
-        name: "Select profile alice@lotide.fbxl.net",
-      }),
+  test("normalizes server helpers independently of the seeded host list", () => {
+    expect(normalizeServerSelection("Mastodon.Example/path")).toBe(
+      "https://mastodon.example",
     );
-
-    await waitFor(() => {
-      expect(mockLotideContextKVStore).toHaveBeenCalledTimes(1);
-      expect(
-        screen.getByRole("button", {
-          name: "Select profile alice@lotide.fbxl.net",
-        }).props.accessibilityState,
-      ).toEqual({ busy: true, disabled: true });
-    });
-
-    screen.unmount();
-
-    kvStore.reject(new Error("storage failed"));
-    await kvStore.promise.catch(() => undefined);
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(Alert.alert).not.toHaveBeenCalled();
-  });
-
-  test("filters hosts and selects the chosen host", async () => {
-    const onSelect = jest.fn();
-
-    const screen = await renderWithStore(<HostList onSelect={onSelect} />);
-
-    await waitFor(() => {
-      expect(screen.getAllByText("Hoot 0.19.0")).toHaveLength(3);
-    });
-
-    await fireEvent.press(
-      screen.getByRole("button", { name: "Select host FBXL Lotide" }),
+    expect(normalizeHostDomain("https://Mastodon.Example/path")).toBe(
+      "mastodon.example",
     );
-    expect(onSelect).toHaveBeenCalledWith("lotide.fbxl.net", "FBXL Lotide");
+    expect(normalizeServerSelection("not a host")).toBe("");
 
-    await fireEvent.changeText(screen.getByPlaceholderText("Host domain"), "narwhal");
-
-    await waitFor(() => {
-      expect(screen.getByText("Narwhal City")).toBeTruthy();
-      expect(screen.getByText("Narwhal City (Dev)")).toBeTruthy();
-    });
-    expect(screen.queryByText("FBXL Lotide")).toBeNull();
-  });
-
-  test("does not select hosts whose API version is too old", async () => {
-    mockGetInstanceInfo.mockResolvedValue({
-      software: { name: "Lotide", version: "0.7.0" },
-      apiVersion: 7,
-    });
-    const onSelect = jest.fn();
-
-    const screen = await renderWithStore(<HostList onSelect={onSelect} />);
-
-    await waitFor(() => {
-      expect(screen.getAllByText(/Out of date/)).toHaveLength(3);
-    });
-
-    const lotideButton = screen.getByRole("button", {
-      name: "Select host FBXL Lotide",
-    });
-    expect(lotideButton.props.accessibilityState).toEqual({
-      disabled: true,
-    });
-    await fireEvent.press(lotideButton);
-    expect(onSelect).not.toHaveBeenCalled();
-  });
-
-  test("selects hosts at the minimum supported API version", async () => {
-    mockGetInstanceInfo.mockResolvedValue({
-      software: { name: "Lotide", version: "0.8.0" },
-      apiVersion: 8,
-    });
-    const onSelect = jest.fn();
-
-    const screen = await renderWithStore(<HostList onSelect={onSelect} />);
-
-    await waitFor(() => {
-      expect(screen.getAllByText("Lotide 0.8.0")).toHaveLength(3);
-    });
-
-    await fireEvent.press(
-      screen.getByRole("button", { name: "Select host FBXL Lotide" }),
-    );
-    expect(onSelect).toHaveBeenCalledWith("lotide.fbxl.net", "FBXL Lotide");
-  });
-
-  test("updates known host probe results by domain instead of list index", () => {
-    const narwhalInfo: InstanceInfo = {
-      software: { name: "Lotide", version: "0.18.1" },
-      site_name: "Narwhal City",
-      apiVersion: 18,
-    };
     const hosts = [
-      {
-        name: "FBXL Lotide",
-        domain: "lotide.fbxl.net",
-      },
-      {
-        name: "Narwhal City",
-        domain: "narwhal.city",
-      },
+      { domain: "social.fbxl.net", name: "FBXL Social" },
+      { domain: "another.example", name: "Another Server" },
     ];
+    const instanceInfo: InstanceInfo = {
+      apiVersion: 1,
+      site_name: "Another Server",
+      software: { name: "Unfathomably", version: "1" },
+    };
 
-    const updatedHosts = updateKnownHostInstanceInfo(
-      hosts,
-      "narwhal.city",
-      narwhalInfo,
-    );
-
-    expect(updatedHosts[0]).toEqual(hosts[0]);
-    expect(updatedHosts[1]).toEqual({
-      name: "Narwhal City",
-      domain: "narwhal.city",
-      instanceInfo: narwhalInfo,
-    });
-  });
-
-  test("submits a typed custom host from the visible continue action", async () => {
-    const onSelect = jest.fn();
-    const screen = await renderWithStore(<HostList onSelect={onSelect} />);
-    const input = screen.getByPlaceholderText("Host domain");
-
-    await waitFor(() => {
-      expect(screen.getAllByText("Hoot 0.19.0")).toHaveLength(3);
-    });
-
-    await fireEvent.changeText(input, "https://LoTiDe.FBXL.NET/api/unstable");
-    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
-
-    expect(onSelect).toHaveBeenCalledWith("lotide.fbxl.net");
-  });
-
-  test("does not submit an empty custom host", async () => {
-    const onSelect = jest.fn();
-    const screen = await renderWithStore(<HostList onSelect={onSelect} />);
-
-    await fireEvent(
-      screen.getByPlaceholderText("Host domain"),
-      "submitEditing",
-    );
-
-    expect(onSelect).not.toHaveBeenCalled();
-    expect(Alert.alert).toHaveBeenCalledWith(
-      "Enter a host",
-      "Type a Lotide host domain before continuing.",
-    );
+    expect(
+      updateKnownHostInstanceInfo(
+        hosts,
+        "another.example",
+        instanceInfo,
+      ),
+    ).toEqual([
+      hosts[0],
+      {
+        domain: "another.example",
+        instanceInfo,
+        name: "Another Server",
+      },
+    ]);
   });
 });
 

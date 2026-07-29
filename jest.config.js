@@ -42,10 +42,7 @@ module.exports = {
   },
   setupFiles: reactNativePreset.setupFiles,
   setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
-  testPathIgnorePatterns: [
-    "/unfathomably/",
-    "/components/__tests__/HostList\\.test\\.tsx$",
-  ],
+  testPathIgnorePatterns: ["/unfathomably/"],
   moduleNameMapper: {
     ...reactNativePreset.moduleNameMapper,
     "^react-native-vector-icons$": "@expo/vector-icons",

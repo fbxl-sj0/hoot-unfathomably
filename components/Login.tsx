@@ -1,18 +1,19 @@
 /*
-    Project: Hoot Mobile
-    -------------------
+    Project: Hoot Unfathomably
+    --------------------------
 
     File: Login.tsx
 
     Purpose:
 
-        Collect Lotide login credentials for a selected host.
+        Authenticate with a selected Mastodon-compatible host.
 
     Responsibilities:
 
-        - Submit username and password to the Lotide login API
+        - Prefer the selected server's browser-based OAuth flow
+        - Offer direct password login for compatible server software
         - Persist successful login context
-        - Offer registration and password reset navigation
+        - Open the selected server for registration and password recovery
 
     This file intentionally does NOT contain:
 
@@ -35,11 +36,12 @@ import { Text, TextInput, View } from "./Themed";
 import * as UnfathomablyService from "../services/UnfathomablyService";
 import * as StorageService from "../services/StorageService";
 import useTheme from "../hooks/useTheme";
-import { useNavigation } from "@react-navigation/core";
 import { useDispatch } from "react-redux";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
+import { v4 as uuidv4 } from "uuid";
 import { setCtx } from "../slices/lotideSlice";
 import { getErrorMessage } from "../utils/error";
-import { RootStackScreenProps } from "../types";
 import { TOUCH_TARGET_HIT_SLOP } from "../constants/TouchTargets";
 
 export interface LoginProps {
@@ -53,13 +55,13 @@ export default function Login(props: LoginProps) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [username, setUsername] = useState(props.username || "");
   const [password, setPassword] = useState("");
-  const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isBrowserLoginSubmitting, setIsBrowserLoginSubmitting] =
+    useState(false);
   const usernameRef = useRef<DefaultTextInput>(null);
   const passwordRef = useRef<DefaultTextInput>(null);
   const theme = useTheme();
   const dispatch = useDispatch();
-  const navigation = useNavigation<RootStackScreenProps<"ForgotPassword">["navigation"]>();
   const isMountedRef = useRef(true);
 
   useLayoutEffect(() => {
@@ -95,23 +97,20 @@ export default function Login(props: LoginProps) {
   }
 
   async function register() {
-    const trimmedUsername = username.trim();
-    const trimmedEmail = email.trim();
-
-    if (!trimmedUsername) return fail("Please enter a username");
-    if (!password) return fail("Enter a password");
-    if (!trimmedEmail) return fail("Please enter an email address");
+    const apiUrl = UnfathomablyService.getSupportedServerUrl(props.domain);
+    if (!apiUrl) {
+      return alertIfMounted(
+        "Invalid server",
+        "Choose a valid HTTPS server before creating an account.",
+      );
+    }
 
     setIsSubmitting(true);
 
     try {
-      void trimmedEmail;
-      alertIfMounted(
-        "Registration is handled by the server",
-        "Open your Unfathomably server in a browser to create an account, then sign in here.",
-      );
+      await WebBrowser.openBrowserAsync(apiUrl);
     } catch (e) {
-      alertIfMounted("Failed to register", getErrorMessage(e));
+      alertIfMounted("Failed to open server", getErrorMessage(e));
     } finally {
       if (isMountedRef.current) setIsSubmitting(false);
     }
@@ -149,6 +148,73 @@ export default function Login(props: LoginProps) {
     }
   }
 
+  async function loginWithServer() {
+    if (isSubmitting) return;
+
+    const apiUrl = UnfathomablyService.getSupportedServerUrl(props.domain);
+    if (!apiUrl) {
+      return alertIfMounted(
+        "Invalid server",
+        "Choose a valid HTTPS server before signing in.",
+      );
+    }
+
+    setIsSubmitting(true);
+    setIsBrowserLoginSubmitting(true);
+
+    try {
+      const redirectUri = Linking.createURL("oauth/callback");
+      const state = uuidv4();
+      const application =
+        await UnfathomablyService.registerOAuthApplication(
+          apiUrl,
+          redirectUri,
+        );
+      if (!isMountedRef.current) return;
+
+      const authorizationUrl =
+        UnfathomablyService.buildOAuthAuthorizationUrl(
+          apiUrl,
+          application,
+          redirectUri,
+          state,
+        );
+      const result = await WebBrowser.openAuthSessionAsync(
+        authorizationUrl,
+        redirectUri,
+      );
+      if (!isMountedRef.current || result.type !== "success") return;
+
+      const code = UnfathomablyService.readOAuthAuthorizationCode(
+        result.url,
+        state,
+      );
+      const data =
+        await UnfathomablyService.loginWithAuthorizationCode(
+          apiUrl,
+          application,
+          redirectUri,
+          code,
+        );
+      if (!isMountedRef.current) return;
+
+      await activateContext({
+        apiUrl,
+        login: {
+          token: data.token,
+          user: data.account as unknown as Profile,
+        },
+      });
+    } catch (error) {
+      alertIfMounted("Failed to login", getErrorMessage(error));
+    } finally {
+      if (isMountedRef.current) {
+        setIsBrowserLoginSubmitting(false);
+        setIsSubmitting(false);
+      }
+    }
+  }
+
   function submit() {
     if (isSubmitting) return;
 
@@ -160,10 +226,25 @@ export default function Login(props: LoginProps) {
   }
 
   function submitTitle() {
-    if (isSubmitting && isRegistering) return "Registering...";
+    if (isSubmitting && isRegistering) return "Opening Server...";
     if (isSubmitting) return "Logging in...";
 
-    return isRegistering ? "Register" : "Login";
+    return isRegistering ? "Open Server" : "Login";
+  }
+
+  function openPasswordRecovery() {
+    const apiUrl = UnfathomablyService.getSupportedServerUrl(props.domain);
+    if (!apiUrl) {
+      alertIfMounted(
+        "Invalid server",
+        "Choose a valid HTTPS server before recovering your password.",
+      );
+      return;
+    }
+
+    void WebBrowser.openBrowserAsync(apiUrl).catch(error => {
+      alertIfMounted("Failed to open server", getErrorMessage(error));
+    });
   }
 
   return (
@@ -185,6 +266,25 @@ export default function Login(props: LoginProps) {
             <Text style={{ fontSize: 24 }}>{props.domain}</Text>
           </View>
         )}
+        <AppButton
+          title={
+            isBrowserLoginSubmitting
+              ? "Opening Server..."
+              : "Sign in with Server"
+          }
+          onPress={() => void loginWithServer()}
+          color={theme.tint}
+          fullWidth
+          disabled={isSubmitting}
+          style={styles.serverLoginButton}
+        />
+        <Text style={[styles.serverLoginHint, { color: theme.secondaryText }]}>
+          Recommended for any compatible host. Your selected server handles the
+          sign-in in your browser.
+        </Text>
+        <Text style={[styles.directLoginLabel, { color: theme.secondaryText }]}>
+          Or use direct password login
+        </Text>
         <Pressable
           accessibilityLabel={
             isRegistering ? "Switch to login" : "Switch to registration"
@@ -212,63 +312,53 @@ export default function Login(props: LoginProps) {
                   : theme.secondaryText,
               }}
             >
-              Register
+              Create Account
             </Text>
           </Text>
         </Pressable>
         {isRegistering && (
-          <TextInput
-            style={styles.input}
-            placeholder="Email Address"
-            value={email}
-            onChangeText={setEmail}
-            editable={!isSubmitting}
-            keyboardType="email-address"
-            textContentType="emailAddress"
-            autoComplete="email"
-            returnKeyType="next"
-            onSubmitEditing={() => usernameRef.current?.focus()}
-          />
+          <Text style={[styles.serverLoginHint, { color: theme.secondaryText }]}>
+            Account creation is managed by the selected server and will open in
+            your browser.
+          </Text>
         )}
-        <TextInput
-          ref={usernameRef}
-          style={styles.input}
-          placeholder="Username"
-          value={username}
-          onChangeText={setUsername}
-          editable={!isSubmitting}
-          keyboardType="ascii-capable"
-          textContentType="username"
-          autoComplete="username"
-          returnKeyType="next"
-          onSubmitEditing={() => passwordRef.current?.focus()}
-        />
-        <TextInput
-          ref={passwordRef}
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          editable={!isSubmitting}
-          secureTextEntry={true}
-          textContentType={isRegistering ? "newPassword" : "password"}
-          autoComplete="password"
-          returnKeyType="done"
-          onSubmitEditing={submit}
-        />
         {!isRegistering && (
-          <Pressable
-            accessibilityLabel="Reset forgotten password"
-            style={{ padding: 15 }}
-            accessibilityRole="button"
-            onPress={() =>
-              navigation.navigate("ForgotPassword", {
-                node: props.domain,
-              })
-            }
-          >
-            <Text secondary>Forgot Password</Text>
-          </Pressable>
+          <>
+            <TextInput
+              ref={usernameRef}
+              style={styles.input}
+              placeholder="Username"
+              value={username}
+              onChangeText={setUsername}
+              editable={!isSubmitting}
+              keyboardType="ascii-capable"
+              textContentType="username"
+              autoComplete="username"
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
+            />
+            <TextInput
+              ref={passwordRef}
+              style={styles.input}
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              editable={!isSubmitting}
+              secureTextEntry={true}
+              textContentType="password"
+              autoComplete="password"
+              returnKeyType="done"
+              onSubmitEditing={submit}
+            />
+            <Pressable
+              accessibilityLabel="Reset forgotten password"
+              style={{ padding: 15 }}
+              accessibilityRole="button"
+              onPress={openPasswordRecovery}
+            >
+              <Text secondary>Forgot Password</Text>
+            </Pressable>
+          </>
         )}
         <View style={styles.actionButtons}>
           <AppButton
@@ -310,6 +400,16 @@ const styles = StyleSheet.create({
   },
   loginRegister: {
     padding: 15,
+  },
+  serverLoginButton: {
+    marginTop: 20,
+  },
+  serverLoginHint: {
+    marginTop: 8,
+    textAlign: "center",
+  },
+  directLoginLabel: {
+    marginTop: 20,
   },
   input: {
     width: "100%",

@@ -4,6 +4,20 @@ Hoot Unfathomably Changelog
 Unreleased
 ----------
 
+Version 0.2.2
+-------------
+
+- Made FBXL Social an explicitly optional login shortcut and added validated
+  custom server entry for Unfathomably, Pleroma, Rebased, and
+  Mastodon-compatible hosts.
+- Added browser-based OAuth authorization-code login on the selected server
+  while retaining direct password login for servers that support it.
+- Made account creation and password recovery open the currently selected
+  server instead of using legacy Lotide or FBXL-specific routes.
+- Restored the host-picker suite to the release gate and covered custom hosts,
+  local development ports, saved-server isolation, OAuth callback validation,
+  and unavailable-host behavior.
+
 Version 0.2.1
 -------------
 

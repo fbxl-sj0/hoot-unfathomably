@@ -43,7 +43,10 @@ import { setAppSettings, setDefaultFeedSort } from "../../slices/settingsSlice";
 import { RootState } from "../../store/reduxStore";
 import * as StorageService from "../../services/StorageService";
 import * as NotificationPoller from "../../services/NotificationPoller";
-import { normalizeServerUrl } from "../../services/UnfathomablyService";
+import {
+  getSupportedServerUrl,
+  normalizeServerUrl,
+} from "../../services/UnfathomablyService";
 import { getErrorMessage } from "../../utils/error";
 import { MINIMUM_TOUCH_TARGET_SIZE } from "../../constants/TouchTargets";
 
@@ -131,20 +134,7 @@ function shouldOfferNotificationSettings(
 }
 
 function isSupportedApiUrl(value: string): boolean {
-  try {
-    const parsedUrl = new URL(normalizeServerUrl(value));
-    const hostname = parsedUrl.hostname.toLowerCase();
-    const localHosts = new Set(["127.0.0.1", "10.0.2.2", "localhost", "::1"]);
-    const recognizableHost =
-      localHosts.has(hostname) || hostname.includes(".");
-
-    if (!recognizableHost) return false;
-    if (parsedUrl.protocol === "https:") return true;
-
-    return parsedUrl.protocol === "http:" && localHosts.has(hostname);
-  } catch {
-    return false;
-  }
+  return getSupportedServerUrl(value) !== undefined;
 }
 
 export default function SettingsScreen() {

@@ -65,29 +65,79 @@ export type UnfathomablyNotification = {
   status?: UnfathomablyStatus;
 };
 
-type OAuthApp = { client_id: string; client_secret: string };
+export type OAuthApplication = {
+  client_id: string;
+  client_secret: string;
+};
 type OAuthToken = { access_token: string };
 
-export function normalizeServerUrl(value: string): string {
-  const candidate = value.trim().replace(/\/+$/, "");
-  if (!candidate) return "";
-  return /^https?:\/\//i.test(candidate) ? candidate : `https://${candidate}`;
+export const OAUTH_SCOPES = "read write follow push";
+
+const LOCAL_SERVER_HOSTS = new Set([
+  "127.0.0.1",
+  "10.0.2.2",
+  "localhost",
+  "::1",
+]);
+
+function parseServerInput(value: string): URL | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  const candidate = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+
+  try {
+    return new URL(candidate);
+  } catch {
+    return undefined;
+  }
 }
 
-function requireSecureTransport(serverUrl: string): void {
-  let parsed: URL;
-  try {
-    parsed = new URL(serverUrl);
-  } catch {
-    throw new Error("Enter a valid Unfathomably server URL.");
+export function normalizeServerUrl(value: string): string {
+  const parsed = parseServerInput(value);
+  if (!parsed) return "";
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+
+  return parsed.origin;
+}
+
+export function getSupportedServerUrl(value: string): string | undefined {
+  const parsed = parseServerInput(value);
+  if (!parsed || parsed.username || parsed.password) return undefined;
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return undefined;
   }
 
-  if (parsed.protocol === "https:") return;
+  const hostname = parsed.hostname
+    .toLowerCase()
+    .replace(/^\[/, "")
+    .replace(/\]$/, "");
+  const isLocal = LOCAL_SERVER_HOSTS.has(hostname);
+  if (!isLocal && !hostname.includes(".")) return undefined;
 
-  const localHosts = new Set(["127.0.0.1", "10.0.2.2", "localhost", "::1"]);
-  if (parsed.protocol === "http:" && localHosts.has(parsed.hostname.toLowerCase())) return;
+  if (parsed.protocol === "https:") return parsed.origin;
 
-  throw new Error("For your account security, remote Unfathomably servers must use HTTPS.");
+  return isLocal ? parsed.origin : undefined;
+}
+
+function requireSupportedServerUrl(value: string): string {
+  if (!value.trim()) {
+    throw new Error("No Unfathomably server URL selected.");
+  }
+
+  const supported = getSupportedServerUrl(value);
+  if (supported) return supported;
+
+  const parsed = parseServerInput(value);
+  if (parsed?.protocol === "http:") {
+    throw new Error(
+      "For your account security, remote Unfathomably servers must use HTTPS.",
+    );
+  }
+
+  throw new Error("Enter a valid Unfathomably server URL.");
 }
 
 async function request<T>(
@@ -95,9 +145,7 @@ async function request<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const base = normalizeServerUrl(ctx.apiUrl || "");
-  if (!base) throw new Error("No Unfathomably server URL selected.");
-  requireSecureTransport(base);
+  const base = requireSupportedServerUrl(ctx.apiUrl || "");
   const controller = typeof AbortController !== "undefined" ? new AbortController() : undefined;
   const timer = setTimeout(() => controller?.abort(), LOTIDE_REQUEST_TIMEOUT_MS);
   const headers: Record<string, string> = {
@@ -139,23 +187,123 @@ export async function getInstance(serverUrl: string): Promise<{ title?: string; 
   return request({ apiUrl: serverUrl }, "/api/v1/instance");
 }
 
-export async function loginWithPassword(serverUrl: string, username: string, password: string): Promise<{ token: string; account: UnfathomablyAccount }> {
-  const app = await request<OAuthApp>({ apiUrl: serverUrl }, "/api/v1/apps", {
+export async function registerOAuthApplication(
+  serverUrl: string,
+  redirectUri: string,
+): Promise<OAuthApplication> {
+  if (!redirectUri.trim()) {
+    throw new Error("Cannot start server login without a redirect URI.");
+  }
+
+  return request<OAuthApplication>({ apiUrl: serverUrl }, "/api/v1/apps", {
     method: "POST",
     body: JSON.stringify({
       client_name: "Hoot Unfathomably",
-      redirect_uris: "urn:ietf:wg:oauth:2.0:oob",
-      scopes: "read write follow push",
-      website: "https://github.com/fbxl-sj0/unfathomably-fe",
+      redirect_uris: redirectUri,
+      scopes: OAUTH_SCOPES,
+      website: "https://github.com/fbxl-sj0/hoot-unfathomably",
     }),
   });
+}
+
+export function buildOAuthAuthorizationUrl(
+  serverUrl: string,
+  application: OAuthApplication,
+  redirectUri: string,
+  state: string,
+): string {
+  const base = requireSupportedServerUrl(serverUrl);
+  const authorizationUrl = new URL("/oauth/authorize", base);
+
+  authorizationUrl.search = new URLSearchParams({
+    client_id: application.client_id,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: OAUTH_SCOPES,
+    state,
+  }).toString();
+
+  return authorizationUrl.toString();
+}
+
+export function readOAuthAuthorizationCode(
+  redirectUrl: string,
+  expectedState: string,
+): string {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(redirectUrl);
+  } catch {
+    throw new Error("The server returned an invalid login response.");
+  }
+
+  const errorDescription =
+    parsed.searchParams.get("error_description") ??
+    parsed.searchParams.get("error");
+  if (errorDescription) {
+    throw new Error(`Server login was not completed: ${errorDescription}`);
+  }
+
+  if (
+    !expectedState ||
+    parsed.searchParams.get("state") !== expectedState
+  ) {
+    throw new Error(
+      "The server returned an invalid login state. Please try again.",
+    );
+  }
+
+  const code = parsed.searchParams.get("code");
+  if (!code) {
+    throw new Error("The server did not return a login authorization code.");
+  }
+
+  return code;
+}
+
+export async function loginWithAuthorizationCode(
+  serverUrl: string,
+  application: OAuthApplication,
+  redirectUri: string,
+  code: string,
+): Promise<{ token: string; account: UnfathomablyAccount }> {
+  const form = new URLSearchParams({
+    grant_type: "authorization_code",
+    client_id: application.client_id,
+    client_secret: application.client_secret,
+    redirect_uri: redirectUri,
+    code,
+  });
+  const token = await request<OAuthToken>(
+    { apiUrl: serverUrl },
+    "/oauth/token",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
+    },
+  );
+  const account = await request<UnfathomablyAccount>(
+    { apiUrl: serverUrl, login: { token: token.access_token } },
+    "/api/v1/accounts/verify_credentials",
+  );
+
+  return { token: token.access_token, account };
+}
+
+export async function loginWithPassword(serverUrl: string, username: string, password: string): Promise<{ token: string; account: UnfathomablyAccount }> {
+  const app = await registerOAuthApplication(
+    serverUrl,
+    "urn:ietf:wg:oauth:2.0:oob",
+  );
   const form = new URLSearchParams({
     grant_type: "password",
     client_id: app.client_id,
     client_secret: app.client_secret,
     username,
     password,
-    scope: "read write follow push",
+    scope: OAUTH_SCOPES,
   });
   const token = await request<OAuthToken>({ apiUrl: serverUrl }, "/oauth/token", {
     method: "POST",

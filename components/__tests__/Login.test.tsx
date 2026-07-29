@@ -34,19 +34,26 @@ import {
 import Login from "../Login";
 
 const mockDispatch = jest.fn();
+const mockLoginWithAuthorizationCode = jest.fn();
 const mockLoginWithPassword = jest.fn();
+const mockOpenAuthSessionAsync = jest.fn();
+const mockOpenBrowserAsync = jest.fn();
+const mockRegisterOAuthApplication = jest.fn();
 const mockLotideContextStore = jest.fn();
 const mockLotideContextKVStore = jest.fn();
-const mockNavigate = jest.fn();
+
+jest.mock("expo-web-browser", () => ({
+  openAuthSessionAsync: (...args: unknown[]) =>
+    mockOpenAuthSessionAsync(...args),
+  openBrowserAsync: (...args: unknown[]) => mockOpenBrowserAsync(...args),
+}));
+
+jest.mock("uuid", () => ({
+  v4: () => "state-123",
+}));
 
 jest.mock("react-redux", () => ({
   useDispatch: () => mockDispatch,
-}));
-
-jest.mock("@react-navigation/core", () => ({
-  useNavigation: () => ({
-    navigate: mockNavigate,
-  }),
 }));
 
 jest.mock("../../hooks/useTheme", () => ({
@@ -68,7 +75,11 @@ jest.mock("../../services/UnfathomablyService", () => {
   return {
     __esModule: true,
     ...actual,
+    loginWithAuthorizationCode: (...args: unknown[]) =>
+      mockLoginWithAuthorizationCode(...args),
     loginWithPassword: (...args: unknown[]) => mockLoginWithPassword(...args),
+    registerOAuthApplication: (...args: unknown[]) =>
+      mockRegisterOAuthApplication(...args),
   };
 });
 
@@ -138,6 +149,24 @@ describe("Login", () => {
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
     mockLotideContextStore.mockResolvedValue(undefined);
     mockLotideContextKVStore.mockResolvedValue(undefined);
+    mockOpenAuthSessionAsync.mockResolvedValue({ type: "cancel" });
+    mockOpenBrowserAsync.mockResolvedValue({ type: "opened" });
+    mockRegisterOAuthApplication.mockResolvedValue({
+      client_id: "client-id",
+      client_secret: "client-secret",
+    });
+    mockLoginWithAuthorizationCode.mockResolvedValue({
+      token: "browser-token",
+      account: {
+        acct: "remote-user",
+        avatar: "",
+        display_name: "Remote User",
+        id: "9",
+        note: "",
+        url: "https://pleroma.example/@remote-user",
+        username: "remote-user",
+      },
+    });
   });
 
   afterEach(() => {
@@ -208,6 +237,81 @@ describe("Login", () => {
         }),
       }),
     );
+  });
+
+  test("signs in through an arbitrary selected server with browser OAuth", async () => {
+    mockOpenAuthSessionAsync.mockResolvedValue({
+      type: "success",
+      url: "hoot://oauth/callback?code=authorization-code&state=state-123",
+    });
+    const screen = await renderLogin({ domain: "pleroma.example" });
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Sign in with Server" }),
+    );
+
+    await waitFor(() => {
+      expect(mockRegisterOAuthApplication).toHaveBeenCalledWith(
+        "https://pleroma.example",
+        "hoot://oauth/callback",
+      );
+      expect(mockOpenAuthSessionAsync).toHaveBeenCalledTimes(1);
+    });
+
+    const authorizationUrl = new URL(
+      mockOpenAuthSessionAsync.mock.calls[0][0],
+    );
+    expect(authorizationUrl.origin).toBe("https://pleroma.example");
+    expect(authorizationUrl.pathname).toBe("/oauth/authorize");
+    expect(authorizationUrl.searchParams.get("state")).toBe("state-123");
+    expect(mockOpenAuthSessionAsync).toHaveBeenCalledWith(
+      authorizationUrl.toString(),
+      "hoot://oauth/callback",
+    );
+
+    await waitFor(() => {
+      expect(mockLoginWithAuthorizationCode).toHaveBeenCalledWith(
+        "https://pleroma.example",
+        {
+          client_id: "client-id",
+          client_secret: "client-secret",
+        },
+        "hoot://oauth/callback",
+        "authorization-code",
+      );
+      expect(mockLotideContextKVStore).toHaveBeenCalledWith(
+        expect.objectContaining({
+          apiUrl: "https://pleroma.example",
+          login: expect.objectContaining({ token: "browser-token" }),
+        }),
+      );
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            apiUrl: "https://pleroma.example",
+          }),
+        }),
+      );
+    });
+    expect(mockLoginWithPassword).not.toHaveBeenCalled();
+  });
+
+  test("leaves the form ready when browser login is cancelled", async () => {
+    mockOpenAuthSessionAsync.mockResolvedValue({ type: "cancel" });
+    const screen = await renderLogin({ domain: "mastodon.example" });
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Sign in with Server" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Sign in with Server" }),
+      ).toBeTruthy();
+    });
+    expect(mockLoginWithAuthorizationCode).not.toHaveBeenCalled();
+    expect(mockLotideContextKVStore).not.toHaveBeenCalled();
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
   test("keeps the login form usable when the server rejects credentials", async () => {
@@ -294,35 +398,38 @@ describe("Login", () => {
   });
 
   test("directs registration to the server and restores the form", async () => {
-    const screen = await renderLogin();
+    const screen = await renderLogin({ domain: "pleroma.example" });
 
     await fireEvent.press(screen.getByRole("button", {
       name: "Switch to registration",
     }));
-    await fireEvent.changeText(
-      screen.getByPlaceholderText("Email Address"),
-      " alice@example.test ",
-    );
-    await fireEvent.changeText(
-      screen.getByPlaceholderText("Username"),
-      " alice ",
-    );
-    await fireEvent.changeText(
-      screen.getByPlaceholderText("Password"),
-      "secret",
-    );
 
-    await fireEvent.press(screen.getByRole("button", { name: "Register" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Open Server" }));
 
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith(
-        "Registration is handled by the server",
-        "Open your Unfathomably server in a browser to create an account, then sign in here.",
+      expect(mockOpenBrowserAsync).toHaveBeenCalledWith(
+        "https://pleroma.example",
       );
-      expect(screen.getByRole("button", { name: "Register" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Open Server" })).toBeTruthy();
     });
+    expect(Alert.alert).not.toHaveBeenCalled();
     expect(mockLoginWithPassword).not.toHaveBeenCalled();
     expect(mockLotideContextStore).not.toHaveBeenCalled();
+  });
+
+  test("opens password recovery on the selected server", async () => {
+    const screen = await renderLogin({ domain: "mastodon.example" });
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Reset forgotten password" }),
+    );
+
+    await waitFor(() => {
+      expect(mockOpenBrowserAsync).toHaveBeenCalledWith(
+        "https://mastodon.example",
+      );
+    });
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
   test("keeps the login form active when local login persistence fails", async () => {

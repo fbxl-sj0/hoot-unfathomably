@@ -12,6 +12,8 @@
     Responsibilities:
 
         • Mock AsyncStorage before app modules import StorageService
+        • Mock Expo browser boundaries that require a native module
+        • Provide deterministic OAuth state in the non-ESM Jest runtime
         • Mock VirtualizedList with a synchronous renderer for unit tests
         • Preserve list refresh props so pull-to-refresh tests inspect them
         • Keep FlatList-based screen tests free of asynchronous act warnings
@@ -101,6 +103,15 @@ jest.mock("expo-haptics", () => ({
 jest.mock("expo-linking", () => ({
   createURL: jest.fn(path => `hoot://${path}`),
   openURL: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock("expo-web-browser", () => ({
+  openAuthSessionAsync: jest.fn(() => Promise.resolve({ type: "cancel" })),
+  openBrowserAsync: jest.fn(() => Promise.resolve({ type: "opened" })),
+}));
+
+jest.mock("uuid", () => ({
+  v4: jest.fn(() => "test-oauth-state"),
 }));
 
 jest.mock("expo-secure-store", () => {

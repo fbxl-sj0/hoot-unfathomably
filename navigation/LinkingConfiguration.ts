@@ -21,7 +21,10 @@
         • Screen implementations
 */
 
-import { LinkingOptions } from '@react-navigation/native';
+import {
+  getStateFromPath,
+  LinkingOptions,
+} from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 
 import { RootStackParamList } from '../types';
@@ -34,8 +37,19 @@ function parseSortOption(sort: string): SortOption {
   return sort === "hot" || sort === "new" || sort === "top" ? sort : "hot";
 }
 
+export function isOAuthCallbackPath(path: string): boolean {
+  return path
+    .replace(/^\/+/, "")
+    .split(/[?#]/, 1)[0]
+    .replace(/\/+$/, "") === "oauth/callback";
+}
+
 const linking: LinkingOptions<RootStackParamList> = {
   prefixes: [Linking.createURL('/')],
+  getStateFromPath: (path, options) =>
+    isOAuthCallbackPath(path)
+      ? undefined
+      : getStateFromPath(path, options),
   config: {
     screens: {
       Root: {

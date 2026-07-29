@@ -1,12 +1,12 @@
 /*
-    Project: Hoot Mobile
-    -------------------
+    Project: Hoot Unfathomably
+    --------------------------
 
     File: HostList.tsx
 
     Purpose:
 
-        Render known and stored Lotide hosts for login.
+        Render compatible and stored Fediverse hosts for login.
 
     Responsibilities:
 
@@ -64,13 +64,14 @@ export function updateKnownHostInstanceInfo(
 }
 
 export function normalizeHostDomain(input: string): string {
-  const trimmed = input.trim().toLowerCase();
-  if (!trimmed) return "";
+  const serverUrl = normalizeServerSelection(input);
+  if (!serverUrl) return "";
 
-  const withoutScheme = trimmed.replace(/^https?:\/\//, "");
-  const host = withoutScheme.split(/[/?#]/)[0];
+  return new URL(serverUrl).host.toLowerCase();
+}
 
-  return host.replace(/\/+$/, "");
+export function normalizeServerSelection(input: string): string {
+  return UnfathomablyService.getSupportedServerUrl(input) ?? "";
 }
 
 export default function HostList(props: HostListProps) {
@@ -206,18 +207,22 @@ export default function HostList(props: HostListProps) {
   }, []);
 
   const selectCustomHost = () => {
-    const domain = normalizeHostDomain(hostText);
+    const serverUrl = normalizeServerSelection(hostText);
 
-    if (!domain) {
-      Alert.alert("Enter a server", "Type an Unfathomably, Pleroma, or Rebased server domain before continuing.");
+    if (!serverUrl) {
+      Alert.alert(
+        "Enter a server",
+        "Enter a valid HTTPS Unfathomably, Pleroma, Rebased, or Mastodon-compatible server.",
+      );
       return;
     }
 
-    props.onSelect(domain);
+    props.onSelect(serverUrl);
   };
 
   const renderItem = ({ item }: { item: HostData }) => {
-    const enabled = item.instanceInfo !== null;
+    const enabled =
+      item.instanceInfo !== undefined && item.instanceInfo !== null;
     const color = enabled ? theme.text : theme.secondaryText;
     const description = item.instanceInfo?.description;
     return (
@@ -233,7 +238,7 @@ export default function HostList(props: HostListProps) {
           accessibilityRole="button"
           accessibilityState={{ disabled: !enabled }}
           disabled={!enabled}
-          onPress={() => props.onSelect(item.domain, item.name)}
+          onPress={() => props.onSelect(`https://${item.domain}`, item.name)}
         >
           <ActorDisplayComponent
             name={item.name}
@@ -312,7 +317,11 @@ export default function HostList(props: HostListProps) {
               if (isUnlocked) {
                 activateExistingProfile(p[0], p[1]);
               } else {
-                props.onSelect(host.toLowerCase(), undefined, username);
+                props.onSelect(
+                  p[1].apiUrl || `https://${host.toLowerCase()}`,
+                  undefined,
+                  username,
+                );
               }
             }}
             style={{
@@ -354,10 +363,14 @@ export default function HostList(props: HostListProps) {
       <Text style={styles.subtitle}>
         {existingProfiles.length > 0
           ? "Or sign into a new account"
-          : "Enter a host or select one below"}
+          : "Enter any compatible server or select one below"}
+      </Text>
+      <Text style={[styles.serverHint, { color: theme.secondaryText }]}>
+        FBXL Social is only a shortcut. You can enter another Unfathomably,
+        Pleroma, Rebased, or Mastodon-compatible server.
       </Text>
       <TextInput
-        placeholder="Host domain"
+        placeholder="Server domain, e.g. example.social"
         style={styles.hostInput}
         value={hostText}
         onChangeText={setHostText}
@@ -399,6 +412,10 @@ const styles = StyleSheet.create({
     fontWeight: "300",
     marginBottom: 10,
     marginTop: 15,
+    textAlign: "center",
+  },
+  serverHint: {
+    marginBottom: 10,
     textAlign: "center",
   },
   hostRetry: {

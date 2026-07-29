@@ -10,6 +10,18 @@ It connects directly to an Unfathomably server. Compatible Pleroma and Rebased
 servers provide the normal timeline and discussion experience; group features
 appear when the server provides the Unfathomably-compatible group endpoints.
 
+## Server login
+
+FBXL Social is a convenience shortcut, not a fixed service. On the login
+screen, enter any compatible server domain and continue. The preferred
+**Sign in with Server** action uses the selected host's OAuth authorization
+page, so the host handles credentials, multi-factor authentication, and account
+approval. Direct password login remains available for Unfathomably, Pleroma,
+and Rebased servers that support it.
+
+Each saved profile retains its own server URL and secure token. Selecting a
+saved account therefore cannot silently redirect that account to FBXL Social.
+
 ## What it does
 
 - Browse your home timeline and a dedicated followed-groups timeline.
