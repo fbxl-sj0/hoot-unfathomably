@@ -141,6 +141,7 @@ export function makeStatus(
     sensitive: false,
     spoiler_text: "",
     account: makeAccount(family),
+    card: null,
     group: family === "pleroma" ? null : makeGroup(family),
     media_attachments: [],
     ...overrides,

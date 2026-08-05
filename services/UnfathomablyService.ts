@@ -44,6 +44,19 @@ export type UnfathomablyGroup = {
   relationship?: { member?: boolean; requested?: boolean } | null;
 };
 
+export type UnfathomablyPreviewCard = {
+  type?: "link" | "photo" | "video" | "rich" | string;
+  url: string;
+  title?: string | null;
+  description?: string | null;
+  image?: string | null;
+  image_description?: string | null;
+  provider_name?: string | null;
+  provider_url?: string | null;
+  width?: number;
+  height?: number;
+};
+
 export type UnfathomablyStatus = {
   id: string;
   created_at: string;
@@ -74,6 +87,7 @@ export type UnfathomablyStatus = {
   sensitive: boolean;
   spoiler_text: string;
   account: UnfathomablyAccount;
+  card?: UnfathomablyPreviewCard | null;
   group?: UnfathomablyGroup | null;
   media_attachments: { id: string; type: string; description?: string; preview_url?: string; url: string }[];
   reblog?: UnfathomablyStatus;

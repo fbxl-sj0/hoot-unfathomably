@@ -4,6 +4,13 @@ Hoot Unfathomably Changelog
 Unreleased
 ----------
 
+- Show rich, tappable link previews using the preview-card metadata supplied by
+  Unfathomably, Rebased, and Pleroma status responses.
+- Keep external links usable when an older server omits preview-card metadata,
+  without treating account mentions or hashtags as page previews.
+- Keep preview images contained within their cards and hide failed images while
+  retaining the title, description, provider, and link action.
+
 Version 0.2.9
 -------------
 

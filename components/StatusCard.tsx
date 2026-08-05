@@ -14,6 +14,7 @@ import React, { useState } from "react";
 import { Alert, Image, Pressable, StyleSheet } from "react-native";
 
 import { Text, View } from "./Themed";
+import StatusLinkPreview from "./StatusLinkPreview";
 import useTheme from "../hooks/useTheme";
 import * as Unfathomably from "../services/UnfathomablyService";
 import {
@@ -165,6 +166,9 @@ export default function StatusCard({
           <Image source={{ uri: media.preview_url || media.url }} resizeMode="contain" style={[styles.media, { backgroundColor: theme.secondaryBackground }]} />
         </Pressable>
       ))}
+      {!compact && (
+        <StatusLinkPreview card={visible.card} content={visible.content} />
+      )}
       <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"

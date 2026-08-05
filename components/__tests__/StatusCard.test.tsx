@@ -24,8 +24,10 @@
 import * as React from "react";
 import { Alert } from "react-native";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { openURL } from "expo-linking";
 
 import StatusCard, { getReplyAccount, stripHtml } from "../StatusCard";
+import { getFirstPreviewableLink } from "../StatusLinkPreview";
 import * as UnfathomablyService from "../../services/UnfathomablyService";
 import {
   makeContext,
@@ -222,6 +224,90 @@ describe("StatusCard Fediverse contracts", () => {
       fallbackUri: "https://unfathomably.example/media/preview.png",
       uri: "https://unfathomably.example/media/original.png",
     });
+  });
+
+  test.each([
+    ["Unfathomably", "unfathomably"],
+    ["Rebased", "rebased"],
+    ["Pleroma", "pleroma"],
+  ] as const)("renders and opens a %s server link preview", async (_name, family) => {
+    const status = makeStatus(family, {
+      content: '<p>Worth reading: <a href="https://writing.example/article">the article</a></p>',
+      card: {
+        type: "link",
+        url: "https://writing.example/article",
+        title: "A useful article",
+        description: "A concise description supplied by the server.",
+        image: "https://writing.example/card.png",
+        image_description: "Article illustration",
+        provider_name: "Writing Example",
+        provider_url: "https://writing.example",
+      },
+    });
+    const screen = await render(
+      <StatusCard
+        status={status}
+        ctx={makeContext(family)}
+        navigation={{ navigate: jest.fn() }}
+      />,
+    );
+
+    expect(screen.getByText("Writing Example")).toBeTruthy();
+    expect(screen.getByText("A useful article")).toBeTruthy();
+    expect(
+      screen.getByText("A concise description supplied by the server."),
+    ).toBeTruthy();
+
+    await fireEvent.press(
+      screen.getByRole("link", {
+        name: "Open link preview A useful article",
+      }),
+      { stopPropagation: jest.fn() },
+    );
+
+    await waitFor(() => {
+      expect(openURL).toHaveBeenCalledWith("https://writing.example/article");
+    });
+  });
+
+  test("gives a degraded Pleroma status a tappable link fallback", async () => {
+    const screen = await render(
+      <StatusCard
+        status={makeDegradedStatus("pleroma", {
+          content: '<p>Read <a href="https://news.example/story?a=1&amp;b=2">this story</a>.</p>',
+        })}
+        ctx={makeContext("pleroma")}
+        navigation={{ navigate: jest.fn() }}
+      />,
+    );
+
+    expect(screen.getByText("news.example")).toBeTruthy();
+    await fireEvent.press(
+      screen.getByRole("link", {
+        name: "Open link preview https://news.example/story?a=1&b=2",
+      }),
+      { stopPropagation: jest.fn() },
+    );
+
+    await waitFor(() => {
+      expect(openURL).toHaveBeenCalledWith(
+        "https://news.example/story?a=1&b=2",
+      );
+    });
+  });
+
+  test("does not mistake Fediverse mentions and hashtags for preview links", () => {
+    expect(
+      getFirstPreviewableLink(
+        '<span class="h-card"><a class="u-url mention" href="https://remote.example/@alice">@alice</a></span> <a class="hashtag" rel="tag" href="https://social.example/tags/testing">#testing</a>',
+      ),
+    ).toBeUndefined();
+
+    expect(
+      getFirstPreviewableLink(
+        '<a class="mention" href="https://remote.example/@alice">@alice</a> <a href="https://docs.example/guide">guide</a>',
+      ),
+    ).toBe("https://docs.example/guide");
   });
 
   test("marks a Pleroma reply and opens its parent post", async () => {

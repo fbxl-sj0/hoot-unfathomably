@@ -37,6 +37,9 @@ saved account therefore cannot silently redirect that account to FBXL Social.
 - Use server-supported reactions, including emoji reactions and positive or
   negative reactions.
 - Read notifications and your own account timeline.
+- Preview linked pages from server-supplied titles, descriptions, providers,
+  and images; compatible servers without rich-card data retain a tappable link
+  fallback.
 - Open a status thread, and open attached images in a full-screen zoomable
   viewer so long images remain readable.
 
