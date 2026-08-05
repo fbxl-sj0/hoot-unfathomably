@@ -26,7 +26,13 @@ import { Alert } from "react-native";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { openURL } from "expo-linking";
 
-import StatusCard, { getReplyAccount, stripHtml } from "../StatusCard";
+import StatusCard, {
+  collapseLeadingReplyRecipients,
+  getOtherReplyRecipientCount,
+  getReplyAccount,
+  getStatusDisplayContent,
+  stripHtml,
+} from "../StatusCard";
 import { getFirstPreviewableLink } from "../StatusLinkPreview";
 import * as UnfathomablyService from "../../services/UnfathomablyService";
 import {
@@ -342,6 +348,142 @@ describe("StatusCard Fediverse contracts", () => {
     expect(navigation.navigate).toHaveBeenCalledWith("Status", {
       statusId: "pleroma-parent-1",
     });
+  });
+
+  test("collapses a hellthread recipient block but retains the reply and media", async () => {
+    const navigation = { navigate: jest.fn() };
+    const status = makeStatus("pleroma", {
+      id: "hellthread-reply",
+      content:
+        '<span class="h-card"><a class="u-url mention" href="https://remote.example/users/parent">@parent</a></span> ' +
+        '<span class="h-card"><a class="u-url mention" href="https://another.example/users/alice">@alice</a></span> ' +
+        'Beef only...<br/><a href="https://remote.example/media/beefisgood.jpg">beefisgood.jpg</a>',
+      in_reply_to_id: "hellthread-parent",
+      in_reply_to_account_id: "parent-account",
+      mentions: [
+        {
+          id: "parent-account",
+          username: "parent",
+          acct: "parent@remote.example",
+          url: "https://remote.example/users/parent",
+        },
+        {
+          id: "alice-account",
+          username: "alice",
+          acct: "alice@another.example",
+          url: "https://another.example/users/alice",
+        },
+      ],
+      media_attachments: [
+        {
+          id: "beef-image",
+          type: "image",
+          description: "beefisgood.jpg",
+          preview_url: "https://unfathomably.example/proxy/preview/beef.jpg",
+          url: "https://unfathomably.example/proxy/beef.jpg",
+          remote_url: "https://remote.example/media/beefisgood.jpg",
+        },
+        {
+          id: "second-image",
+          type: "image",
+          description: "another-image.png",
+          preview_url: "https://unfathomably.example/proxy/preview/another.png",
+          url: "https://unfathomably.example/proxy/another.png",
+        },
+      ],
+      pleroma: {
+        in_reply_to_account_acct: "parent@remote.example",
+      },
+    });
+    const screen = await render(
+      <StatusCard
+        compact
+        status={status}
+        ctx={makeContext("pleroma")}
+        navigation={navigation}
+      />,
+    );
+
+    expect(screen.getByText("Replying to @parent@remote.example +1")).toBeTruthy();
+    expect(screen.getByText("Beef only...")).toBeTruthy();
+    expect(screen.queryByText("@alice")).toBeNull();
+    expect(screen.queryByText("beefisgood.jpg")).toBeNull();
+    expect(screen.getByText("+1 more attachment")).toBeTruthy();
+    expect(
+      screen.getAllByRole("button", { name: "Open image full screen" }),
+    ).toHaveLength(1);
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Open image full screen" }),
+      { stopPropagation: jest.fn() },
+    );
+    expect(navigation.navigate).toHaveBeenCalledWith("ImageViewer", {
+      description: "beefisgood.jpg",
+      fallbackUri: "https://unfathomably.example/proxy/preview/beef.jpg",
+      uri: "https://unfathomably.example/proxy/beef.jpg",
+    });
+  });
+
+  test("summarizes additional reply recipients without erasing mention-only replies", () => {
+    const status = makeStatus("rebased", {
+      in_reply_to_id: "parent-status",
+      in_reply_to_account_id: "parent-account",
+      mentions: [
+        {
+          id: "parent-account",
+          username: "parent",
+          acct: "parent@remote.example",
+          url: "https://remote.example/@parent",
+        },
+        {
+          id: "other-account",
+          username: "other",
+          acct: "other@remote.example",
+          url: "https://remote.example/@other",
+        },
+        {
+          id: "duplicate-other-account",
+          username: "other",
+          acct: "other@remote.example",
+          url: "https://remote.example/@other",
+        },
+      ],
+    });
+
+    expect(getOtherReplyRecipientCount(status, "parent@remote.example")).toBe(1);
+    expect(collapseLeadingReplyRecipients("@parent @other Actual reply")).toBe(
+      "Actual reply",
+    );
+    expect(collapseLeadingReplyRecipients("@parent @other")).toBe(
+      "@parent @other",
+    );
+  });
+
+  test("keeps non-reply leading mentions and meaningful attachment descriptions", () => {
+    expect(
+      getStatusDisplayContent(
+        makeStatus("unfathomably", {
+          content: "<p>@alice This is a direct post.</p>",
+          media_attachments: [],
+        }),
+      ),
+    ).toBe("@alice This is a direct post.");
+
+    expect(
+      getStatusDisplayContent(
+        makeStatus("unfathomably", {
+          content: "<p>A picture</p><a href=\"https://example/media\">A sunset over water</a>",
+          media_attachments: [
+            {
+              id: "described-image",
+              type: "image",
+              description: "A sunset over water",
+              url: "https://example/media",
+            },
+          ],
+        }),
+      ),
+    ).toBe("A picture\nA sunset over water");
   });
 
   test("uses standard Mastodon mention metadata for reply context", async () => {

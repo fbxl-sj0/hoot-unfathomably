@@ -10,6 +10,10 @@ Unreleased
   without treating account mentions or hashtags as page previews.
 - Keep preview images contained within their cards and hide failed images while
   retaining the title, description, provider, and link action.
+- Keep a bounded, tappable attachment preview on compact ancestor posts in a
+  discussion instead of reducing remote images and GIFs to filename text.
+- Collapse large leading reply-recipient lists into the existing reply-context
+  row, including a concise count of the other participants.
 
 Version 0.2.9
 -------------

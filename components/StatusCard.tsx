@@ -40,6 +40,14 @@ export default function StatusCard({
   const account = visible.account;
   const group = visible.group || current.group;
   const replyAccount = getReplyAccount(visible);
+  const replyRecipientCount = getOtherReplyRecipientCount(
+    visible,
+    replyAccount,
+  );
+  const displayContent = getStatusDisplayContent(visible);
+  const displayedMedia = compact
+    ? visible.media_attachments.slice(0, 1)
+    : visible.media_attachments;
   const capabilities = Unfathomably.getStatusCapabilities(visible);
   const [emojiMenuOpen, setEmojiMenuOpen] = useState(false);
 
@@ -141,7 +149,9 @@ export default function StatusCard({
         >
           <Icon name="arrow-undo-outline" size={16} color={theme.secondaryText} />
           <Text secondary numberOfLines={1} style={styles.replyContextText}>
-            {replyAccount ? `Replying to @${replyAccount}` : "Reply in conversation"}
+            {replyAccount
+              ? `Replying to @${replyAccount}${replyRecipientCount > 0 ? ` +${replyRecipientCount}` : ""}`
+              : "Reply in conversation"}
           </Text>
         </Pressable>
       )}
@@ -160,12 +170,19 @@ export default function StatusCard({
         </Pressable>
       )}
       {!!visible.spoiler_text && <Text style={styles.spoiler}>{visible.spoiler_text}</Text>}
-      <Text selectable style={styles.content}>{stripHtml(visible.content)}</Text>
-      {!compact && visible.media_attachments.map(media => (
+      {!!displayContent && (
+        <Text selectable style={styles.content}>{displayContent}</Text>
+      )}
+      {displayedMedia.map(media => (
         <Pressable key={media.id} accessibilityRole="button" accessibilityLabel="Open image full screen" onPress={event => { event.stopPropagation(); navigation.navigate("ImageViewer", { uri: media.url || media.preview_url || "", fallbackUri: media.preview_url, description: media.description }); }}>
-          <Image source={{ uri: media.preview_url || media.url }} resizeMode="contain" style={[styles.media, { backgroundColor: theme.secondaryBackground }]} />
+          <Image source={{ uri: media.preview_url || media.url }} resizeMode="contain" style={[styles.media, compact && styles.compactMedia, { backgroundColor: theme.secondaryBackground }]} />
         </Pressable>
       ))}
+      {compact && visible.media_attachments.length > displayedMedia.length && (
+        <Text secondary style={styles.moreMedia}>
+          +{visible.media_attachments.length - displayedMedia.length} more attachment{visible.media_attachments.length - displayedMedia.length === 1 ? "" : "s"}
+        </Text>
+      )}
       {!compact && (
         <StatusLinkPreview card={visible.card} content={visible.content} />
       )}
@@ -253,6 +270,44 @@ export function stripHtml(html: string): string {
   ).trim();
 }
 
+export function getStatusDisplayContent(
+  status: Unfathomably.UnfathomablyStatus,
+): string {
+  let content = stripHtml(status.content);
+
+  if (status.in_reply_to_id) {
+    content = collapseLeadingReplyRecipients(content);
+  }
+
+  return removeTrailingAttachmentLabels(content, status.media_attachments);
+}
+
+export function collapseLeadingReplyRecipients(content: string): string {
+  const leadingRecipients = content.match(/^(?:@\S+(?:\s+|$))+/u)?.[0];
+  if (!leadingRecipients) return content;
+
+  const remaining = content.slice(leadingRecipients.length).trimStart();
+  return remaining || content;
+}
+
+export function getOtherReplyRecipientCount(
+  status: Unfathomably.UnfathomablyStatus,
+  replyAccount = getReplyAccount(status),
+): number {
+  const normalizedReplyAccount = normalizeAccount(replyAccount);
+  const recipients = new Set(
+    (status.mentions || [])
+      .filter(mention =>
+        mention.id !== status.in_reply_to_account_id &&
+        normalizeAccount(mention.acct) !== normalizedReplyAccount,
+      )
+      .map(mention => normalizeAccount(mention.acct) || mention.id)
+      .filter(Boolean),
+  );
+
+  return recipients.size;
+}
+
 export function getReplyAccount(
   status: Unfathomably.UnfathomablyStatus,
 ): string | undefined {
@@ -294,6 +349,38 @@ function decodeHtmlEntities(value: string): string {
   });
 }
 
+function removeTrailingAttachmentLabels(
+  content: string,
+  attachments: Unfathomably.UnfathomablyMediaAttachment[],
+): string {
+  const fileNames = new Set(
+    attachments.flatMap(attachment => {
+      const description = attachment.description?.trim();
+      return description && isFileName(description)
+        ? [description.toLowerCase()]
+        : [];
+    }),
+  );
+  const lines = content.split("\n");
+
+  while (
+    lines.length > 0 &&
+    fileNames.has((lines.at(-1) || "").trim().toLowerCase())
+  ) {
+    lines.pop();
+  }
+
+  return lines.join("\n").trim();
+}
+
+function isFileName(value: string): boolean {
+  return /\.[a-z0-9]{2,8}$/i.test(value);
+}
+
+function normalizeAccount(value?: string): string {
+  return value?.trim().replace(/^@/, "").toLowerCase() || "";
+}
+
 const styles = StyleSheet.create({
   card: { borderBottomWidth: 8, padding: 15 },
   boosted: { fontSize: 12, marginBottom: 8, marginLeft: 4 },
@@ -307,6 +394,8 @@ const styles = StyleSheet.create({
   spoiler: { fontWeight: "700", marginTop: 12 },
   content: { fontSize: 16, lineHeight: 22, marginTop: 12 },
   media: { height: 220, marginTop: 12, borderRadius: 10, width: "100%" },
+  compactMedia: { height: 150 },
+  moreMedia: { fontSize: 12, marginTop: 6, textAlign: "right" },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 16 },
   action: { alignItems: "center", borderRadius: 10, justifyContent: "center", minHeight: 52, minWidth: 50, paddingHorizontal: 4, width: "15%" },
   actionText: { fontSize: 14, fontWeight: "600", textAlign: "center" },

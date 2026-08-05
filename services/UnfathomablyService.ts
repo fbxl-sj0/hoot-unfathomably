@@ -57,6 +57,16 @@ export type UnfathomablyPreviewCard = {
   height?: number;
 };
 
+export type UnfathomablyMediaAttachment = {
+  id: string;
+  type: string;
+  description?: string | null;
+  preview_url?: string;
+  url: string;
+  remote_url?: string | null;
+  text_url?: string | null;
+};
+
 export type UnfathomablyStatus = {
   id: string;
   created_at: string;
@@ -89,7 +99,7 @@ export type UnfathomablyStatus = {
   account: UnfathomablyAccount;
   card?: UnfathomablyPreviewCard | null;
   group?: UnfathomablyGroup | null;
-  media_attachments: { id: string; type: string; description?: string; preview_url?: string; url: string }[];
+  media_attachments: UnfathomablyMediaAttachment[];
   reblog?: UnfathomablyStatus;
 };
 
