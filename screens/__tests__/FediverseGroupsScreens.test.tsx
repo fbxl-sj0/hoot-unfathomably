@@ -211,8 +211,11 @@ describe("Fediverse group screens", () => {
     expect(navigation.navigate).toHaveBeenCalledWith("Root", {
       screen: "NewPostScreen",
       params: {
+        composeIntentId: expect.any(String),
         groupId: group.id,
         groupName: group.display_name,
+        inReplyToId: undefined,
+        quoteId: undefined,
       },
     });
   });

@@ -73,6 +73,7 @@ import {
   MINIMUM_TOUCH_TARGET_SIZE,
   TOUCH_TARGET_HIT_SLOP,
 } from "../constants/TouchTargets";
+import { createComposeIntent } from "../utils/composeIntent";
 
 type RootNavigation = RootStackScreenProps<"Root">["navigation"];
 type SortIconName = React.ComponentProps<typeof Icon>["name"];
@@ -357,6 +358,9 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
         name="NewPostScreen"
         component={NewPostScreen}
         initialParams={{ community: undefined }}
+        listeners={({ navigation }) => ({
+          tabPress: () => navigation.setParams(createComposeIntent()),
+        })}
         options={{
           title: "New post",
           tabBarIcon: ({ color }) => (
@@ -464,6 +468,9 @@ function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
         name="NewPostScreen"
         component={NewPostScreen}
         initialParams={{ community: undefined }}
+        listeners={({ navigation }) => ({
+          drawerItemPress: () => navigation.setParams(createComposeIntent()),
+        })}
         options={{
           title: "New Post",
           drawerIcon: ({ color }) => (

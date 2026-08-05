@@ -19,6 +19,7 @@ import { Text, View } from "../components/Themed";
 import useTheme from "../hooks/useTheme";
 import { useLotideCtx } from "../hooks/useLotideCtx";
 import * as Unfathomably from "../services/UnfathomablyService";
+import { createComposeIntent } from "../utils/composeIntent";
 
 export default function GroupScreen({ navigation, route }: { navigation: any; route: { params: { groupId: string; title?: string } } }) {
   const ctx = useLotideCtx();
@@ -58,7 +59,7 @@ export default function GroupScreen({ navigation, route }: { navigation: any; ro
       refreshing={false}
       ListHeaderComponent={<View style={[styles.header, { borderBottomColor: theme.secondaryBackground }]}>
         {!!group?.header && <Image source={{ uri: group.header }} style={styles.cover} />}
-        <View style={styles.groupInfo}><Text style={styles.title}>{group?.display_name || route.params.title || "Group"}</Text><Text secondary>{group?.members_count || 0} members</Text>{!!group?.note && <Text>{stripHtml(group.note)}</Text>}<View style={styles.buttons}><AppButton title={joining ? "Saving..." : joined ? "Leave group" : group?.relationship?.requested ? "Requested" : "Join group"} onPress={() => void toggleMembership()} disabled={joining || !!group?.relationship?.requested} color={theme.tint} /><Pressable accessibilityRole="button" style={styles.compose} onPress={() => navigation.navigate("Root", { screen: "NewPostScreen", params: { groupId: id, groupName: group?.display_name } })}><Text style={{ color: theme.tint }}>Write to group</Text></Pressable></View></View>
+        <View style={styles.groupInfo}><Text style={styles.title}>{group?.display_name || route.params.title || "Group"}</Text><Text secondary>{group?.members_count || 0} members</Text>{!!group?.note && <Text>{stripHtml(group.note)}</Text>}<View style={styles.buttons}><AppButton title={joining ? "Saving..." : joined ? "Leave group" : group?.relationship?.requested ? "Requested" : "Join group"} onPress={() => void toggleMembership()} disabled={joining || !!group?.relationship?.requested} color={theme.tint} /><Pressable accessibilityRole="button" style={styles.compose} onPress={() => navigation.navigate("Root", { screen: "NewPostScreen", params: createComposeIntent({ groupId: id, groupName: group?.display_name }) })}><Text style={{ color: theme.tint }}>Write to group</Text></Pressable></View></View>
       </View>}
       ListEmptyComponent={error ? <RetryState message={error} onRetry={() => void load()} /> : <Text style={styles.empty}>No discussion posts yet.</Text>}
     />

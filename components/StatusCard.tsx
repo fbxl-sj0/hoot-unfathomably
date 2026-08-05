@@ -16,6 +16,10 @@ import { Alert, Image, Pressable, StyleSheet } from "react-native";
 import { Text, View } from "./Themed";
 import useTheme from "../hooks/useTheme";
 import * as Unfathomably from "../services/UnfathomablyService";
+import {
+  ComposeIntent,
+  createComposeIntent,
+} from "../utils/composeIntent";
 import { getErrorMessage } from "../utils/error";
 
 export default function StatusCard({
@@ -89,10 +93,12 @@ export default function StatusCard({
     event.stopPropagation();
     callback();
   };
-  const openComposer = (params: Record<string, unknown>) => {
+  const openComposer = (
+    params: Partial<Omit<ComposeIntent, "composeIntentId">>,
+  ) => {
     navigation.navigate("Root", {
       screen: "NewPostScreen",
-      params,
+      params: createComposeIntent(params),
     });
   };
 

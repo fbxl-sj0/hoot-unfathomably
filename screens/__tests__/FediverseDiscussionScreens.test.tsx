@@ -231,6 +231,200 @@ describe("Fediverse discussion screens", () => {
     });
   });
 
+  test("does not carry a community into a later ordinary reply", async () => {
+    const group = makeGroup("unfathomably");
+    const replyTarget = makeStatus("unfathomably", {
+      group: null,
+      id: "ordinary-parent",
+    });
+    mockGetGroups.mockResolvedValue([group]);
+    mockGetStatus.mockResolvedValue(replyTarget);
+    mockCreateStatus
+      .mockResolvedValueOnce(
+        makeStatus("unfathomably", { id: "created-group-post" }),
+      )
+      .mockResolvedValueOnce(
+        makeStatus("unfathomably", { id: "created-reply" }),
+      );
+    const navigation = {
+      navigate: jest.fn(),
+      setParams: jest.fn(),
+    };
+    const screen = await render(
+      <ComposeStatusScreen
+        navigation={navigation}
+        route={{
+          params: {
+            composeIntentId: "group-post-intent",
+            groupId: group.id,
+            groupName: group.display_name,
+          },
+        }}
+      />,
+    );
+
+    await fireEvent.changeText(
+      screen.getByPlaceholderText("What's happening?"),
+      "A community post",
+    );
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Publish" }),
+    );
+
+    await waitFor(() => {
+      expect(mockCreateStatus).toHaveBeenNthCalledWith(
+        1,
+        makeContext("unfathomably"),
+        "A community post",
+        {
+          groupId: group.id,
+          inReplyToId: undefined,
+          quoteId: undefined,
+        },
+      );
+      expect(navigation.setParams).toHaveBeenCalledWith({
+        composeIntentId: undefined,
+        groupId: undefined,
+        groupName: undefined,
+        inReplyToId: undefined,
+        quoteId: undefined,
+      });
+    });
+
+    await act(async () => {
+      screen.rerender(
+        <ComposeStatusScreen
+          navigation={navigation}
+          route={{
+            params: {
+              composeIntentId: "ordinary-reply-intent",
+              inReplyToId: replyTarget.id,
+            },
+          }}
+        />,
+      );
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByPlaceholderText("Write a reply").props.value,
+      ).toBe("");
+    });
+    await fireEvent.changeText(
+      screen.getByPlaceholderText("Write a reply"),
+      "An ordinary reply",
+    );
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Reply" }),
+    );
+
+    await waitFor(() => {
+      expect(mockCreateStatus).toHaveBeenNthCalledWith(
+        2,
+        makeContext("unfathomably"),
+        "An ordinary reply",
+        {
+          groupId: undefined,
+          inReplyToId: replyTarget.id,
+          quoteId: undefined,
+        },
+      );
+    });
+  });
+
+  test("starts a fresh direct-post intent without an old draft or group", async () => {
+    const group = makeGroup("unfathomably");
+    mockGetGroups.mockResolvedValue([group]);
+    const screen = await render(
+      <ComposeStatusScreen
+        navigation={{ navigate: jest.fn() }}
+        route={{ params: { composeIntentId: "direct-post-1" } }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(group.display_name)).toBeTruthy();
+    });
+    await fireEvent.press(screen.getByText(group.display_name));
+    await fireEvent.changeText(
+      screen.getByPlaceholderText("What's happening?"),
+      "Abandoned group draft",
+    );
+
+    await act(async () => {
+      screen.rerender(
+        <ComposeStatusScreen
+          navigation={{ navigate: jest.fn() }}
+          route={{ params: { composeIntentId: "direct-post-2" } }}
+        />,
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("New post")).toBeTruthy();
+      expect(
+        screen.getByPlaceholderText("What's happening?").props.value,
+      ).toBe("");
+    });
+  });
+
+  test("ignores a stale parent request after the compose target changes", async () => {
+    let resolveFirstTarget: (
+      status: ReturnType<typeof makeStatus>,
+    ) => void = () => undefined;
+    const firstTargetRequest = new Promise<ReturnType<typeof makeStatus>>(
+      resolve => { resolveFirstTarget = resolve; },
+    );
+    const firstTarget = makeStatus("rebased", {
+      content: "<p>Old target</p>",
+      id: "old-target",
+    });
+    const secondTarget = makeStatus("rebased", {
+      content: "<p>Current target</p>",
+      id: "current-target",
+    });
+    mockCurrentContext = makeContext("rebased");
+    mockGetStatus
+      .mockReturnValueOnce(firstTargetRequest)
+      .mockResolvedValueOnce(secondTarget);
+    const screen = await render(
+      <ComposeStatusScreen
+        navigation={{ navigate: jest.fn() }}
+        route={{
+          params: {
+            composeIntentId: "old-reply-intent",
+            inReplyToId: firstTarget.id,
+          },
+        }}
+      />,
+    );
+
+    await act(async () => {
+      screen.rerender(
+        <ComposeStatusScreen
+          navigation={{ navigate: jest.fn() }}
+          route={{
+            params: {
+              composeIntentId: "current-reply-intent",
+              inReplyToId: secondTarget.id,
+            },
+          }}
+        />,
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Current target")).toBeTruthy();
+    });
+    await act(async () => {
+      resolveFirstTarget(firstTarget);
+      await firstTargetRequest;
+    });
+
+    expect(screen.queryByText("Old target")).toBeNull();
+    expect(screen.getByText("Current target")).toBeTruthy();
+  });
+
   test("loads a Rebased thread with ancestors and descendants", async () => {
     mockCurrentContext = makeContext("rebased");
     const current = makeStatus("rebased", { id: "current-status" });
@@ -269,7 +463,11 @@ describe("Fediverse discussion screens", () => {
     expect(navigation.navigate).toHaveBeenCalledWith("Root", {
       screen: "NewPostScreen",
       params: {
+        composeIntentId: expect.any(String),
+        groupId: undefined,
+        groupName: undefined,
         inReplyToId: current.id,
+        quoteId: undefined,
       },
     });
   });

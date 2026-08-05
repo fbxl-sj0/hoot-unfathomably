@@ -190,9 +190,11 @@ describe("StatusCard Fediverse contracts", () => {
     expect(navigation.navigate).toHaveBeenCalledWith("Root", {
       screen: "NewPostScreen",
       params: {
+        composeIntentId: expect.any(String),
         groupId: "unfathomably-group-1",
         groupName: "Unfathomably Test Group",
         inReplyToId: "unfathomably-status-1",
+        quoteId: undefined,
       },
     });
 
@@ -203,8 +205,10 @@ describe("StatusCard Fediverse contracts", () => {
     expect(navigation.navigate).toHaveBeenCalledWith("Root", {
       screen: "NewPostScreen",
       params: {
+        composeIntentId: expect.any(String),
         groupId: "unfathomably-group-1",
         groupName: "Unfathomably Test Group",
+        inReplyToId: undefined,
         quoteId: "unfathomably-status-1",
       },
     });

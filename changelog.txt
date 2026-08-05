@@ -4,6 +4,19 @@ Hoot Unfathomably Changelog
 Unreleased
 ----------
 
+Version 0.2.7
+-------------
+
+- Fixed a community destination carrying into a later ordinary reply when the
+  reusable composer tab remained mounted.
+- Give every reply, quote, group post, and direct post a complete unique
+  compose intent so unrelated destinations and drafts cannot bleed between
+  modes.
+- Clear compose routing after successful publication and ignore late parent
+  lookups after the compose target changes.
+- Added regression coverage for community-to-reply transitions, fresh direct
+  posts, request payload omission, and target-loading races.
+
 Version 0.2.6
 -------------
 

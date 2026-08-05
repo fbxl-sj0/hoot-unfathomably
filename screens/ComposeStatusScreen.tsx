@@ -1,5 +1,5 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     --------------------------
 
     File: ComposeStatusScreen.tsx
@@ -20,28 +20,97 @@ import useTheme from "../hooks/useTheme";
 import { useLotideCtx } from "../hooks/useLotideCtx";
 import * as Unfathomably from "../services/UnfathomablyService";
 
-export default function ComposeStatusScreen({ navigation, route }: { navigation: any; route: { params?: { groupId?: string; groupName?: string; inReplyToId?: string; quoteId?: string } } }) {
+type ComposeRouteParams = {
+  composeIntentId?: string;
+  groupId?: string;
+  groupName?: string;
+  inReplyToId?: string;
+  quoteId?: string;
+};
+
+export default function ComposeStatusScreen({ navigation, route }: { navigation: any; route: { params?: ComposeRouteParams } }) {
   const ctx = useLotideCtx();
+  if (!ctx?.login) return <SuggestLogin />;
+
+  const params = route.params || {};
+  const intentKey = [
+    ctx.apiUrl,
+    params.composeIntentId || "route",
+    params.groupId || "",
+    params.inReplyToId || "",
+    params.quoteId || "",
+  ].join(":");
+
+  return (
+    <ComposeStatusForm
+      key={intentKey}
+      ctx={ctx}
+      navigation={navigation}
+      params={params}
+    />
+  );
+}
+
+function ComposeStatusForm({
+  ctx,
+  navigation,
+  params,
+}: {
+  ctx: LotideContext;
+  navigation: any;
+  params: ComposeRouteParams;
+}) {
   const theme = useTheme();
+  const replyId = params.inReplyToId;
+  const quoteId = params.quoteId;
+  const targetId = replyId || quoteId;
   const [content, setContent] = useState("");
   const [groups, setGroups] = useState<Unfathomably.UnfathomablyGroup[]>([]);
-  const [groupId, setGroupId] = useState(route.params?.groupId);
+  const [groupId, setGroupId] = useState(params.groupId);
   const [submitting, setSubmitting] = useState(false);
   const [targetStatus, setTargetStatus] = useState<Unfathomably.UnfathomablyStatus>();
-  const replyId = route.params?.inReplyToId;
-  const quoteId = route.params?.quoteId;
-  const targetId = replyId || quoteId;
-  useEffect(() => { if (ctx?.login) void Unfathomably.getGroups(ctx).then(setGroups).catch(() => undefined); }, [ctx]);
+
   useEffect(() => {
-    if (ctx?.login && targetId) void Unfathomably.getStatus(ctx, targetId).then(setTargetStatus).catch(() => undefined);
+    let active = true;
+    void Unfathomably.getGroups(ctx)
+      .then(next => {
+        if (active) setGroups(next);
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [ctx]);
+
+  useEffect(() => {
+    let active = true;
+    if (targetId) {
+      void Unfathomably.getStatus(ctx, targetId)
+        .then(next => {
+          if (active) setTargetStatus(next);
+        })
+        .catch(() => undefined);
+    }
+    return () => { active = false; };
   }, [ctx, targetId]);
-  if (!ctx?.login) return <SuggestLogin />;
+
+  function clearComposeIntent() {
+    setContent("");
+    setGroupId(undefined);
+    setTargetStatus(undefined);
+    navigation.setParams?.({
+      composeIntentId: undefined,
+      groupId: undefined,
+      groupName: undefined,
+      inReplyToId: undefined,
+      quoteId: undefined,
+    });
+  }
+
   async function submit() {
     if (!content.trim() || submitting) return;
     setSubmitting(true);
     try {
       const status = await Unfathomably.createStatus(ctx as LotideContext, content.trim(), { inReplyToId: replyId, quoteId, groupId });
-      setContent("");
+      clearComposeIntent();
       navigation.navigate("Status", { statusId: status.id });
     } catch (reason) { Alert.alert("Could not publish", reason instanceof Error ? reason.message : "Try again."); }
     finally { setSubmitting(false); }

@@ -24,6 +24,7 @@ import { Text, View } from "../components/Themed";
 import useTheme from "../hooks/useTheme";
 import { useLotideCtx } from "../hooks/useLotideCtx";
 import * as Unfathomably from "../services/UnfathomablyService";
+import { createComposeIntent } from "../utils/composeIntent";
 import { getErrorMessage } from "../utils/error";
 
 const MAX_VISIBLE_ANCESTORS = 100;
@@ -186,9 +187,9 @@ export default function StatusThreadScreen({
                   onPress={() =>
                     navigation.navigate("Root", {
                       screen: "NewPostScreen",
-                      params: {
+                      params: createComposeIntent({
                         inReplyToId: status.id,
-                      },
+                      }),
                     })
                   }
                 >

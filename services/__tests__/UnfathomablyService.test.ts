@@ -368,6 +368,23 @@ describe("UnfathomablyService", () => {
     expect(mockFetch).toHaveBeenNthCalledWith(3, `${FEDIVERSE_SERVERS.rebased.origin}/api/v1/pleroma/statuses/post-1/reactions/%F0%9F%91%8D`, expect.objectContaining({ method: "PUT" }));
   });
 
+  test("omits community and quote fields from an ordinary reply", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: "ordinary-reply" }),
+    });
+
+    await createStatus(makeContext("pleroma"), "A plain reply", {
+      inReplyToId: "ordinary-parent",
+    });
+
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+      in_reply_to_id: "ordinary-parent",
+      status: "A plain reply",
+      visibility: "public",
+    });
+  });
+
   test("uses the Unfathomably group contract for discovery, discussion, and membership", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => [] });
     const ctx = makeContext("unfathomably");
