@@ -23,8 +23,11 @@ import {
   getInstance,
   getNotifications,
   getStatus,
+  getStatusAncestors,
   getStatusCapabilities,
   getStatusContext,
+  getStatusContextWindow,
+  getStatusDescendants,
   getSupportedServerUrl,
   joinGroup,
   loginWithAuthorizationCode,
@@ -449,6 +452,141 @@ describe("UnfathomablyService", () => {
       `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/notifications?limit=30&max_id=older`,
       `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/accounts/account%2Fone/statuses?limit=30&max_id=older`,
     ]);
+  });
+
+  test("loads a small bounded context window and keeps one look-ahead item", async () => {
+    const ancestors = Array.from({ length: 11 }, (_value, index) =>
+      makeStatus("unfathomably", { id: `ancestor-${index}` }),
+    );
+    const descendants = Array.from({ length: 21 }, (_value, index) =>
+      makeStatus("unfathomably", { id: `descendant-${index}` }),
+    );
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ancestors })
+      .mockResolvedValueOnce({ ok: true, json: async () => descendants });
+    const ctx = makeContext("unfathomably");
+
+    await expect(
+      getStatusContextWindow(ctx, "hell/thread"),
+    ).resolves.toEqual({
+      ancestors: ancestors.slice(1),
+      descendants: descendants.slice(0, 20),
+      hasMoreAncestors: true,
+      hasMoreDescendants: true,
+      mode: "paged",
+    });
+    expect(mockFetch.mock.calls.map(call => call[0])).toEqual([
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/statuses/hell%2Fthread/context/ancestors?limit=11`,
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/statuses/hell%2Fthread/context/descendants?limit=21`,
+    ]);
+  });
+
+  test("uses directional cursors for just-in-time context pages", async () => {
+    const statuses = [
+      makeStatus("unfathomably", { id: "first" }),
+      makeStatus("unfathomably", { id: "second" }),
+      makeStatus("unfathomably", { id: "look-ahead" }),
+    ];
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => statuses })
+      .mockResolvedValueOnce({ ok: true, json: async () => statuses });
+    const ctx = makeContext("unfathomably");
+
+    await expect(
+      getStatusAncestors(ctx, "current", "first-page", 2),
+    ).resolves.toEqual({
+      statuses: statuses.slice(1),
+      hasMore: true,
+    });
+    await expect(
+      getStatusDescendants(ctx, "current", "last-page", 2),
+    ).resolves.toEqual({
+      statuses: statuses.slice(0, 2),
+      hasMore: true,
+    });
+    expect(mockFetch.mock.calls.map(call => call[0])).toEqual([
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/statuses/current/context/ancestors?limit=3&max_id=first-page`,
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/statuses/current/context/descendants?limit=3&min_id=last-page`,
+    ]);
+  });
+
+  test("falls back to the legacy context contract on older Rebased and Pleroma servers", async () => {
+    const unavailable = {
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+      text: async () => "{\"error\":\"Not implemented\"}",
+    };
+    const legacyContext = {
+      ancestors: [makeStatus("pleroma", { id: "old-parent" })],
+      descendants: [makeStatus("pleroma", { id: "old-reply" })],
+    };
+    mockFetch
+      .mockResolvedValueOnce(unavailable)
+      .mockResolvedValueOnce(unavailable)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => legacyContext,
+      });
+    const ctx = makeContext("pleroma");
+
+    await expect(
+      getStatusContextWindow(ctx, "old-server-status"),
+    ).resolves.toEqual({
+      ...legacyContext,
+      hasMoreAncestors: false,
+      hasMoreDescendants: false,
+      mode: "legacy",
+    });
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(mockFetch.mock.calls[2][0]).toBe(
+      `${FEDIVERSE_SERVERS.pleroma.origin}/api/v1/statuses/old-server-status/context`,
+    );
+  });
+
+  test("does not retry the unbounded endpoint after a bounded page gets a gateway error", async () => {
+    const gatewayError = {
+      ok: false,
+      status: 502,
+      statusText: "Bad Gateway",
+      text: async () => "<html><body>nginx</body></html>",
+    };
+    mockFetch.mockResolvedValue(gatewayError);
+
+    await expect(
+      getStatusContextWindow(
+        makeContext("unfathomably"),
+        "large-thread",
+      ),
+    ).rejects.toThrow("Unfathomably returned 502 (Bad Gateway).");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch.mock.calls.map(call => call[0])).not.toContain(
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/statuses/large-thread/context`,
+    );
+  });
+
+  test("does not fall back when only one bounded direction is unavailable and the other fails", async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        statusText: "Not Found",
+        text: async () => "{\"error\":\"Not implemented\"}",
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        statusText: "Bad Gateway",
+        text: async () => "<html><body>nginx</body></html>",
+      });
+
+    await expect(
+      getStatusContextWindow(
+        makeContext("unfathomably"),
+        "partially-failed-thread",
+      ),
+    ).rejects.toThrow("Unfathomably returned 502 (Bad Gateway).");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
   test("reports a stable timeout for an oversized status context", async () => {

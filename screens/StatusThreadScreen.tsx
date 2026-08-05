@@ -39,7 +39,27 @@ type ThreadItem =
   | {
       key: "earlier-heading";
       kind: "earlier-heading";
+    }
+  | {
+      key: "load-ancestors";
+      kind: "load-ancestors";
+    }
+  | {
+      key: "load-descendants";
+      kind: "load-descendants";
     };
+
+function mergeUniqueStatuses(
+  first: Unfathomably.UnfathomablyStatus[],
+  second: Unfathomably.UnfathomablyStatus[],
+) {
+  const seen = new Set<string>();
+  return [...first, ...second].filter(item => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
 
 export default function StatusThreadScreen({
   navigation,
@@ -53,12 +73,18 @@ export default function StatusThreadScreen({
   const [status, setStatus] = useState<Unfathomably.UnfathomablyStatus>();
   const [replies, setReplies] = useState<Unfathomably.UnfathomablyStatus[]>([]);
   const [ancestors, setAncestors] = useState<Unfathomably.UnfathomablyStatus[]>([]);
-  const [ancestorCount, setAncestorCount] = useState(0);
-  const [descendantCount, setDescendantCount] = useState(0);
+  const [legacyCounts, setLegacyCounts] = useState<{
+    ancestors: number;
+    descendants: number;
+  }>();
+  const [hasMoreAncestors, setHasMoreAncestors] = useState(false);
+  const [hasMoreDescendants, setHasMoreDescendants] = useState(false);
   const [statusError, setStatusError] = useState("");
   const [contextError, setContextError] = useState("");
   const [statusLoading, setStatusLoading] = useState(true);
   const [contextLoading, setContextLoading] = useState(true);
+  const [loadingMoreAncestors, setLoadingMoreAncestors] = useState(false);
+  const [loadingMoreDescendants, setLoadingMoreDescendants] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadStatus = useCallback(async () => {
@@ -81,20 +107,77 @@ export default function StatusThreadScreen({
     setContextLoading(true);
     try {
       setContextError("");
-      const context = await Unfathomably.getStatusContext(
+      const context = await Unfathomably.getStatusContextWindow(
         ctx,
         route.params.statusId,
       );
-      setAncestorCount(context.ancestors.length);
-      setDescendantCount(context.descendants.length);
-      setAncestors(context.ancestors.slice(-MAX_VISIBLE_ANCESTORS));
-      setReplies(context.descendants.slice(0, MAX_VISIBLE_DESCENDANTS));
+      const isLegacy = context.mode === "legacy";
+      setLegacyCounts(isLegacy
+        ? {
+            ancestors: context.ancestors.length,
+            descendants: context.descendants.length,
+          }
+        : undefined);
+      setAncestors(isLegacy
+        ? context.ancestors.slice(-MAX_VISIBLE_ANCESTORS)
+        : context.ancestors);
+      setReplies(isLegacy
+        ? context.descendants.slice(0, MAX_VISIBLE_DESCENDANTS)
+        : context.descendants);
+      setHasMoreAncestors(context.hasMoreAncestors);
+      setHasMoreDescendants(context.hasMoreDescendants);
     } catch (reason) {
       setContextError(getErrorMessage(reason));
     } finally {
       setContextLoading(false);
     }
   }, [ctx, route.params.statusId]);
+
+  const loadMoreAncestors = useCallback(async () => {
+    const cursor = ancestors[0]?.id;
+    if (!ctx?.login || !cursor || loadingMoreAncestors) return;
+
+    setLoadingMoreAncestors(true);
+    try {
+      setContextError("");
+      const page = await Unfathomably.getStatusAncestors(
+        ctx,
+        route.params.statusId,
+        cursor,
+      );
+      setAncestors(current =>
+        mergeUniqueStatuses(page.statuses, current),
+      );
+      setHasMoreAncestors(page.hasMore);
+    } catch (reason) {
+      setContextError(getErrorMessage(reason));
+    } finally {
+      setLoadingMoreAncestors(false);
+    }
+  }, [ancestors, ctx, loadingMoreAncestors, route.params.statusId]);
+
+  const loadMoreDescendants = useCallback(async () => {
+    const cursor = replies.at(-1)?.id;
+    if (!ctx?.login || !cursor || loadingMoreDescendants) return;
+
+    setLoadingMoreDescendants(true);
+    try {
+      setContextError("");
+      const page = await Unfathomably.getStatusDescendants(
+        ctx,
+        route.params.statusId,
+        cursor,
+      );
+      setReplies(current =>
+        mergeUniqueStatuses(current, page.statuses),
+      );
+      setHasMoreDescendants(page.hasMore);
+    } catch (reason) {
+      setContextError(getErrorMessage(reason));
+    } finally {
+      setLoadingMoreDescendants(false);
+    }
+  }, [ctx, loadingMoreDescendants, replies, route.params.statusId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -124,6 +207,12 @@ export default function StatusThreadScreen({
         kind: "descendant" as const,
         status: reply,
       })),
+      ...(hasMoreDescendants
+        ? [{
+            key: "load-descendants" as const,
+            kind: "load-descendants" as const,
+          }]
+        : []),
       ...(ancestors.length > 0
         ? [
             {
@@ -135,10 +224,16 @@ export default function StatusThreadScreen({
               kind: "ancestor" as const,
               status: ancestor,
             })),
+            ...(hasMoreAncestors
+              ? [{
+                  key: "load-ancestors" as const,
+                  kind: "load-ancestors" as const,
+                }]
+              : []),
           ]
         : []),
     ];
-  }, [ancestors, replies, status]);
+  }, [ancestors, hasMoreAncestors, hasMoreDescendants, replies, status]);
 
   if (!ctx?.login) return null;
 
@@ -166,10 +261,49 @@ export default function StatusThreadScreen({
         if (item.kind === "earlier-heading") {
           return (
             <Text style={styles.heading}>
-              {ancestorCount > ancestors.length
-                ? `Earlier in this discussion (showing ${ancestors.length} of ${ancestorCount})`
+              {legacyCounts && legacyCounts.ancestors > ancestors.length
+                ? `Earlier in this discussion (showing ${ancestors.length} of ${legacyCounts.ancestors})`
                 : "Earlier in this discussion"}
             </Text>
+          );
+        }
+
+        if (
+          item.kind === "load-ancestors" ||
+          item.kind === "load-descendants"
+        ) {
+          const ancestorsButton = item.kind === "load-ancestors";
+          const loading = ancestorsButton
+            ? loadingMoreAncestors
+            : loadingMoreDescendants;
+          const label = ancestorsButton
+            ? "Load earlier posts"
+            : "Load more replies";
+          return (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={label}
+              disabled={loading}
+              onPress={() => void (ancestorsButton
+                ? loadMoreAncestors()
+                : loadMoreDescendants())}
+              style={[
+                styles.loadMore,
+                { borderColor: theme.secondaryBackground },
+                loading && styles.disabled,
+              ]}
+            >
+              <Icon
+                name={ancestorsButton
+                  ? "arrow-up-circle-outline"
+                  : "arrow-down-circle-outline"}
+                size={23}
+                color={theme.tint}
+              />
+              <Text style={{ color: theme.tint }}>
+                {loading ? "Loading…" : label}
+              </Text>
+            </Pressable>
           );
         }
 
@@ -228,9 +362,9 @@ export default function StatusThreadScreen({
           />
         ) : replies.length === 0 ? (
           <Text style={styles.empty}>No replies yet.</Text>
-        ) : descendantCount > replies.length ? (
+        ) : legacyCounts && legacyCounts.descendants > replies.length ? (
           <Text style={styles.empty}>
-            Showing {replies.length} of {descendantCount} replies.
+            Showing {replies.length} of {legacyCounts.descendants} replies.
           </Text>
         ) : null
       }
@@ -248,6 +382,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 18,
   },
+  loadMore: {
+    minHeight: 52,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  disabled: { opacity: 0.55 },
 });
 
 /* end of StatusThreadScreen.tsx */

@@ -4,6 +4,21 @@ Hoot Unfathomably Changelog
 Unreleased
 ----------
 
+Version 0.2.9
+-------------
+
+- Load large discussions through bounded ancestor and descendant pages instead
+  of requesting an entire thread at once.
+- Initially show up to 10 earlier posts and 20 replies, with explicit controls
+  to load additional posts only when another page exists.
+- Preserve the legacy context endpoint as a degraded fallback for older
+  Rebased and Pleroma servers that do not implement paged discussions.
+- Avoid repeating an expensive unbounded request after a paged request times
+  out or receives a gateway error, and replace HTML proxy errors with a clear
+  status message.
+- Add backend and mobile regression coverage for pagination cursors, bounded
+  windows, incremental loading, compatibility fallback, and 502 handling.
+
 Version 0.2.8
 -------------
 

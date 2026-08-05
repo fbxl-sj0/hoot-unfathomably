@@ -99,8 +99,26 @@ export type StatusCapabilities = {
   quote: boolean;
 };
 
+export type StatusContextPage = {
+  statuses: UnfathomablyStatus[];
+  hasMore: boolean;
+};
+
+export type StatusContextWindow = {
+  ancestors: UnfathomablyStatus[];
+  descendants: UnfathomablyStatus[];
+  hasMoreAncestors: boolean;
+  hasMoreDescendants: boolean;
+  mode: "paged" | "legacy";
+};
+
 export const OAUTH_SCOPES = "read write follow push";
 export const STATUS_CONTEXT_REQUEST_TIMEOUT_MS = 120_000;
+export const INITIAL_CONTEXT_ANCESTOR_LIMIT = 10;
+export const INITIAL_CONTEXT_DESCENDANT_LIMIT = 20;
+
+const MAX_CONTEXT_PAGE_SIZE = 39;
+const UNAVAILABLE_CONTEXT_PAGE_STATUSES = new Set([404, 405, 410, 501]);
 
 const LOCAL_SERVER_HOSTS = new Set([
   "127.0.0.1",
@@ -169,6 +187,37 @@ function requireSupportedServerUrl(value: string): string {
   throw new Error("Enter a valid Unfathomably server URL.");
 }
 
+function getResponseErrorMessage(
+  status: number,
+  statusText: string | undefined,
+  body: string,
+): string {
+  const trimmedBody = body.trim();
+
+  if (trimmedBody) {
+    try {
+      const parsed = JSON.parse(trimmedBody) as {
+        error?: unknown;
+        message?: unknown;
+      };
+      const apiMessage =
+        typeof parsed.error === "string"
+          ? parsed.error
+          : typeof parsed.message === "string"
+            ? parsed.message
+            : undefined;
+      if (apiMessage) return apiMessage;
+    } catch {
+      if (!/^\s*(?:<!doctype\s+html|<html)\b/i.test(trimmedBody)) {
+        return trimmedBody;
+      }
+    }
+  }
+
+  const reason = statusText?.trim();
+  return `Unfathomably returned ${status}${reason ? ` (${reason})` : ""}.`;
+}
+
 async function request<T>(
   ctx: LotideContext | { apiUrl: string; login?: { token?: string } },
   path: string,
@@ -207,7 +256,9 @@ async function request<T>(
     ]);
     if (!response.ok) {
       const body = await response.text();
-      const error = new Error(body || `Unfathomably returned ${response.status}.`) as Error & { status?: number };
+      const error = new Error(
+        getResponseErrorMessage(response.status, response.statusText, body),
+      ) as Error & { status?: number };
       error.status = response.status;
       throw error;
     }
@@ -427,6 +478,100 @@ export function getStatusContext(ctx: LotideContext, id: string) {
     {},
     STATUS_CONTEXT_REQUEST_TIMEOUT_MS,
   );
+}
+
+function isUnavailableContextPage(error: unknown): boolean {
+  const status = (error as Error & { status?: number })?.status;
+  return typeof status === "number" &&
+    UNAVAILABLE_CONTEXT_PAGE_STATUSES.has(status);
+}
+
+function boundedContextPageSize(limit: number): number {
+  if (!Number.isFinite(limit)) return 1;
+  return Math.max(1, Math.min(Math.trunc(limit), MAX_CONTEXT_PAGE_SIZE));
+}
+
+async function getStatusContextPage(
+  ctx: LotideContext,
+  id: string,
+  direction: "ancestors" | "descendants",
+  cursor: string | undefined,
+  limit: number,
+): Promise<StatusContextPage> {
+  const pageSize = boundedContextPageSize(limit);
+  const statuses = await request<UnfathomablyStatus[]>(
+    ctx,
+    `/api/v1/statuses/${encodeURIComponent(id)}/context/${direction}${query({
+      limit: pageSize + 1,
+      [direction === "ancestors" ? "max_id" : "min_id"]: cursor,
+    })}`,
+  );
+  const hasMore = statuses.length > pageSize;
+
+  return {
+    statuses: direction === "ancestors"
+      ? statuses.slice(-pageSize)
+      : statuses.slice(0, pageSize),
+    hasMore,
+  };
+}
+
+export function getStatusAncestors(
+  ctx: LotideContext,
+  id: string,
+  maxId?: string,
+  limit = INITIAL_CONTEXT_ANCESTOR_LIMIT,
+) {
+  return getStatusContextPage(ctx, id, "ancestors", maxId, limit);
+}
+
+export function getStatusDescendants(
+  ctx: LotideContext,
+  id: string,
+  minId?: string,
+  limit = INITIAL_CONTEXT_DESCENDANT_LIMIT,
+) {
+  return getStatusContextPage(ctx, id, "descendants", minId, limit);
+}
+
+export async function getStatusContextWindow(
+  ctx: LotideContext,
+  id: string,
+): Promise<StatusContextWindow> {
+  const [ancestors, descendants] = await Promise.allSettled([
+    getStatusAncestors(ctx, id),
+    getStatusDescendants(ctx, id),
+  ]);
+
+  if (ancestors.status === "fulfilled" && descendants.status === "fulfilled") {
+    return {
+      ancestors: ancestors.value.statuses,
+      descendants: descendants.value.statuses,
+      hasMoreAncestors: ancestors.value.hasMore,
+      hasMoreDescendants: descendants.value.hasMore,
+      mode: "paged",
+    };
+  }
+
+  const failures = [ancestors, descendants].filter(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  );
+  const serverFailure = failures.find(
+    result => !isUnavailableContextPage(result.reason),
+  );
+  if (serverFailure) throw serverFailure.reason;
+
+  if (failures.length > 0) {
+    const legacy = await getStatusContext(ctx, id);
+    return {
+      ...legacy,
+      hasMoreAncestors: false,
+      hasMoreDescendants: false,
+      mode: "legacy",
+    };
+  }
+
+  throw new Error("The Unfathomably server returned an incomplete discussion.");
 }
 
 export function favouriteStatus(ctx: LotideContext, id: string, remove = false) {

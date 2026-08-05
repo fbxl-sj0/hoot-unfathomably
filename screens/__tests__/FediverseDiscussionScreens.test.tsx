@@ -42,7 +42,9 @@ import {
 const mockCreateStatus = jest.fn();
 const mockGetGroups = jest.fn();
 const mockGetStatus = jest.fn();
-const mockGetStatusContext = jest.fn();
+const mockGetStatusAncestors = jest.fn();
+const mockGetStatusContextWindow = jest.fn();
+const mockGetStatusDescendants = jest.fn();
 let mockCurrentContext: LotideContext | undefined;
 
 jest.mock("../../hooks/useLotideCtx", () => ({
@@ -64,8 +66,12 @@ jest.mock("../../services/UnfathomablyService", () => ({
   createStatus: (...args: unknown[]) => mockCreateStatus(...args),
   getGroups: (...args: unknown[]) => mockGetGroups(...args),
   getStatus: (...args: unknown[]) => mockGetStatus(...args),
-  getStatusContext: (...args: unknown[]) =>
-    mockGetStatusContext(...args),
+  getStatusAncestors: (...args: unknown[]) =>
+    mockGetStatusAncestors(...args),
+  getStatusContextWindow: (...args: unknown[]) =>
+    mockGetStatusContextWindow(...args),
+  getStatusDescendants: (...args: unknown[]) =>
+    mockGetStatusDescendants(...args),
 }));
 
 jest.mock("../../components/StatusCard", () => {
@@ -99,9 +105,20 @@ describe("Fediverse discussion screens", () => {
     mockCurrentContext = makeContext("unfathomably");
     mockGetGroups.mockResolvedValue([]);
     mockGetStatus.mockResolvedValue(makeStatus("unfathomably"));
-    mockGetStatusContext.mockResolvedValue({
+    mockGetStatusContextWindow.mockResolvedValue({
       ancestors: [],
       descendants: [],
+      hasMoreAncestors: false,
+      hasMoreDescendants: false,
+      mode: "paged",
+    });
+    mockGetStatusAncestors.mockResolvedValue({
+      statuses: [],
+      hasMore: false,
+    });
+    mockGetStatusDescendants.mockResolvedValue({
+      statuses: [],
+      hasMore: false,
     });
     mockCreateStatus.mockResolvedValue(makeStatus("unfathomably"));
   });
@@ -433,9 +450,12 @@ describe("Fediverse discussion screens", () => {
       id: "descendant-status",
     });
     mockGetStatus.mockResolvedValue(current);
-    mockGetStatusContext.mockResolvedValue({
+    mockGetStatusContextWindow.mockResolvedValue({
       ancestors: [ancestor],
       descendants: [descendant],
+      hasMoreAncestors: false,
+      hasMoreDescendants: false,
+      mode: "paged",
     });
     const navigation = { navigate: jest.fn() };
     const screen = await render(
@@ -454,7 +474,7 @@ describe("Fediverse discussion screens", () => {
       makeContext("rebased"),
       current.id,
     );
-    expect(mockGetStatusContext).toHaveBeenCalledWith(
+    expect(mockGetStatusContextWindow).toHaveBeenCalledWith(
       makeContext("rebased"),
       current.id,
     );
@@ -480,10 +500,13 @@ describe("Fediverse discussion screens", () => {
       | ((value: {
           ancestors: ReturnType<typeof makeStatus>[];
           descendants: ReturnType<typeof makeStatus>[];
+          hasMoreAncestors: boolean;
+          hasMoreDescendants: boolean;
+          mode: "paged" | "legacy";
         }) => void)
       | undefined;
     mockGetStatus.mockResolvedValue(current);
-    mockGetStatusContext.mockImplementation(
+    mockGetStatusContextWindow.mockImplementation(
       () =>
         new Promise(resolve => {
           resolveContext = resolve;
@@ -507,6 +530,9 @@ describe("Fediverse discussion screens", () => {
       resolveContext?.({
         ancestors: [],
         descendants: [],
+        hasMoreAncestors: false,
+        hasMoreDescendants: false,
+        mode: "paged",
       });
       await Promise.resolve();
     });
@@ -517,7 +543,7 @@ describe("Fediverse discussion screens", () => {
       id: "large-thread-status",
     });
     mockGetStatus.mockResolvedValue(current);
-    mockGetStatusContext.mockRejectedValue(
+    mockGetStatusContextWindow.mockRejectedValue(
       new Error(
         "The Unfathomably server did not respond within 120 seconds.",
       ),
@@ -551,9 +577,12 @@ describe("Fediverse discussion screens", () => {
       makeStatus("unfathomably", { id: `descendant-${index}` }),
     );
     mockGetStatus.mockResolvedValue(current);
-    mockGetStatusContext.mockResolvedValue({
+    mockGetStatusContextWindow.mockResolvedValue({
       ancestors,
       descendants,
+      hasMoreAncestors: false,
+      hasMoreDescendants: false,
+      mode: "legacy",
     });
     const screen = await render(
       <StatusThreadScreen
@@ -576,6 +605,83 @@ describe("Fediverse discussion screens", () => {
     expect(screen.getByText("compact:ancestor-20")).toBeTruthy();
     expect(screen.getByText("status:descendant-249")).toBeTruthy();
     expect(screen.queryByText("status:descendant-250")).toBeNull();
+  });
+
+  test("loads older and newer thread pages only when requested", async () => {
+    const current = makeStatus("unfathomably", {
+      id: "paged-current",
+    });
+    const nearAncestor = makeStatus("unfathomably", {
+      id: "near-ancestor",
+    });
+    const olderAncestor = makeStatus("unfathomably", {
+      id: "older-ancestor",
+    });
+    const firstReply = makeStatus("unfathomably", {
+      id: "first-reply",
+    });
+    const laterReply = makeStatus("unfathomably", {
+      id: "later-reply",
+    });
+    mockGetStatus.mockResolvedValue(current);
+    mockGetStatusContextWindow.mockResolvedValue({
+      ancestors: [nearAncestor],
+      descendants: [firstReply],
+      hasMoreAncestors: true,
+      hasMoreDescendants: true,
+      mode: "paged",
+    });
+    mockGetStatusAncestors.mockResolvedValue({
+      statuses: [olderAncestor],
+      hasMore: false,
+    });
+    mockGetStatusDescendants.mockResolvedValue({
+      statuses: [laterReply],
+      hasMore: false,
+    });
+    const screen = await render(
+      <StatusThreadScreen
+        navigation={{ navigate: jest.fn() }}
+        route={{ params: { statusId: current.id } }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Load earlier posts" }),
+      ).toBeTruthy();
+      expect(
+        screen.getByRole("button", { name: "Load more replies" }),
+      ).toBeTruthy();
+    });
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Load earlier posts" }),
+    );
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Load more replies" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("compact:older-ancestor")).toBeTruthy();
+      expect(screen.getByText("status:later-reply")).toBeTruthy();
+    });
+    expect(mockGetStatusAncestors).toHaveBeenCalledWith(
+      makeContext("unfathomably"),
+      current.id,
+      nearAncestor.id,
+    );
+    expect(mockGetStatusDescendants).toHaveBeenCalledWith(
+      makeContext("unfathomably"),
+      current.id,
+      firstReply.id,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Load earlier posts" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Load more replies" }),
+    ).toBeNull();
   });
 });
 
