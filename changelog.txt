@@ -4,6 +4,19 @@ Hoot Unfathomably Changelog
 Unreleased
 ----------
 
+Version 0.2.8
+-------------
+
+- Stop and unregister background notification polling when Android blocks
+  notification delivery, avoiding repeated headless JavaScript wakeups that
+  cannot produce a visible alert.
+- Restore polling automatically on a later app launch when the user preference
+  remains enabled and Android notification delivery is allowed again.
+- Record permission-denied background wakes without loading account data or
+  contacting the server.
+- Added regression coverage for startup restoration and background-task
+  permission revocation.
+
 Version 0.2.7
 -------------
 

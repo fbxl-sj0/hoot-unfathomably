@@ -69,6 +69,7 @@ export type NotificationPollTaskRegistrationResult =
   | "unregistered"
   | "unchanged"
   | "unavailable"
+  | "permission_denied"
   | "skipped";
 
 export type NotificationDiagnostics = {
@@ -571,6 +572,19 @@ async function runPollAndNotifyForContext(
 
 TaskManager.defineTask(POLL_TASK_NAME, async () => {
   try {
+    const permission = await Notifications.getPermissionsAsync();
+    if (!permissionAllowsNotifications(permission)) {
+      await recordPollResult(
+        new Date().toISOString(),
+        0,
+        "permission_denied",
+      );
+      if (await TaskManager.isTaskRegisteredAsync(POLL_TASK_NAME)) {
+        await BackgroundTask.unregisterTaskAsync(POLL_TASK_NAME);
+      }
+      return BackgroundTask.BackgroundTaskResult.Success;
+    }
+
     const ctx = await StorageService.lotideContext.query();
     if (!ctx?.login) {
       await recordPollResult(new Date().toISOString(), 0, "no_context");
@@ -601,6 +615,14 @@ export async function registerNotificationPollTask(
       return "unregistered";
     }
     return "unchanged";
+  }
+
+  const permission = await Notifications.getPermissionsAsync();
+  if (!permissionAllowsNotifications(permission)) {
+    if (alreadyRegistered) {
+      await BackgroundTask.unregisterTaskAsync(POLL_TASK_NAME);
+    }
+    return "permission_denied";
   }
 
   const status = await BackgroundTask.getStatusAsync();

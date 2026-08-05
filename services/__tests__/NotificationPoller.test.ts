@@ -29,6 +29,7 @@ import {
   getNotificationNavigationTargetFromResponse,
   markNotificationOnboardingPrompted,
   pollNotificationsNow,
+  registerNotificationPollTask,
   sendTestNotification,
   setNotificationEnabled,
 } from "../NotificationPoller";
@@ -311,6 +312,28 @@ describe("NotificationPoller", () => {
     await expect(AsyncStorage.getItem(settingKey)).resolves.toBeNull();
   });
 
+  test("unregisters restored polling while Android notifications are blocked", async () => {
+    await AsyncStorage.setItem(settingKey, "true");
+    mockGetNotificationPermissions.mockResolvedValue({
+      canAskAgain: false,
+      granted: false,
+      status: "denied",
+    });
+    mockIsTaskRegistered.mockImplementation((taskName: string) =>
+      Promise.resolve(taskName === "hoot-unfathomably-notification-poll"),
+    );
+
+    await expect(registerNotificationPollTask()).resolves.toBe(
+      "permission_denied",
+    );
+
+    expect(mockUnregisterTask).toHaveBeenCalledWith(
+      "hoot-unfathomably-notification-poll",
+    );
+    expect(mockRegisterTask).not.toHaveBeenCalled();
+    await expect(AsyncStorage.getItem(settingKey)).resolves.toBe("true");
+  });
+
   test("rolls back the enabled setting when background tasks are restricted", async () => {
     mockGetBackgroundTaskStatus.mockResolvedValue(
       BackgroundTask.BackgroundTaskStatus.Restricted,
@@ -397,6 +420,38 @@ describe("NotificationPoller", () => {
       expect.objectContaining({
         poll: expect.objectContaining({
           lastSkippedReason: "no_context",
+          lastScheduledCount: 0,
+        }),
+      }),
+    );
+  });
+
+  test("a blocked background wake records the skip and unregisters itself", async () => {
+    if (!notificationTaskHandler) {
+      throw new Error("Notification background task was not defined.");
+    }
+    mockGetNotificationPermissions.mockResolvedValue({
+      canAskAgain: false,
+      granted: false,
+      status: "denied",
+    });
+    mockIsTaskRegistered.mockImplementation((taskName: string) =>
+      Promise.resolve(taskName === "hoot-unfathomably-notification-poll"),
+    );
+
+    await expect(notificationTaskHandler()).resolves.toBe(
+      BackgroundTask.BackgroundTaskResult.Success,
+    );
+
+    expect(mockStoredContextQuery).not.toHaveBeenCalled();
+    expect(mockGetNotifications).not.toHaveBeenCalled();
+    expect(mockUnregisterTask).toHaveBeenCalledWith(
+      "hoot-unfathomably-notification-poll",
+    );
+    await expect(getNotificationDiagnostics()).resolves.toEqual(
+      expect.objectContaining({
+        poll: expect.objectContaining({
+          lastSkippedReason: "permission_denied",
           lastScheduledCount: 0,
         }),
       }),
