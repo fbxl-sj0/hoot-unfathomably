@@ -132,10 +132,10 @@ export default function StatusEventContext({
       >
         <Icon
           name={joined ? "exit-outline" : "enter-outline"}
-          color={joined ? theme.text : theme.background}
+          color={joined ? theme.text : theme.onTint}
           size={20}
         />
-        <Text style={{ color: joined ? theme.text : theme.background }}>
+        <Text style={{ color: joined ? theme.text : theme.onTint }}>
           {participationLabel(event, saving)}
         </Text>
       </Pressable>

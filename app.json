@@ -2,9 +2,11 @@
   "expo": {
     "name": "Hoot Unfathomably",
     "slug": "hoot-unfathomably",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
+    "backgroundColor": "#000000",
+    "primaryColor": "#7e0000",
     "scheme": "hoot-unfathomably",
     "userInterfaceStyle": "automatic",
     "updates": {
@@ -19,14 +21,14 @@
       "bundleIdentifier": "org.brokenlamp.hootunfathomably"
     },
     "android": {
-      "versionCode": 16,
+      "versionCode": 17,
       "userInterfaceStyle": "automatic",
       "permissions": [
         "POST_NOTIFICATIONS"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#1e2124"
+        "backgroundColor": "#000000"
       },
       "package": "org.brokenlamp.hootunfathomably"
     },
@@ -54,7 +56,7 @@
         {
           "image": "./assets/images/splash.png",
           "resizeMode": "contain",
-          "backgroundColor": "#2c1324"
+          "backgroundColor": "#000000"
         }
       ],
       "expo-status-bar",

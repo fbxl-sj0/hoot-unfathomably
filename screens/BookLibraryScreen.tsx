@@ -236,8 +236,8 @@ export default function BookLibraryScreen({
           onPress={() => navigation.navigate("Worlds", { family: "books", view: "find" })}
           style={[styles.findButton, { backgroundColor: theme.tint }]}
         >
-          <Icon color={theme.background} name="search-outline" size={21} />
-          <Text style={{ color: theme.background }}>Find books</Text>
+          <Icon color={theme.onTint} name="search-outline" size={21} />
+          <Text style={{ color: theme.onTint }}>Find books</Text>
         </Pressable>
       </View>
 
@@ -274,7 +274,7 @@ export default function BookLibraryScreen({
               onPress={() => setShelfFilter(shelf)}
               style={[styles.shelfPill, selected && { backgroundColor: theme.tint }]}
             >
-              <Text style={selected ? { color: theme.background } : undefined}>
+              <Text style={selected ? { color: theme.onTint } : undefined}>
                 {shelf === "all" ? "All" : shelfName(shelf)} ({count})
               </Text>
             </Pressable>
@@ -397,7 +397,7 @@ function BookEditor({
               onPress={() => setShelf(shelfId)}
               style={[styles.editorPill, selected && { backgroundColor: theme.tint }]}
             >
-              <Text style={selected ? { color: theme.background } : undefined}>{shelfName(shelfId)}</Text>
+              <Text style={selected ? { color: theme.onTint } : undefined}>{shelfName(shelfId)}</Text>
             </Pressable>
           );
         })}
@@ -421,7 +421,7 @@ function BookEditor({
               onPress={() => setProgressMode(mode)}
               style={[styles.progressMode, progressMode === mode && { backgroundColor: theme.tint }]}
             >
-              <Text style={progressMode === mode ? { color: theme.background } : undefined}>
+              <Text style={progressMode === mode ? { color: theme.onTint } : undefined}>
                 {mode === "percent" ? "Percent" : "Pages"}
               </Text>
             </Pressable>

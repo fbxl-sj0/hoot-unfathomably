@@ -89,10 +89,10 @@ export default function SourceCard({
       >
         <Icon
           name={followed ? "checkmark-outline" : "add-outline"}
-          color={followed ? theme.text : theme.background}
+          color={followed ? theme.text : theme.onTint}
           size={21}
         />
-        <Text style={{ color: followed ? theme.text : theme.background }}>
+        <Text style={{ color: followed ? theme.text : theme.onTint }}>
           {saving ? "Saving..." : followed ? "Following" : "Follow"}
         </Text>
       </Pressable>

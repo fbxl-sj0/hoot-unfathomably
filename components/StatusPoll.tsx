@@ -158,7 +158,7 @@ export default function StatusPoll({
             (choices.length === 0 || submitting) && styles.disabled,
           ]}
         >
-          <Text style={[styles.voteText, { color: theme.background }]}>
+          <Text style={[styles.voteText, { color: theme.onTint }]}>
             {submitting ? "Voting..." : "Vote"}
           </Text>
         </Pressable>

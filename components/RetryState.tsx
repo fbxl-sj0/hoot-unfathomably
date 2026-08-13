@@ -75,8 +75,10 @@ export default function RetryState({
           { backgroundColor: theme.tint, opacity: pressed ? 0.74 : 1 },
         ]}
       >
-        <Icon name="refresh-outline" size={18} color="#111827" />
-        <Text style={styles.buttonText}>{actionLabel}</Text>
+        <Icon name="refresh-outline" size={18} color={theme.onTint} />
+        <Text style={[styles.buttonText, { color: theme.onTint }]}>
+          {actionLabel}
+        </Text>
       </Pressable>
     </View>
   );

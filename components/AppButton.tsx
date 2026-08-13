@@ -1,6 +1,6 @@
 /*
-    Project: Hoot Mobile
-    -------------------
+    Project: Hoot Unfathomably
+    --------------------------
 
     File: AppButton.tsx
 
@@ -11,7 +11,7 @@
     Responsibilities:
 
         - Provide the 48dp Android touch target expected for phone controls
-        - Apply Hoot theme colors to primary and secondary actions
+        - Apply accessible Unfathomably theme colors to app actions
         - Expose accessibility state for disabled buttons
 
     This file intentionally does NOT contain:
@@ -65,7 +65,10 @@ export default function AppButton({
     : color ?? theme.tint;
   const foregroundColor = disabled
     ? theme.secondaryText
-    : textColor ?? "#111827";
+    : textColor ??
+      (color === theme.secondaryTint
+        ? theme.onSecondaryTint
+        : theme.onTint);
 
   return (
     <Pressable

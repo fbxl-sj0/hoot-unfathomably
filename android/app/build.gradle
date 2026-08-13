@@ -92,8 +92,8 @@ android {
         applicationId = 'org.brokenlamp.hootunfathomably'
         minSdkVersion = rootProject.ext.minSdkVersion
         targetSdkVersion = rootProject.ext.targetSdkVersion
-        versionCode = 16
-        versionName = "0.4.1"
+        versionCode = 17
+        versionName = "0.4.2"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }

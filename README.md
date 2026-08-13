@@ -6,11 +6,18 @@ group discussions, first-class Worlds and Sources, and compatible features from
 [unfathomably-be](https://github.com/fbxl-sj0/unfathomably-be) and
 [unfathomably-fe](https://github.com/fbxl-sj0/unfathomably-fe).
 
-Version 0.4.1 is the Unfathomably 3.5 live-updates release. It was developed
+Version 0.4.2 is the Unfathomably 3.5 brand-alignment release. It was developed
 against unfathomably-be 3.5.0 and the paired August 12, 2026 frontend source.
 The client reads the instance feature manifest at runtime, so optional screens
 and controls follow the selected server rather than a hard-coded host or a
 guessed software version.
+
+The native palette follows the current Unfathomably frontend: oxblood primary
+controls, black dark-mode surfaces, cool neutral light-mode surfaces, and the
+canonical blue galaxy mark. The launcher icon, splash screen, login identity,
+navigation, links, buttons, and selected controls share that identity. Lighter
+dark-mode variants preserve the same color families while keeping text and
+controls readable on phone displays.
 
 It connects directly to an Unfathomably server. Compatible Pleroma and Rebased
 servers provide the normal timeline and discussion experience; group features

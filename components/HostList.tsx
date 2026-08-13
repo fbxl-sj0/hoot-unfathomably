@@ -36,6 +36,7 @@ import ContentDisplay from "./ContentDisplay";
 import RetryState from "./RetryState";
 import { MINIMUM_TOUCH_TARGET_SIZE } from "../constants/TouchTargets";
 import { getErrorMessage } from "../utils/error";
+import BrandMark from "./BrandMark";
 
 export interface HostListProps {
   onSelect: (domain: string, name?: string, username?: string) => void;
@@ -288,6 +289,13 @@ export default function HostList(props: HostListProps) {
   };
   return (
     <ScrollView contentContainerStyle={styles.root}>
+      <View style={styles.brandIdentity}>
+        <BrandMark size={76} />
+        <Text style={styles.brandName}>Hoot Unfathomably</Text>
+        <Text secondary style={styles.brandDescription}>
+          A native window into Unfathomably and the wider Fediverse
+        </Text>
+      </View>
       <Text style={styles.title}>Login to continue</Text>
       {existingProfiles.length > 0 && (
         <Text style={styles.subtitle}>Select an existing profile</Text>
@@ -402,6 +410,20 @@ export default function HostList(props: HostListProps) {
 const styles = StyleSheet.create({
   root: {
     padding: 20,
+  },
+  brandIdentity: {
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 22,
+  },
+  brandName: {
+    fontSize: 27,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  brandDescription: {
+    maxWidth: 330,
+    textAlign: "center",
   },
   title: {
     fontSize: 24,

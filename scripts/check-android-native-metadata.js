@@ -13,7 +13,7 @@
 
         - Compare package id, version, app name, scheme, and orientation
         - Compare Android permission declarations
-        - Compare generated color/string metadata for icon, splash, and system UI
+        - Compare generated color/string metadata for app, icon, splash, and system UI
         - Reject app-local Gradle syntax that Gradle 10 will remove
         - Fail with actionable messages when native Android files drift
 
@@ -144,6 +144,7 @@ function readExpoConfig() {
     name: requireString(expo.name, "expo.name"),
     version: requireString(expo.version, "expo.version"),
     orientation: requireString(expo.orientation, "expo.orientation"),
+    primaryColor: requireString(expo.primaryColor, "expo.primaryColor"),
     scheme: requireString(expo.scheme, "expo.scheme"),
     userInterfaceStyle: requireString(
       expo.userInterfaceStyle,
@@ -257,6 +258,11 @@ function readColorResources() {
       /<color\s+name="iconBackground">([^<]+)<\/color>/,
       "iconBackground color",
     ),
+    primary: matchOne(
+      colors,
+      /<color\s+name="colorPrimary">([^<]+)<\/color>/,
+      "colorPrimary color",
+    ),
   };
 }
 
@@ -368,6 +374,12 @@ function checkNativeMetadata() {
     "android adaptive icon background",
     colors.iconBackground.toLowerCase(),
     expo.adaptiveIconBackgroundColor.toLowerCase(),
+  );
+  expectEqual(
+    problems,
+    "android primary color",
+    colors.primary.toLowerCase(),
+    expo.primaryColor.toLowerCase(),
   );
 
   if (!manifest.schemes.includes(expo.scheme)) {

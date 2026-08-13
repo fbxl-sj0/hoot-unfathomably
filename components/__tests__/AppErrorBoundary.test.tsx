@@ -38,7 +38,8 @@ jest.mock("../../hooks/useTheme", () => ({
     secondaryBackground: "#181818",
     secondaryText: "#aaa",
     text: "#fff",
-    tint: "#f5a524",
+    tint: "#7e0000",
+    onTint: "#ffffff",
     tertiaryBackground: "#242424",
   }),
 }));
@@ -81,7 +82,7 @@ describe("AppErrorBoundary", () => {
       </AppErrorBoundary>,
     );
 
-    expect(screen.getByText("Hoot hit a problem")).toBeTruthy();
+    expect(screen.getByText("Hoot Unfathomably hit a problem")).toBeTruthy();
     expect(screen.getByText("profile card failed")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Try Again" })).toBeTruthy();
     expect(onError).toHaveBeenCalledTimes(1);

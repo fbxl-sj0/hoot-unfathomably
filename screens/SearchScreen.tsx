@@ -67,7 +67,7 @@ export default function SearchScreen({
               {
                 color:
                   selectedTab === "mine"
-                    ? theme.background
+                    ? theme.onSecondaryTint
                     : theme.secondaryText,
               },
             ]}
@@ -93,7 +93,7 @@ export default function SearchScreen({
               {
                 color:
                   selectedTab === "everything"
-                    ? theme.background
+                    ? theme.onSecondaryTint
                     : theme.secondaryText,
               },
             ]}

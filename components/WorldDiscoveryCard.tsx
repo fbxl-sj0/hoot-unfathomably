@@ -101,8 +101,8 @@ export default function WorldDiscoveryCard({
               onPress={onManageBook}
               style={[styles.primaryAction, { backgroundColor: theme.tint }]}
             >
-              <Icon name="library-outline" color={theme.background} size={20} />
-              <Text style={{ color: theme.background }}>My books</Text>
+              <Icon name="library-outline" color={theme.onTint} size={20} />
+              <Text style={{ color: theme.onTint }}>My books</Text>
             </Pressable>
           ) : null}
           <Pressable
@@ -112,8 +112,8 @@ export default function WorldDiscoveryCard({
             onPress={onOpenHere}
             style={onManageBook ? styles.secondaryAction : [styles.primaryAction, { backgroundColor: theme.tint }]}
           >
-            <Icon name="enter-outline" color={onManageBook ? theme.tint : theme.background} size={20} />
-            <Text style={onManageBook ? { color: theme.tint } : { color: theme.background }}>
+            <Icon name="enter-outline" color={onManageBook ? theme.tint : theme.onTint} size={20} />
+            <Text style={onManageBook ? { color: theme.tint } : { color: theme.onTint }}>
               {opening ? "Opening..." : "Open here"}
             </Text>
           </Pressable>

@@ -128,7 +128,7 @@ export default function BookReviewScreen({
               onPress={() => setAction(option.id)}
               style={[styles.pill, action === option.id && { backgroundColor: theme.tint }]}
             >
-              <Text style={action === option.id ? { color: theme.background } : undefined}>{option.label}</Text>
+              <Text style={action === option.id ? { color: theme.onTint } : undefined}>{option.label}</Text>
             </Pressable>
           ))}
         </View>
@@ -138,11 +138,11 @@ export default function BookReviewScreen({
             <Text secondary style={styles.label}>Rating, optional</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.ratings}>
               <Pressable accessibilityRole="radio" accessibilityState={{ checked: rating === undefined }} onPress={() => setRating(undefined)} style={[styles.rating, rating === undefined && { backgroundColor: theme.tint }]}>
-                <Text style={rating === undefined ? { color: theme.background } : undefined}>No rating</Text>
+                <Text style={rating === undefined ? { color: theme.onTint } : undefined}>No rating</Text>
               </Pressable>
               {RATINGS.map(value => (
                 <Pressable accessibilityLabel={`${value} out of 5 stars`} accessibilityRole="radio" accessibilityState={{ checked: rating === value }} key={value} onPress={() => setRating(value)} style={[styles.rating, rating === value && { backgroundColor: theme.tint }]}>
-                  <Text style={rating === value ? { color: theme.background } : undefined}>{value}★</Text>
+                  <Text style={rating === value ? { color: theme.onTint } : undefined}>{value}★</Text>
                 </Pressable>
               ))}
             </ScrollView>
@@ -205,7 +205,7 @@ export default function BookReviewScreen({
               onPress={() => setVisibility(option.id)}
               style={[styles.pill, visibility === option.id && { backgroundColor: theme.tint }]}
             >
-              <Text style={visibility === option.id ? { color: theme.background } : undefined}>{option.label}</Text>
+              <Text style={visibility === option.id ? { color: theme.onTint } : undefined}>{option.label}</Text>
             </Pressable>
           ))}
         </View>

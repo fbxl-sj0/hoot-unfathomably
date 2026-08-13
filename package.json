@@ -100,7 +100,7 @@
   },
   "private": true,
   "name": "hoot-unfathomably",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "overrides": {
     "uuid": "^14.0.0",
     "babel-plugin-istanbul": "^8.0.0",

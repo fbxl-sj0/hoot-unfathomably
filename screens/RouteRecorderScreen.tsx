@@ -503,7 +503,7 @@ function ChoicePill({ label, selected, onPress }: { label: string; selected: boo
   const theme = useTheme();
   return (
     <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected }} onPress={onPress} style={[styles.pill, selected && { backgroundColor: theme.tint }]}>
-      <Text style={selected ? { color: theme.background } : undefined}>{label}</Text>
+      <Text style={selected ? { color: theme.onTint } : undefined}>{label}</Text>
     </Pressable>
   );
 }

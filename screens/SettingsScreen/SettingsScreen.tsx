@@ -344,7 +344,7 @@ export default function SettingsScreen() {
       await refreshNotificationDiagnostics();
       alertIfMounted(
         "Test notification sent",
-        "A local Hoot notification was scheduled.",
+        "A local Hoot Unfathomably notification was scheduled.",
       );
     } catch (error) {
       await refreshNotificationDiagnostics();

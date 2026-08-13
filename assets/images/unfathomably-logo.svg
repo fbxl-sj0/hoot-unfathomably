@@ -1,0 +1,33 @@
+<!--
+  Project: Hoot Unfathomably
+  ==========================
+
+  File: unfathomably-logo.svg
+
+  Purpose:
+
+    Preserve the canonical Unfathomably galaxy mark as the editable source for
+    native launcher, splash, web, and in-app raster assets.
+
+  Responsibilities:
+
+    - Define the official 512 by 512 galaxy geometry
+    - Preserve the official Unfathomably blue
+
+  This file intentionally does NOT contain:
+
+    - A wordmark
+    - Theme-specific background colors
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="unfathomably-logo-title">
+  <title id="unfathomably-logo-title">Unfathomably galaxy logo</title>
+  <path d="M 171 252 C 189 180 271 145 338 180 C 413 220 421 319 369 378 C 300 455 168 438 103 351" fill="none" stroke="#0482d8" stroke-linecap="round" stroke-width="44"/>
+  <path d="M 341 260 C 323 332 241 367 174 332 C 99 292 91 193 143 134 C 212 57 344 74 409 161" fill="none" stroke="#0482d8" stroke-linecap="round" stroke-width="44"/>
+  <g fill="#0482d8">
+    <circle cx="256" cy="256" r="36"/>
+    <circle cx="442" cy="96" r="21"/>
+    <circle cx="70" cy="416" r="21"/>
+  </g>
+</svg>
+
+<!-- end of unfathomably-logo.svg -->

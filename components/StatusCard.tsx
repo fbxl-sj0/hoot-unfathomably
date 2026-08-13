@@ -276,7 +276,7 @@ export default function StatusCard({
             onPress={actionPress(() => setEmojiMenuOpen(open => !open))}
             style={[styles.action, emojiMenuOpen && { backgroundColor: theme.tint }]}
           >
-            <Text style={[styles.actionText, emojiMenuOpen && { color: theme.background }]}><Icon name="happy-outline" size={23} /></Text>
+            <Text style={[styles.actionText, emojiMenuOpen && { color: theme.onTint }]}><Icon name="happy-outline" size={23} /></Text>
           </Pressable>
         )}
         <Pressable

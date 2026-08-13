@@ -43,6 +43,7 @@ import { v4 as uuidv4 } from "uuid";
 import { setCtx } from "../slices/lotideSlice";
 import { getErrorMessage } from "../utils/error";
 import { TOUCH_TARGET_HIT_SLOP } from "../constants/TouchTargets";
+import BrandMark from "./BrandMark";
 
 export interface LoginProps {
   hostName?: string;
@@ -254,6 +255,7 @@ export default function Login(props: LoginProps) {
       onPress={() => Platform.OS !== "web" && Keyboard.dismiss()}
     >
       <KeyboardAvoidingView style={styles.root} behavior="padding">
+        <BrandMark size={66} style={styles.brandMark} />
         {props.hostName ? (
           <View style={styles.hostHeader}>
             <Text style={styles.name}>{props.hostName}</Text>
@@ -397,6 +399,9 @@ const styles = StyleSheet.create({
   },
   hostHeader: {
     alignItems: "center",
+  },
+  brandMark: {
+    marginBottom: 14,
   },
   loginRegister: {
     padding: 15,

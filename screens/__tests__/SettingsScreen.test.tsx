@@ -50,8 +50,10 @@ jest.mock("../../hooks/useTheme", () => ({
     text: "#000",
     secondaryText: "#333",
     placeholderText: "#999",
-    tint: "#f5a524",
-    secondaryTint: "#ff9f43",
+    tint: "#7e0000",
+    onTint: "#ffffff",
+    secondaryTint: "#0369b1",
+    onSecondaryTint: "#ffffff",
     red: "#f00",
   }),
 }));
@@ -367,7 +369,7 @@ describe("SettingsScreen", () => {
       expect(mockSendTestNotification).toHaveBeenCalledTimes(1);
       expect(Alert.alert).toHaveBeenCalledWith(
         "Test notification sent",
-        "A local Hoot notification was scheduled.",
+        "A local Hoot Unfathomably notification was scheduled.",
       );
     });
   });
@@ -406,7 +408,7 @@ describe("SettingsScreen", () => {
     await waitFor(() => {
       expect(Alert.alert).toHaveBeenCalledWith(
         "Test notification sent",
-        "A local Hoot notification was scheduled.",
+        "A local Hoot Unfathomably notification was scheduled.",
       );
     });
   });

@@ -137,8 +137,8 @@ export default function UnfathomablySourceScreen({ navigation, route }: { naviga
               onPress={() => { void toggleFollow(); }}
               style={[styles.primary, { backgroundColor: theme.tint }]}
             >
-              <Icon name={source.relationship?.following ? "checkmark-outline" : "add-outline"} color={theme.background} size={20} />
-              <Text style={{ color: theme.background }}>
+              <Icon name={source.relationship?.following ? "checkmark-outline" : "add-outline"} color={theme.onTint} size={20} />
+              <Text style={{ color: theme.onTint }}>
                 {saving ? "Saving..." : source.relationship?.following ? "Following" : "Follow"}
               </Text>
             </Pressable>

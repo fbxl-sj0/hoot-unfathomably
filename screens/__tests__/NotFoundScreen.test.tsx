@@ -31,7 +31,8 @@ jest.mock("../../hooks/useTheme", () => ({
     secondaryText: "#333",
     tertiaryBackground: "#ddd",
     text: "#000",
-    tint: "#f5a524",
+    tint: "#7e0000",
+    onTint: "#ffffff",
   }),
 }));
 

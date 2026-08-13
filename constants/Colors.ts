@@ -1,17 +1,19 @@
 /*
-    Project: Hoot Mobile
-    -------------------
+    Project: Hoot Unfathomably
+    --------------------------
 
     File: Colors.ts
 
     Purpose:
 
-        Centralized theme tokens used by the app and styling utilities.
+        Define the native client palette from Unfathomably's current frontend
+        identity.
 
     Responsibilities:
 
-        • Define default light/dark color palettes
-        • Provide strongly typed color names consumed by components
+        - Preserve the upstream oxblood, black, gray, and galaxy-blue identity
+        - Define accessible light and dark variants for interactive controls
+        - Provide strongly typed color names consumed by components
 
     This file intentionally does not contain:
 
@@ -26,8 +28,11 @@ export type ColorsObject = {
   text: string;
   secondaryText: string;
   placeholderText: string;
+  brandMark: string;
   tint: string;
+  onTint: string;
   secondaryTint: string;
+  onSecondaryTint: string;
   red: string;
   orange: string;
   yellow: string;
@@ -41,43 +46,60 @@ export type ColorsObject = {
   tabBar: string;
 };
 
-const sharedPalette = {
-  red: "#ff6b6b",
-  orange: "#ff9f43",
-  yellow: "#f5a524",
-  green: "#2ecc71",
-  teal: "#48dbfb",
-  blue: "#2e86de",
-  indigo: "#5f5ce5",
-  purple: "#a855f7",
-  tint: "#f5a524",
-  secondaryTint: "#ff9f43",
-};
+export const UNFATHOMABLY_BRAND = {
+  mark: "#0482d8",
+  primary: "#7e0000",
+  primaryDark: "#f87271",
+} as const;
 
-const Colors = {
+const Colors: { light: ColorsObject; dark: ColorsObject } = {
   light: {
-    background: "#ffffff",
-    secondaryBackground: "#f1f5f9",
-    tertiaryBackground: "#e2e8f0",
+    background: "#f8fafa",
+    secondaryBackground: "#f1f6f5",
+    tertiaryBackground: "#dde8e8",
     text: "#111827",
-    secondaryText: "#6b7280",
-    placeholderText: "#94a3b8",
-    tabIconDefault: "#687076",
-    tabIconSelected: sharedPalette.tint,
-    tabBar: "#ffffff",
-    ...sharedPalette,
+    secondaryText: "#425050",
+    placeholderText: "#687474",
+    brandMark: UNFATHOMABLY_BRAND.mark,
+    tint: UNFATHOMABLY_BRAND.primary,
+    onTint: "#ffffff",
+    secondaryTint: "#0369b1",
+    onSecondaryTint: "#ffffff",
+    red: "#dc2626",
+    orange: "#b45309",
+    yellow: "#854d0e",
+    green: "#15803d",
+    teal: "#0f766e",
+    blue: "#0369b1",
+    indigo: "#4f46e5",
+    purple: "#7e22ce",
+    tabIconDefault: "#50576b",
+    tabIconSelected: UNFATHOMABLY_BRAND.primary,
+    tabBar: "#f8fafa",
   },
   dark: {
     background: "#000000",
-    secondaryBackground: "#181818",
-    tertiaryBackground: "#242424",
-    text: "#f1f5f9",
-    secondaryText: "#94a3b8",
-    placeholderText: "#64748b",
-    tabIconDefault: "#9ca3af",
-    tabIconSelected: sharedPalette.tint,
+    secondaryBackground: "#121212",
+    tertiaryBackground: "#250000",
+    text: "#f8fafa",
+    secondaryText: "#b8c4c4",
+    placeholderText: "#858585",
+    brandMark: UNFATHOMABLY_BRAND.mark,
+    tint: UNFATHOMABLY_BRAND.primaryDark,
+    onTint: "#000000",
+    secondaryTint: "#4db4f7",
+    onSecondaryTint: "#000000",
+    red: "#f87271",
+    orange: "#f59e0b",
+    yellow: "#facc15",
+    green: "#4ade80",
+    teal: "#5eead4",
+    blue: "#4db4f7",
+    indigo: "#818cf8",
+    purple: "#c084fc",
+    tabIconDefault: "#b8c4c4",
+    tabIconSelected: UNFATHOMABLY_BRAND.primaryDark,
     tabBar: "#000000",
-    ...sharedPalette,
   },
 };
 

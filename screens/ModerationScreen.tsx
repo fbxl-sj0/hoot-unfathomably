@@ -243,7 +243,7 @@ export default function ModerationScreen({
                 style={{
                   color:
                     community.id === selectedCommunityId
-                      ? theme.background
+                      ? theme.onTint
                       : theme.text,
                 }}
               >

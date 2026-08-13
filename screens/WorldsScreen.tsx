@@ -199,10 +199,10 @@ export default function WorldsScreen({ navigation, route }: { navigation: any; r
           >
             <Icon
               name={mode === "browse" ? "grid-outline" : mode === "feed" ? "list-outline" : "search-outline"}
-              color={view === mode ? theme.background : theme.text}
+              color={view === mode ? theme.onTint : theme.text}
               size={19}
             />
-            <Text style={view === mode ? { color: theme.background } : undefined}>
+            <Text style={view === mode ? { color: theme.onTint } : undefined}>
               {mode === "browse" ? "Browse" : mode === "feed" ? "Feed" : "Find"}
             </Text>
           </Pressable>
@@ -237,7 +237,7 @@ export default function WorldsScreen({ navigation, route }: { navigation: any; r
             onPress={() => { void runSearch(); }}
             style={[styles.searchButton, { backgroundColor: theme.tint }]}
           >
-            <Icon name="search-outline" color={theme.background} size={23} />
+            <Icon name="search-outline" color={theme.onTint} size={23} />
           </Pressable>
         </View>
       ) : null}
@@ -386,7 +386,7 @@ function FamilyPill({ family, selected, onPress }: { family: WorldFamily; select
       onPress={onPress}
       style={[styles.familyPill, selected && { backgroundColor: theme.tint }]}
     >
-      <Text style={selected ? { color: theme.background } : undefined}>
+      <Text style={selected ? { color: theme.onTint } : undefined}>
         {getWorldDefinition(family)?.title || "All"}
       </Text>
     </Pressable>

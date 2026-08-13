@@ -128,7 +128,7 @@ export default function ComposePollFields({
             onPress={() => onChange({ ...draft, multiple })}
             style={[styles.pill, draft.multiple === multiple && { backgroundColor: theme.tint }]}
           >
-            <Text style={draft.multiple === multiple ? { color: theme.background } : undefined}>
+            <Text style={draft.multiple === multiple ? { color: theme.onTint } : undefined}>
               {multiple ? "Choose several" : "Choose one"}
             </Text>
           </Pressable>
@@ -144,7 +144,7 @@ export default function ComposePollFields({
             onPress={() => onChange({ ...draft, expiresIn: option.seconds })}
             style={[styles.pill, draft.expiresIn === option.seconds && { backgroundColor: theme.tint }]}
           >
-            <Text style={draft.expiresIn === option.seconds ? { color: theme.background } : undefined}>
+            <Text style={draft.expiresIn === option.seconds ? { color: theme.onTint } : undefined}>
               {option.label}
             </Text>
           </Pressable>

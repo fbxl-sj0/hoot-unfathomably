@@ -34,7 +34,7 @@ export default function NotFoundScreen({ navigation }: RootStackScreenProps<'Not
     <View style={styles.container}>
       <Text style={styles.title}>Screen not found</Text>
       <Text secondary style={styles.message}>
-        This link does not match a screen Hoot can open.
+        This link does not match a screen Hoot Unfathomably can open.
       </Text>
       <AppButton
         title="Go Home"

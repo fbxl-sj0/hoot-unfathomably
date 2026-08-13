@@ -164,10 +164,10 @@ export default function UnfathomablySourcesScreen({ navigation }: { navigation: 
           >
             <Icon
               name={tab === "timeline" ? "list-outline" : tab === "following" ? "checkmark-circle-outline" : "search-outline"}
-              color={view === tab ? theme.background : theme.text}
+              color={view === tab ? theme.onTint : theme.text}
               size={19}
             />
-            <Text style={view === tab ? { color: theme.background } : undefined}>
+            <Text style={view === tab ? { color: theme.onTint } : undefined}>
               {tab === "timeline" ? "Feed" : tab === "following" ? "Following" : "Find"}
             </Text>
           </Pressable>
@@ -189,7 +189,7 @@ export default function UnfathomablySourcesScreen({ navigation }: { navigation: 
             onPress={() => { void load(); }}
             style={[styles.searchButton, { backgroundColor: theme.tint }]}
           >
-            <Icon name="search-outline" color={theme.background} size={23} />
+            <Icon name="search-outline" color={theme.onTint} size={23} />
           </Pressable>
         </View>
       ) : null}

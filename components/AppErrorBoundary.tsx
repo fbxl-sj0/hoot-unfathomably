@@ -108,7 +108,7 @@ class AppErrorBoundaryInner extends React.Component<
           ]}
         >
           <Text style={[styles.title, { color: theme.text }]}>
-            Hoot hit a problem
+            Hoot Unfathomably hit a problem
           </Text>
           <Text
             accessibilityLiveRegion="assertive"

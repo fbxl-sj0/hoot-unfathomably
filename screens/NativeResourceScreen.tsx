@@ -132,8 +132,8 @@ export default function NativeResourceScreen({ navigation, route }: RootStackScr
         onPress={() => { void openExternalLink(resource.sourceUrl || resource.canonicalUrl); }}
         style={[styles.open, { backgroundColor: theme.tint }]}
       >
-        <Icon name="open-outline" color={theme.background} size={21} />
-        <Text style={{ color: theme.background }}>Open original</Text>
+        <Icon name="open-outline" color={theme.onTint} size={21} />
+        <Text style={{ color: theme.onTint }}>Open original</Text>
       </Pressable>
     </ScrollView>
   );

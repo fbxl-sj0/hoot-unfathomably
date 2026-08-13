@@ -152,7 +152,7 @@ export default function ModalScreen({
               Share.share({
                 message: shareUrl ? `${post.title}\n${shareUrl}` : post.title,
                 url: shareUrl,
-                title: "Hoot",
+                title: "Hoot Unfathomably",
               });
             }}
             style={styles.iconButton}
