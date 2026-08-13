@@ -14,6 +14,7 @@
         - Show a bounded set of server-approved facts
         - Preserve an explicit route to the authoritative resource
         - Identify selective bridge provenance without inferring capabilities
+        - Route book and GPS objects into their mobile workflows
 
     This file intentionally does NOT contain:
 
@@ -28,6 +29,7 @@ import { Pressable, StyleSheet } from "react-native";
 
 import { getWorldDefinition, isWorldFamily } from "../constants/Worlds";
 import useTheme from "../hooks/useTheme";
+import { bookReferenceFromFields } from "../services/UnfathomablyBooksService";
 import type {
   UnfathomablyNativeFieldValue,
   UnfathomablyStatus,
@@ -147,9 +149,24 @@ function bridgeLabel(status: UnfathomablyStatus): string | undefined {
   return undefined;
 }
 
+function safeHttpUrl(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) &&
+      !!url.hostname && !url.username && !url.password
+      ? url.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export default function NativeStatusContext({
+  navigation,
   status,
 }: {
+  navigation?: { navigate: (screen: string, params?: Record<string, unknown>) => void };
   status: UnfathomablyStatus;
 }) {
   const theme = useTheme();
@@ -174,7 +191,26 @@ export default function NativeStatusContext({
   const bridge = bridgeLabel(status);
   const visibleFacts = expanded ? facts : facts.slice(0, INITIAL_FACT_COUNT);
   const canExpand = facts.length > INITIAL_FACT_COUNT;
-  const canOpen = /^https?:\/\//i.test(presentation.canonical_id);
+  const canonicalUrl = safeHttpUrl(presentation.canonical_id);
+  const bookReferenceValue = family === "books" && navigation
+    ? ["catalog_item", "in_reply_to_book", "book", "edition", "work"]
+      .map(key => presentation.fields[key])
+      .map(safeHttpUrl)
+      .find(Boolean) || canonicalUrl
+    : undefined;
+  const bookReference = typeof bookReferenceValue === "string"
+    ? bookReferenceValue
+    : undefined;
+  const latitudeValue = presentation.fields.latitude;
+  const longitudeValue = presentation.fields.longitude;
+  const latitude = typeof latitudeValue === "number" ? latitudeValue : Number(latitudeValue);
+  const longitude = typeof longitudeValue === "number" ? longitudeValue : Number(longitudeValue);
+  const mapUrl = family === "routes" &&
+    Number.isFinite(latitude) && latitude >= -90 && latitude <= 90 &&
+    Number.isFinite(longitude) && longitude >= -180 && longitude <= 180
+    ? `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=14/${latitude}/${longitude}`
+    : undefined;
+  const gpxUrl = safeHttpUrl(presentation.fields.gpx_url);
 
   return (
     <View
@@ -213,15 +249,62 @@ export default function NativeStatusContext({
         </View>
       ) : null}
 
-      {canOpen || canExpand ? (
+      {canonicalUrl || canExpand || bookReference || mapUrl || gpxUrl ? (
         <View style={[styles.actions, { backgroundColor: theme.secondaryBackground }]}>
-          {canOpen ? (
+          {bookReference && navigation ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Manage this book in your library"
+              onPress={event => {
+                event.stopPropagation();
+                navigation.navigate("BookLibrary", {
+                  book: bookReferenceFromFields(
+                    bookReference,
+                    typeof presentation.fields.title === "string" ? presentation.fields.title : "Book",
+                    presentation.fields,
+                    typeof presentation.fields.image === "string" ? presentation.fields.image : undefined,
+                  ),
+                });
+              }}
+              style={styles.action}
+            >
+              <Icon name="library-outline" color={theme.tint} size={18} />
+              <Text style={{ color: theme.tint }}>My books</Text>
+            </Pressable>
+          ) : null}
+          {mapUrl ? (
+            <Pressable
+              accessibilityRole="link"
+              onPress={event => {
+                event.stopPropagation();
+                void openExternalLink(mapUrl);
+              }}
+              style={styles.action}
+            >
+              <Icon name="map-outline" color={theme.tint} size={18} />
+              <Text style={{ color: theme.tint }}>Route start</Text>
+            </Pressable>
+          ) : null}
+          {gpxUrl ? (
+            <Pressable
+              accessibilityRole="link"
+              onPress={event => {
+                event.stopPropagation();
+                void openExternalLink(gpxUrl);
+              }}
+              style={styles.action}
+            >
+              <Icon name="download-outline" color={theme.tint} size={18} />
+              <Text style={{ color: theme.tint }}>GPX</Text>
+            </Pressable>
+          ) : null}
+          {canonicalUrl ? (
             <Pressable
               accessibilityRole="link"
               accessibilityLabel="Open original resource"
               onPress={event => {
                 event.stopPropagation();
-                void openExternalLink(presentation.canonical_id);
+                void openExternalLink(canonicalUrl);
               }}
               style={styles.action}
             >

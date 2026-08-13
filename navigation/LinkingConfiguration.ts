@@ -70,6 +70,8 @@ const linking: LinkingOptions<RootStackParamList> = {
       Status: 'status/:statusId',
       Group: 'groups/:groupId',
       Worlds: 'worlds',
+      BookLibrary: 'worlds/books/library',
+      RouteRecorder: 'worlds/routes/record',
       Sources: 'feeds',
       Source: 'feeds/:sourceId',
       NativeResource: 'world-item',

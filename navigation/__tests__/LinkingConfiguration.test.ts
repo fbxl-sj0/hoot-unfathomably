@@ -61,6 +61,8 @@ describe("LinkingConfiguration", () => {
     ["new-post", "NewPostScreen"],
     ["notifications", "NotificationScreen"],
     ["options", "OptionsScreen"],
+    ["worlds/books/library", "BookLibrary"],
+    ["worlds/routes/record", "RouteRecorder"],
   ])("maps the current '%s' destination", (path, screenName) => {
     const state = linking.getStateFromPath?.(path, linking.config);
 

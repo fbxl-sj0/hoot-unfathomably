@@ -1,6 +1,6 @@
 # Unfathomably compatibility
 
-Hoot Unfathomably 0.3.0 was reviewed against these upstream revisions:
+Hoot Unfathomably 0.4.0 was reviewed against these upstream revisions:
 
 - unfathomably-be 3.5.0, commit `de930df6d18bf0f9cd124c4beb9d85dc23303620`
 - unfathomably-fe, commit `5cf055beeb9f0a1453dca99b3559d1b786ae7f82`
@@ -34,6 +34,14 @@ The app supports:
 - native-object timelines, bounded discovery, explicit local resolution, and
   authoritative source links
 - native status facts and Nostr, AT Protocol, or diaspora* provenance
+- own-account reading shelves through `GET`, `POST`, and `DELETE`
+  `/api/v1/book_shelves`, with the standard to-read, reading, read, and
+  stopped-reading shelf identifiers and page or percent progress
+- explicit federated book reviews, comments, and quotations through the books
+  native-object template, separate from quiet shelf changes
+- foreground-only Android GPS recording with pause-safe GPX segments, bounded
+  GPX import and export, private on-device draft recovery, media upload, and
+  confirmed publication through the routes native-object template
 - followed Sources timelines, source lists, discovery, details, preview items,
   and follow relationships
 - current group list, discovery, search, detail, relationship, permission,
@@ -52,17 +60,20 @@ resource is a separate, explicit action.
 
 ## Deliberate mobile boundaries
 
-The paired browser frontend remains the complete interface for native-object
-authoring across all 16 schema families, organizer and group moderation,
-archive import, federation diagnostics, administration, chat, and other large
-workflows. Those facilities are not represented as partially working generic
-forms in the mobile client.
+The paired browser frontend remains the complete interface for general
+native-object authoring across all 16 schema families, organizer and group
+moderation, archive import, federation diagnostics, administration, chat, and
+other large workflows. The mobile client deliberately implements the book and
+GPS route workflows where a phone provides a useful focused experience. Other
+families are not represented as partially working generic forms.
 
-Hoot Unfathomably is primarily a reading, discussion, reaction, group, source,
-poll, and event-participation client. A native object already represented by a
-status receives the normal reply and reaction controls. A resolved resource
-without a local status remains read-only and retains its authoritative source
-link.
+Route import currently accepts GPX. The paired web client also has desktop
+importers for TCX, KML, and FIT. Android route recording is foreground-only: no
+background-location permission, foreground service, automatic reverse
+geocoding, or hidden publication is used. A native object already represented
+by a status receives the normal reply and reaction controls. A resolved
+resource without a local status remains read-only and retains its authoritative
+source link, except for the focused Books library action.
 
 ## Rebased and Pleroma degradation
 
@@ -77,8 +88,11 @@ The common baseline remains available when an optional extension is absent:
 - image and supported media viewing
 
 Quote reposts, emoji reactions, dislikes, groups, Worlds, Sources, event
-participation, and other extensions are shown only when their response fields
-or instance features make them usable. Older Rebased group search falls back
+participation, book libraries, route publishing, and other extensions are shown
+only when their response fields or instance features make them usable. The app
+reports a concise unavailable state when a Rebased or Pleroma server returns
+404, 405, 410, or 501 for a Books or Routes extension; ordinary feeds and
+discussions remain usable. Older Rebased group search falls back
 from `/api/v1/groups/search` to `/api/v1/groups?q=...` only for explicit
 unavailable statuses. Older group detail can fall back to the group collection.
 Authorization, gateway, and server failures are never hidden by those

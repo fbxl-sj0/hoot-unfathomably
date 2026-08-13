@@ -68,7 +68,10 @@ import StatusThreadScreen from "../screens/StatusThreadScreen";
 import ImageViewerScreen from "../screens/ImageViewerScreen";
 import MediaViewerScreen from "../screens/MediaViewerScreen";
 import GroupScreen from "../screens/GroupScreen";
+import BookLibraryScreen from "../screens/BookLibraryScreen";
+import BookReviewScreen from "../screens/BookReviewScreen";
 import NativeResourceScreen from "../screens/NativeResourceScreen";
+import RouteRecorderScreen from "../screens/RouteRecorderScreen";
 import UnfathomablySourceScreen from "../screens/UnfathomablySourceScreen";
 import UnfathomablySourcesScreen from "../screens/UnfathomablySourcesScreen";
 import WorldsScreen from "../screens/WorldsScreen";
@@ -245,6 +248,9 @@ function RootNavigator() {
       <Stack.Screen name="MediaViewer" component={MediaViewerScreen} options={{ title: "Media" }} />
       <Stack.Screen name="Group" component={GroupScreen} options={({ route }) => ({ title: route.params.title || "Group" })} />
       <Stack.Screen name="Worlds" component={WorldsScreen} options={{ title: "Worlds" }} />
+      <Stack.Screen name="BookLibrary" component={BookLibraryScreen} options={{ title: "My books" }} />
+      <Stack.Screen name="BookReview" component={BookReviewScreen} options={{ title: "Book activity" }} />
+      <Stack.Screen name="RouteRecorder" component={RouteRecorderScreen} options={{ title: "GPS paths" }} />
       <Stack.Screen name="Sources" component={UnfathomablySourcesScreen} options={{ title: "Feeds" }} />
       <Stack.Screen name="Source" component={UnfathomablySourceScreen} options={({ route }) => ({ title: route.params.title || "Feed" })} />
       <Stack.Screen name="NativeResource" component={NativeResourceScreen} options={{ title: "World item" }} />

@@ -6,7 +6,7 @@ group discussions, first-class Worlds and Sources, and compatible features from
 [unfathomably-be](https://github.com/fbxl-sj0/unfathomably-be) and
 [unfathomably-fe](https://github.com/fbxl-sj0/unfathomably-fe).
 
-Version 0.3.0 is the Unfathomably 3.5 compatibility release. It was developed
+Version 0.4.0 is the Unfathomably 3.5 mobile-workflows release. It was developed
 against unfathomably-be 3.5.0 and the paired August 12, 2026 frontend source.
 The client reads the instance feature manifest at runtime, so optional screens
 and controls follow the selected server rather than a hard-coded host or a
@@ -43,6 +43,14 @@ saved account therefore cannot silently redirect that account to FBXL Social.
   provenance, and authoritative source link.
 - Search bounded, server-approved Worlds providers and resolve a selected item
   through your own server before opening it locally.
+- Manage your four reading shelves, move books between them, and track progress
+  by page or percentage. Shelf changes use the quiet book-library API and do
+  not create timeline posts. Reviews, comments, and quotations remain separate,
+  explicit federated publishing actions.
+- Record GPS paths in the foreground, pause and resume without joining separate
+  track segments, recover an unfinished on-device draft, and import or export
+  bounded GPX files. A route is uploaded and published only after reviewing its
+  path, metadata, and visibility and accepting a precise-location confirmation.
 - Read a combined followed-Sources timeline; list, find, preview, follow, and
   unfollow publications, channels, RSS or Atom feeds, and federated source
   actors.
@@ -66,6 +74,11 @@ saved account therefore cannot silently redirect that account to FBXL Social.
 On Android, the app asks once after the first account becomes active whether
 to enable background notifications. The choice can be changed later under
 Options → App settings.
+
+GPS path recording asks for foreground location only when **Start recording**
+is pressed. It does not request background or always-on location access. Keep
+the route screen and app open while recording. The local preview uses no map
+tiles; opening the starting point in OpenStreetMap is a separate action.
 
 The bottom navigation is Home, Group feed, Groups, New post, Notifications,
 and Options. Post controls are icon-only and finger-sized to keep the feed
@@ -166,7 +179,8 @@ guard are present. Any other advisory still fails the build.
 
 The release suite uses canonical Unfathomably 3.5, Rebased, and Pleroma
 fixtures. It covers the Mastodon-compatible v1 API plus Worlds, Sources,
-groups, native metadata, polls, events, quote reposts, media, and emoji
+groups, native metadata, book libraries, GPX routes, polls, events, quote
+reposts, media, and emoji
 reactions. It also requires capability-degraded Rebased and Pleroma fixtures
 that omit every optional extension while preserving baseline login, feeds,
 discussions, replies, reposts, favourites, and notifications. A strict contract

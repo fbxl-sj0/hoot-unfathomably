@@ -197,11 +197,18 @@ describe("Fediverse account screens", () => {
 
   test("logs out only the active Unfathomably account", async () => {
     mockCurrentContext = makeContext("unfathomably");
+    mockGetAccountStatuses.mockResolvedValue([
+      makeStatus("unfathomably", { id: "logout-profile-status" }),
+    ]);
     const screen = await render(
       <UnfathomablyProfileScreen
         navigation={{ navigate: jest.fn() }}
       />,
     );
+
+    await waitFor(() => {
+      expect(screen.getByText("status:logout-profile-status")).toBeTruthy();
+    });
 
     await fireEvent.press(
       screen.getByRole("button", { name: "Log out" }),

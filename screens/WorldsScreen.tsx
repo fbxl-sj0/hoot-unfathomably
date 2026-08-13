@@ -39,6 +39,7 @@ import {
 } from "../constants/Worlds";
 import useTheme from "../hooks/useTheme";
 import { useLotideCtx } from "../hooks/useLotideCtx";
+import { bookReferenceFromFields } from "../services/UnfathomablyBooksService";
 import type { UnfathomablyStatus } from "../services/UnfathomablyService";
 import {
   getWorldTimeline,
@@ -240,6 +241,36 @@ export default function WorldsScreen({ navigation, route }: { navigation: any; r
           </Pressable>
         </View>
       ) : null}
+      {family === "books" ? (
+        <Pressable
+          accessibilityLabel="Open your book library"
+          accessibilityRole="button"
+          onPress={() => navigation.navigate("BookLibrary")}
+          style={[styles.workflowAction, { backgroundColor: theme.secondaryBackground }]}
+        >
+          <Icon color={theme.tint} name="library-outline" size={23} />
+          <View style={styles.workflowText}>
+            <Text style={styles.workflowTitle}>My books</Text>
+            <Text secondary>Shelves, reading progress, reviews, and quotations</Text>
+          </View>
+          <Icon color={theme.secondaryText} name="chevron-forward-outline" size={21} />
+        </Pressable>
+      ) : null}
+      {family === "routes" ? (
+        <Pressable
+          accessibilityLabel="Record or import a GPS path"
+          accessibilityRole="button"
+          onPress={() => navigation.navigate("RouteRecorder")}
+          style={[styles.workflowAction, { backgroundColor: theme.secondaryBackground }]}
+        >
+          <Icon color={theme.tint} name="navigate-circle-outline" size={23} />
+          <View style={styles.workflowText}>
+            <Text style={styles.workflowTitle}>Record a GPS path</Text>
+            <Text secondary>Record on this phone, import GPX, or publish a track</Text>
+          </View>
+          <Icon color={theme.secondaryText} name="chevron-forward-outline" size={21} />
+        </Pressable>
+      ) : null}
     </View>
   );
 
@@ -264,7 +295,13 @@ export default function WorldsScreen({ navigation, route }: { navigation: any; r
                     accessibilityLabel={`Open ${definition.title} World`}
                     disabled={knownUnsupported}
                     key={definition.family}
-                    onPress={() => chooseFamily(definition.family, "feed")}
+                    onPress={() => {
+                      if (definition.family === "books") {
+                        navigation.navigate("BookLibrary");
+                      } else {
+                        chooseFamily(definition.family, "feed");
+                      }
+                    }}
                     style={[
                       styles.world,
                       { backgroundColor: theme.secondaryBackground },
@@ -321,6 +358,16 @@ export default function WorldsScreen({ navigation, route }: { navigation: any; r
         renderItem={({ item }) => (
           <WorldDiscoveryCard
             item={item}
+            onManageBook={family === "books" ? () => {
+              navigation.navigate("BookLibrary", {
+                book: bookReferenceFromFields(
+                  item.activitypubUrl || item.url,
+                  item.title,
+                  item.fields,
+                  item.imageUrl,
+                ),
+              });
+            } : undefined}
             onOpenHere={() => { void openDiscoveryItem(item); }}
             opening={openingId === item.id}
           />
@@ -379,6 +426,9 @@ const styles = StyleSheet.create({
   searchRow: { flexDirection: "row", gap: 8 },
   searchInput: { flex: 1, minHeight: 48 },
   searchButton: { alignItems: "center", borderRadius: 9, justifyContent: "center", minHeight: 48, width: 52 },
+  workflowAction: { alignItems: "center", borderRadius: 10, flexDirection: "row", gap: 10, minHeight: 64, padding: 10 },
+  workflowText: { flex: 1, gap: 2 },
+  workflowTitle: { fontSize: 16, fontWeight: "700" },
   heading: { fontSize: 23, fontWeight: "700", marginHorizontal: 15, marginTop: 3 },
   section: { gap: 8, paddingHorizontal: 15 },
   sectionTitle: { fontSize: 19, fontWeight: "700" },

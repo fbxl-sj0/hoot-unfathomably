@@ -221,7 +221,7 @@ export default function StatusCard({
       {!!displayContent && (
         <Text selectable style={styles.content}>{displayContent}</Text>
       )}
-      <NativeStatusContext status={visible} />
+      <NativeStatusContext navigation={navigation} status={visible} />
       <StatusEventContext ctx={ctx} status={visible} />
       {visible.poll ? <StatusPoll ctx={ctx} poll={visible.poll} /> : null}
       {displayedMedia.map(media => (

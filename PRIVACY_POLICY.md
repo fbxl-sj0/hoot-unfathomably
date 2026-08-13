@@ -15,3 +15,16 @@ Non-sensitive account metadata and app preferences are stored locally so the
 app can restore your selected account. Logging out removes the locally stored
 access token for that account. You should review the privacy policy of every
 server you choose to use.
+
+GPS path recording uses foreground location only after you press Start
+recording. The app does not request background or always-on location access.
+An unfinished route and its precise points are stored in the app's local data
+so the draft can be recovered. The points are sent to your selected server only
+after you review the route and confirm publication. Exporting GPX or explicitly
+opening the route start in OpenStreetMap shares location data with the Android
+destination you choose. Discarding the draft removes the locally stored copy.
+
+Reading-shelf changes are sent to your selected server through its book-library
+API. They do not create timeline posts, but their visibility and federation are
+controlled by that server. Reviews, comments, and quotations are federated posts
+and use the visibility you select before publishing.

@@ -1,6 +1,29 @@
 Hoot Unfathomably Changelog
 ===========================
 
+Version 0.4.0
+-------------
+
+- Add a complete own-account book library with four standard shelves, title,
+  author, and ISBN search, quiet shelf moves and removal, plus page or percent
+  reading progress.
+- Keep timeline publication separate from shelf management with dedicated
+  review, comment, and quotation forms, ratings, page references, content
+  warnings, and visibility controls.
+- Add foreground-only Android GPS path recording with accuracy and plausible
+  speed filtering, stop and resume track segments, live local previews,
+  distance, duration, and elevation metrics.
+- Add bounded GPX import and export, account-scoped unfinished draft recovery,
+  explicit precise-location confirmation, standard media upload, and native
+  route publication.
+- Add Books and GPS paths entry points to Worlds, native resource cards,
+  structured status context, Options, and deep-link routing.
+- Document location and book-library privacy boundaries and preserve clear
+  feature-unavailable behavior on older Rebased and Pleroma servers.
+- Add contract tests for shelf normalization and mutation, native book
+  activity, GPS filtering, segmented GPX round trips, route upload and
+  publication, local draft recovery, deep links, and degraded servers.
+
 Version 0.3.0
 -------------
 

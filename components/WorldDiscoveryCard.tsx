@@ -12,6 +12,7 @@
 
         - Show bounded descriptive metadata and a safe thumbnail
         - Distinguish local resolution from opening the original resource
+        - Expose an optional family-specific workflow action
         - Provide phone-sized controls for both actions
 
     This file intentionally does NOT contain:
@@ -46,10 +47,12 @@ function factLabel(value: string): string {
 
 export default function WorldDiscoveryCard({
   item,
+  onManageBook,
   onOpenHere,
   opening = false,
 }: {
   item: WorldDiscoveryItem;
+  onManageBook?: () => void;
   onOpenHere: () => void;
   opening?: boolean;
 }) {
@@ -91,15 +94,26 @@ export default function WorldDiscoveryCard({
           </View>
         ) : null}
         <View style={styles.actions}>
+          {onManageBook ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Manage ${item.title} in your book library`}
+              onPress={onManageBook}
+              style={[styles.primaryAction, { backgroundColor: theme.tint }]}
+            >
+              <Icon name="library-outline" color={theme.background} size={20} />
+              <Text style={{ color: theme.background }}>My books</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Open ${item.title} on this server`}
             disabled={opening}
             onPress={onOpenHere}
-            style={[styles.primaryAction, { backgroundColor: theme.tint }]}
+            style={onManageBook ? styles.secondaryAction : [styles.primaryAction, { backgroundColor: theme.tint }]}
           >
-            <Icon name="enter-outline" color={theme.background} size={20} />
-            <Text style={{ color: theme.background }}>
+            <Icon name="enter-outline" color={onManageBook ? theme.tint : theme.background} size={20} />
+            <Text style={onManageBook ? { color: theme.tint } : { color: theme.background }}>
               {opening ? "Opening..." : "Open here"}
             </Text>
           </Pressable>

@@ -28,6 +28,7 @@ import {
 } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { WorldFamily } from "./constants/Worlds";
+import type { BookReference } from "./services/UnfathomablyBooksService";
 import type { NativeResolvedResource } from "./services/UnfathomablyWorldsService";
 
 declare global {
@@ -45,6 +46,9 @@ export type RootStackParamList = {
   Status: { statusId: string };
   Group: { groupId: string; title?: string };
   Worlds: { family?: WorldFamily; view?: "browse" | "feed" | "find" } | undefined;
+  BookLibrary: { book?: BookReference } | undefined;
+  BookReview: { book: BookReference };
+  RouteRecorder: undefined;
   Sources: undefined;
   Source: { sourceId: string; title?: string };
   NativeResource: { resource: NativeResolvedResource };

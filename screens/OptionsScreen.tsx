@@ -12,6 +12,7 @@
 
         - Link to the signed-in profile and app settings
         - Expose Worlds and feeds when the current server advertises them
+        - Provide direct entry points for book and GPS route workflows
         - Keep optional server extensions out of the fixed bottom navigation
 
     This file intentionally does NOT contain:
@@ -85,6 +86,16 @@ export default function OptionsScreen({ navigation }: { navigation: any }) {
     {capabilities.worlds ? <Pressable accessibilityRole="button" accessibilityLabel="Explore Unfathomably Worlds" onPress={() => navigation.navigate("Worlds")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
       <Icon name="planet-outline" size={25} color={theme.text} />
       <View style={styles.optionBody}><Text style={styles.optionText}>Worlds</Text><Text secondary>Books, media, events, software, communities, and more</Text></View>
+      <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
+    </Pressable> : null}
+    {capabilities.worlds ? <Pressable accessibilityRole="button" accessibilityLabel="Manage your book library" onPress={() => navigation.navigate("BookLibrary")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
+      <Icon name="library-outline" size={25} color={theme.text} />
+      <View style={styles.optionBody}><Text style={styles.optionText}>My books</Text><Text secondary>Reading shelves, progress, reviews, and quotations</Text></View>
+      <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
+    </Pressable> : null}
+    {capabilities.worlds ? <Pressable accessibilityRole="button" accessibilityLabel="Record or import a GPS path" onPress={() => navigation.navigate("RouteRecorder")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
+      <Icon name="navigate-circle-outline" size={25} color={theme.text} />
+      <View style={styles.optionBody}><Text style={styles.optionText}>GPS paths</Text><Text secondary>Record, import, export, and publish Routes tracks</Text></View>
       <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
     </Pressable> : null}
     {capabilities.sources ? <Pressable accessibilityRole="button" accessibilityLabel="Open followed feeds and sources" onPress={() => navigation.navigate("Sources")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
