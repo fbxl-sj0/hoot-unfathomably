@@ -38,10 +38,16 @@ const mockGetGroup = jest.fn();
 const mockGetDiscoverableGroups = jest.fn();
 const mockGetGroupStatuses = jest.fn();
 const mockJoinGroup = jest.fn();
+const mockUseStream = jest.fn();
 let mockCurrentContext: LotideContext | undefined;
 
 jest.mock("../../hooks/useLotideCtx", () => ({
   useLotideCtx: () => mockCurrentContext,
+}));
+
+jest.mock("../../hooks/useUnfathomablyStream", () => ({
+  __esModule: true,
+  default: (...args: unknown[]) => mockUseStream(...args),
 }));
 
 jest.mock("../../hooks/useTheme", () => ({
@@ -197,6 +203,11 @@ describe("Fediverse group screens", () => {
         screen.getByText(`status:${status.id}`),
       ).toBeTruthy();
     });
+    expect(mockUseStream).toHaveBeenCalledWith(
+      makeContext("unfathomably"),
+      { stream: "group", group: group.id },
+      expect.objectContaining({ onEvent: expect.any(Function) }),
+    );
 
     await fireEvent.press(
       screen.getByRole("button", { name: "Leave group" }),

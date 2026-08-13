@@ -1,6 +1,6 @@
 # Unfathomably compatibility
 
-Hoot Unfathomably 0.4.0 was reviewed against these upstream revisions:
+Hoot Unfathomably 0.4.1 was reviewed against these upstream revisions:
 
 - unfathomably-be 3.5.0, commit `de930df6d18bf0f9cd124c4beb9d85dc23303620`
 - unfathomably-fe, commit `5cf055beeb9f0a1453dca99b3559d1b786ae7f82`
@@ -25,6 +25,26 @@ Unfathomably, Rebased, and Pleroma. The app understands the expanded 3.5 event,
 participation, group, emoji, poll, move, edit, and follow notification types.
 The v2 grouped envelope is therefore not required to keep notifications
 correct or to preserve degraded compatibility.
+
+Foreground screens also use the backend's path-style streaming API. The app
+prefers the streaming origin from Mastodon v2
+`configuration.urls.streaming`, falls back to the v1 `urls.streaming_api`
+advertisement, and finally uses the selected API origin. The OAuth token is a
+WebSocket subprotocol, not a URL query parameter. The mapped streams are:
+
+- `/api/v1/streaming/user` for the home timeline
+- `/api/v1/streaming/user/notification` for notification activity
+- `/api/v1/streaming/user/groups` for all joined-group posts
+- `/api/v1/streaming/group/:id` for one group discussion
+- `/api/v1/streaming/user/sources` for all followed-source posts
+- `/api/v1/streaming/source/:id` for one source
+
+The client understands `update`, `status.update`, `delete`, and `notification`
+events on the screens that consume them. It closes foreground sockets when the
+app sleeps, reconnects with exponential backoff and jitter, and performs a REST
+catch-up after any gap. Android background notification delivery deliberately
+continues to use the scheduled REST poller because the operating system does
+not keep a JavaScript WebSocket reliably alive in the background.
 
 ## Unfathomably 3.5 mobile surface
 
@@ -85,6 +105,7 @@ The common baseline remains available when an optional extension is absent:
 - ordinary posts and replies
 - reposts and favourites
 - notifications and link previews
+- classic user and notification live streams when the server provides them
 - image and supported media viewing
 
 Quote reposts, emoji reactions, dislikes, groups, Worlds, Sources, event
@@ -97,5 +118,9 @@ from `/api/v1/groups/search` to `/api/v1/groups?q=...` only for explicit
 unavailable statuses. Older group detail can fall back to the group collection.
 Authorization, gateway, and server failures are never hidden by those
 fallbacks.
+Missing group or Source streams do not remove their REST workflows. This keeps
+older Rebased extensions useful and leaves plain Pleroma on its common live or
+REST baseline without treating a missing optional WebSocket path as a screen
+failure.
 
 <!-- end of UNFATHOMABLY-COMPATIBILITY.md -->

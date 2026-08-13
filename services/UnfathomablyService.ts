@@ -207,6 +207,14 @@ export type UnfathomablyInstance = {
   title?: string;
   version?: string;
   description?: string;
+  configuration?: {
+    urls?: {
+      streaming?: string;
+    };
+  };
+  urls?: {
+    streaming_api?: string;
+  };
   pleroma?: {
     metadata?: {
       features?: string[];

@@ -17,7 +17,9 @@ import SuggestLogin from "../components/SuggestLogin";
 import RetryState from "../components/RetryState";
 import { Text, View } from "../components/Themed";
 import { useLotideCtx } from "../hooks/useLotideCtx";
+import useUnfathomablyStream from "../hooks/useUnfathomablyStream";
 import * as Unfathomably from "../services/UnfathomablyService";
+import { applyStatusStreamingEvent } from "../services/UnfathomablyStreamingService";
 
 export default function UnfathomablyFeedScreen({
   navigation,
@@ -66,6 +68,24 @@ export default function UnfathomablyFeedScreen({
     }, 0);
     return () => { active = false; clearTimeout(timer); };
   }, [ctx, scope]);
+
+  const handleStreamingEvent = useCallback((event: Parameters<typeof applyStatusStreamingEvent>[1]) => {
+    setStatuses(current => applyStatusStreamingEvent(
+      current,
+      event,
+      status => scope !== "groups" || !!(status.group || status.reblog?.group),
+    ));
+  }, [scope]);
+
+  useUnfathomablyStream(
+    ctx,
+    { stream: scope === "groups" ? "user:groups" : "user" },
+    {
+      onCatchUp: () => { void load(); },
+      onEvent: handleStreamingEvent,
+    },
+  );
+
   if (!ctx?.login) return <SuggestLogin />;
 
   return (

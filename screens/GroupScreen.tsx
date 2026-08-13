@@ -30,7 +30,9 @@ import RetryState from "../components/RetryState";
 import { Text, View } from "../components/Themed";
 import useTheme from "../hooks/useTheme";
 import { useLotideCtx } from "../hooks/useLotideCtx";
+import useUnfathomablyStream from "../hooks/useUnfathomablyStream";
 import * as Unfathomably from "../services/UnfathomablyService";
+import { applyStatusStreamingEvent } from "../services/UnfathomablyStreamingService";
 import { createComposeIntent } from "../utils/composeIntent";
 
 export default function GroupScreen({ navigation, route }: { navigation: any; route: { params: { groupId: string; title?: string } } }) {
@@ -54,6 +56,20 @@ export default function GroupScreen({ navigation, route }: { navigation: any; ro
     const timer = setTimeout(() => { void load(); }, 0);
     return () => clearTimeout(timer);
   }, [load]);
+
+  const handleStreamingEvent = useCallback((event: Parameters<typeof applyStatusStreamingEvent>[1]) => {
+    setStatuses(current => applyStatusStreamingEvent(current, event));
+  }, []);
+
+  useUnfathomablyStream(
+    ctx,
+    { stream: "group", group: id },
+    {
+      onCatchUp: () => { void load(); },
+      onEvent: handleStreamingEvent,
+    },
+  );
+
   if (!ctx?.login) return null;
   const joined = !!group?.relationship?.member;
   const canFollow = joined || (group?.relationship?.can_follow !== false && !group?.relationship?.federation_blocked);

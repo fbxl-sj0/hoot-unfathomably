@@ -6,7 +6,7 @@ group discussions, first-class Worlds and Sources, and compatible features from
 [unfathomably-be](https://github.com/fbxl-sj0/unfathomably-be) and
 [unfathomably-fe](https://github.com/fbxl-sj0/unfathomably-fe).
 
-Version 0.4.0 is the Unfathomably 3.5 mobile-workflows release. It was developed
+Version 0.4.1 is the Unfathomably 3.5 live-updates release. It was developed
 against unfathomably-be 3.5.0 and the paired August 12, 2026 frontend source.
 The client reads the instance feature manifest at runtime, so optional screens
 and controls follow the selected server rather than a hard-coded host or a
@@ -37,6 +37,10 @@ saved account therefore cannot silently redirect that account to FBXL Social.
 ## What it does
 
 - Browse your home timeline and a dedicated followed-groups timeline.
+- Receive foreground timeline edits through the server's live WebSocket API.
+  Home, notifications, followed groups, individual groups, followed Sources,
+  and individual Sources use their dedicated current streams. REST refreshes
+  fill gaps after focus changes, Android sleep, and network reconnects.
 - Explore all 16 Worlds families, including books, culture, audio, video,
   photography, articles, events, software, routes, communities, and
   marketplace material. Native posts retain their structured facts, bridge
@@ -94,6 +98,10 @@ metadata.
 
 Remote servers must use HTTPS. Plain HTTP is accepted only for local Android
 development addresses such as `10.0.2.2` and `localhost`.
+
+Live connections use the streaming origin advertised by the selected server,
+with a same-origin fallback for older compatible hosts. OAuth tokens are sent
+as a negotiated WebSocket subprotocol and are never placed in streaming URLs.
 
 See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for the full policy.
 
@@ -178,7 +186,7 @@ gate accepts those advisories only when the audited package version and every
 guard are present. Any other advisory still fails the build.
 
 The release suite uses canonical Unfathomably 3.5, Rebased, and Pleroma
-fixtures. It covers the Mastodon-compatible v1 API plus Worlds, Sources,
+fixtures. It covers the Mastodon-compatible v1 REST and streaming APIs plus Worlds, Sources,
 groups, native metadata, book libraries, GPX routes, polls, events, quote
 reposts, media, and emoji
 reactions. It also requires capability-degraded Rebased and Pleroma fixtures

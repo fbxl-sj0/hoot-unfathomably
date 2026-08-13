@@ -34,6 +34,7 @@ const mockGetSources = jest.fn();
 const mockGetSourcesTimeline = jest.fn();
 const mockSearchSources = jest.fn();
 const mockSetSourceFollowed = jest.fn();
+const mockUseStream = jest.fn();
 let mockCurrentContext: LotideContext | undefined;
 
 function sourceFixture(following = true) {
@@ -62,6 +63,11 @@ function sourceFixture(following = true) {
 
 jest.mock("../../hooks/useLotideCtx", () => ({
   useLotideCtx: () => mockCurrentContext,
+}));
+
+jest.mock("../../hooks/useUnfathomablyStream", () => ({
+  __esModule: true,
+  default: (...args: unknown[]) => mockUseStream(...args),
 }));
 
 jest.mock("../../hooks/useTheme", () => ({
@@ -118,6 +124,12 @@ describe("feeds and sources screens", () => {
         makeContext("unfathomably"),
       );
     });
+    expect(mockUseStream).toHaveBeenCalledWith(
+      makeContext("unfathomably"),
+      { stream: "user:sources" },
+      expect.objectContaining({ onEvent: expect.any(Function) }),
+      true,
+    );
   });
 
   test("lists followed feeds and changes the returned relationship", async () => {
@@ -202,6 +214,11 @@ describe("feeds and sources screens", () => {
       expect(screen.getByText("source-status:source-wrapped-status")).toBeTruthy();
       expect(screen.getByText("Version 3.5 released")).toBeTruthy();
     });
+    expect(mockUseStream).toHaveBeenCalledWith(
+      makeContext("unfathomably"),
+      { stream: "source", source: source.id },
+      expect.objectContaining({ onCatchUp: expect.any(Function) }),
+    );
   });
 });
 

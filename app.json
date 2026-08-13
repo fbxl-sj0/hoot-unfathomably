@@ -2,7 +2,7 @@
   "expo": {
     "name": "Hoot Unfathomably",
     "slug": "hoot-unfathomably",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "hoot-unfathomably",
@@ -19,7 +19,7 @@
       "bundleIdentifier": "org.brokenlamp.hootunfathomably"
     },
     "android": {
-      "versionCode": 15,
+      "versionCode": 16,
       "userInterfaceStyle": "automatic",
       "permissions": [
         "POST_NOTIFICATIONS"

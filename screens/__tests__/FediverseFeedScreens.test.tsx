@@ -34,10 +34,16 @@ import {
 
 const mockGetGroupTimeline = jest.fn();
 const mockGetHomeTimeline = jest.fn();
+const mockUseStream = jest.fn();
 let mockCurrentContext: LotideContext | undefined;
 
 jest.mock("../../hooks/useLotideCtx", () => ({
   useLotideCtx: () => mockCurrentContext,
+}));
+
+jest.mock("../../hooks/useUnfathomablyStream", () => ({
+  __esModule: true,
+  default: (...args: unknown[]) => mockUseStream(...args),
 }));
 
 jest.mock("../../services/UnfathomablyService", () => ({
@@ -95,6 +101,11 @@ describe("Fediverse feed screens", () => {
       ).toBeTruthy();
     });
     expect(mockGetGroupTimeline).not.toHaveBeenCalled();
+    expect(mockUseStream).toHaveBeenCalledWith(
+      makeContext(family),
+      { stream: "user" },
+      expect.objectContaining({ onEvent: expect.any(Function) }),
+    );
   });
 
   test.each([
@@ -143,6 +154,11 @@ describe("Fediverse feed screens", () => {
     });
     expect(screen.queryByText("status:pleroma-status-1")).toBeNull();
     expect(mockGetHomeTimeline).not.toHaveBeenCalled();
+    expect(mockUseStream).toHaveBeenCalledWith(
+      makeContext("unfathomably"),
+      { stream: "user:groups" },
+      expect.objectContaining({ onCatchUp: expect.any(Function) }),
+    );
   });
 
   test("shows a retry state when Pleroma does not provide the group extension", async () => {

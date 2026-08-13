@@ -33,6 +33,8 @@ import SuggestLogin from "../components/SuggestLogin";
 import { Text, View } from "../components/Themed";
 import useTheme from "../hooks/useTheme";
 import { useLotideCtx } from "../hooks/useLotideCtx";
+import useUnfathomablyStream from "../hooks/useUnfathomablyStream";
+import type { UnfathomablyStreamingEvent } from "../services/UnfathomablyStreamingService";
 import {
   getSource,
   getSourceItems,
@@ -79,6 +81,21 @@ export default function UnfathomablySourceScreen({ navigation, route }: { naviga
     const timer = setTimeout(() => { void load(); }, 0);
     return () => clearTimeout(timer);
   }, [load]);
+
+  const handleStreamingEvent = useCallback((event: UnfathomablyStreamingEvent) => {
+    if (["delete", "status.update", "update"].includes(event.event)) {
+      void load();
+    }
+  }, [load]);
+
+  useUnfathomablyStream(
+    ctx,
+    { stream: "source", source: id },
+    {
+      onCatchUp: () => { void load(); },
+      onEvent: handleStreamingEvent,
+    },
+  );
 
   if (!ctx?.login) return <SuggestLogin />;
 

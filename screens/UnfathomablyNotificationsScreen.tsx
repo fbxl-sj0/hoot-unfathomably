@@ -31,7 +31,13 @@ import RetryState from "../components/RetryState";
 import { stripHtml } from "../components/StatusCard";
 import { Text, View } from "../components/Themed";
 import { useLotideCtx } from "../hooks/useLotideCtx";
+import useUnfathomablyStream from "../hooks/useUnfathomablyStream";
 import * as Unfathomably from "../services/UnfathomablyService";
+import {
+  getStreamedNotification,
+  getStreamedStatus,
+  UnfathomablyStreamingEvent,
+} from "../services/UnfathomablyStreamingService";
 
 const labels: Record<string, string> = {
   favourite: "favourited your post",
@@ -109,6 +115,42 @@ export default function UnfathomablyNotificationsScreen({ navigation }: { naviga
     const interval = setInterval(() => { void refresh(); }, 60_000);
     return () => clearInterval(interval);
   }, [refresh]));
+
+  const handleStreamingEvent = useCallback((event: UnfathomablyStreamingEvent) => {
+    const notification = getStreamedNotification(event);
+    if (notification) {
+      setItems(current => [
+        notification,
+        ...current.filter(item => item.id !== notification.id),
+      ]);
+      return;
+    }
+
+    const status = getStreamedStatus(event);
+    if (status) {
+      setItems(current => current.map(item =>
+        item.status?.id === status.id ? { ...item, status } : item,
+      ));
+      return;
+    }
+
+    if (event.event === "delete" && typeof event.payload === "string") {
+      setItems(current => current.map(item =>
+        item.status?.id === event.payload
+          ? { ...item, status: undefined }
+          : item,
+      ));
+    }
+  }, []);
+
+  useUnfathomablyStream(
+    ctx,
+    { stream: "user:notification" },
+    {
+      onCatchUp: () => { void refresh(); },
+      onEvent: handleStreamingEvent,
+    },
+  );
 
   if (!ctx?.login) return <SuggestLogin />;
   return <FlatList testID="fediverse-notifications-list" data={items} keyExtractor={item => item.id} onRefresh={() => void refresh()} refreshing={refreshing} onEndReached={() => void loadMore()} onEndReachedThreshold={0.7} ListEmptyComponent={error ? <RetryState message={error} onRetry={() => void refresh()} /> : !refreshing ? <Text style={styles.empty}>All caught up.</Text> : null} renderItem={({ item }) => <Pressable style={styles.row} accessibilityRole={item.status ? "button" : "text"} disabled={!item.status} onPress={() => item.status && navigation.navigate("Status", { statusId: item.status.id })}>{!!item.account.avatar && <Image source={{ uri: item.account.avatar }} style={styles.avatar} />}<View style={styles.body}><Text><Text style={styles.name}>{item.account.display_name || item.account.acct}</Text> {notificationLabel(item)}</Text>{item.status && <Text secondary numberOfLines={2}>{stripHtml(item.status.content)}</Text>}</View>{item.status ? <Icon name="chevron-forward-outline" size={20} /> : null}</Pressable>} />;

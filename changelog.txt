@@ -1,6 +1,23 @@
 Hoot Unfathomably Changelog
 ===========================
 
+Version 0.4.1
+-------------
+
+- Add foreground WebSocket updates for the home timeline, own-post feed,
+  notifications, followed groups, individual group discussions, followed
+  Sources, and individual Sources.
+- Use the new Unfathomably aggregate `user:groups` and `user:sources` streams
+  instead of approximating either feed from unrelated public activity.
+- Honor Mastodon v2 and v1 advertised streaming origins and authenticate with
+  the WebSocket subprotocol so access tokens never appear in stream URLs.
+- Handle live status additions, edits, deletions, and notifications with
+  bounded protocol parsing and defensive response validation.
+- Close sockets while the app is backgrounded, recover with exponential
+  backoff and jitter, and perform REST catch-up after focus or network gaps.
+- Preserve scheduled REST notification polling in the Android background and
+  clean REST degradation on older Rebased and Pleroma servers.
+
 Version 0.4.0
 -------------
 

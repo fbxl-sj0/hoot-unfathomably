@@ -38,6 +38,7 @@ const mockGetAccountStatuses = jest.fn();
 const mockGetNotifications = jest.fn();
 const mockLogout = jest.fn();
 const mockRemoveActiveContext = jest.fn();
+const mockUseStream = jest.fn();
 let mockCurrentContext: LotideContext | undefined;
 
 jest.mock("@react-navigation/native", () => {
@@ -56,6 +57,11 @@ jest.mock("react-redux", () => ({
 
 jest.mock("../../hooks/useLotideCtx", () => ({
   useLotideCtx: () => mockCurrentContext,
+}));
+
+jest.mock("../../hooks/useUnfathomablyStream", () => ({
+  __esModule: true,
+  default: (...args: unknown[]) => mockUseStream(...args),
 }));
 
 jest.mock("../../services/StorageService", () => ({
@@ -126,6 +132,11 @@ describe("Fediverse account screens", () => {
       expect(mockGetNotifications).toHaveBeenCalledWith(
         makeContext(family),
       );
+      expect(mockUseStream).toHaveBeenCalledWith(
+        makeContext(family),
+        { stream: "user:notification" },
+        expect.objectContaining({ onEvent: expect.any(Function) }),
+      );
 
       await fireEvent.press(
         screen.getByText(new RegExp(actionLabel)),
@@ -192,6 +203,11 @@ describe("Fediverse account screens", () => {
     expect(mockGetAccountStatuses).toHaveBeenCalledWith(
       makeContext(family),
       `${family}-account-1`,
+    );
+    expect(mockUseStream).toHaveBeenCalledWith(
+      makeContext(family),
+      { stream: "user" },
+      expect.objectContaining({ onCatchUp: expect.any(Function) }),
     );
   });
 
