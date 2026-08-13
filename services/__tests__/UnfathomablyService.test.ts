@@ -8,6 +8,18 @@
 
         Verify the request boundary against Unfathomably, Rebased, and
         Pleroma-compatible contracts.
+
+    Responsibilities:
+
+        - Verify current Unfathomably endpoints and feature detection
+        - Verify degraded Rebased and Pleroma request behavior
+        - Guard authentication, group, status, poll, and context contracts
+
+    This file intentionally does NOT contain:
+
+        - live server requests
+        - UI behavior
+        - provider-specific federation tests
 */
 
 import {
@@ -16,11 +28,14 @@ import {
   dislikeStatus,
   favouriteStatus,
   getAccountStatuses,
+  getDiscoverableGroups,
+  getGroup,
   getGroups,
   getGroupTimeline,
   getGroupStatuses,
   getHomeTimeline,
   getInstance,
+  getInstanceCapabilities,
   getNotifications,
   getStatus,
   getStatusAncestors,
@@ -37,7 +52,9 @@ import {
   reactToStatus,
   registerOAuthApplication,
   reblogStatus,
+  setEventJoined,
   STATUS_CONTEXT_REQUEST_TIMEOUT_MS,
+  voteOnPoll,
 } from "../UnfathomablyService";
 import {
   FEDIVERSE_SERVERS,
@@ -300,6 +317,55 @@ describe("UnfathomablyService", () => {
     );
   });
 
+  test("detects the Unfathomably 3.5 extension manifest", () => {
+    expect(getInstanceCapabilities({
+      version: "2.7.2 (compatible; unfathomably-be 3.5.0+unfathomably-be)",
+      pleroma: {
+        metadata: {
+          features: [
+            "events",
+            "groups",
+            "groups_discovery",
+            "groups_search",
+            "notifications_v2",
+            "pleroma_dislikes",
+            "pleroma_emoji_reactions",
+            "quote_posting",
+            "sources",
+          ],
+        },
+      },
+      unfathomably: {
+        backend: "unfathomably-be 3.5.0+unfathomably-be",
+        frontend: "unfathomably-fe 3.4.0",
+      },
+    })).toEqual({
+      dislikes: true,
+      emojiReactions: true,
+      events: true,
+      groupedNotifications: true,
+      groupDiscovery: true,
+      groupSearch: true,
+      groups: true,
+      quotes: true,
+      sources: true,
+      worlds: true,
+    });
+
+    expect(getInstanceCapabilities({ version: "2.9.0" })).toEqual({
+      dislikes: false,
+      emojiReactions: false,
+      events: false,
+      groupedNotifications: false,
+      groupDiscovery: false,
+      groupSearch: false,
+      groups: false,
+      quotes: false,
+      sources: false,
+      worlds: false,
+    });
+  });
+
   test.each([
     ["Rebased", "rebased"],
     ["Pleroma", "pleroma"],
@@ -399,7 +465,7 @@ describe("UnfathomablyService", () => {
 
     expect(mockFetch).toHaveBeenNthCalledWith(
       1,
-      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/groups?q=federation`,
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/groups/search?q=federation`,
       expect.any(Object),
     );
     expect(mockFetch).toHaveBeenNthCalledWith(
@@ -415,6 +481,87 @@ describe("UnfathomablyService", () => {
     expect(mockFetch).toHaveBeenNthCalledWith(
       4,
       `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/groups/group%2Fone/leave`,
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  test("loads current group detail and discovery without weakening older fallbacks", async () => {
+    const group = {
+      id: "group-1",
+      display_name: "Current group",
+      relationship: { can_follow: true, can_post: true, member: false },
+    };
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => group })
+      .mockResolvedValueOnce({ ok: true, json: async () => [group] });
+    const ctx = makeContext("unfathomably");
+
+    await expect(getGroup(ctx, "group/one")).resolves.toEqual(group);
+    await expect(getDiscoverableGroups(ctx)).resolves.toEqual([group]);
+
+    expect(mockFetch.mock.calls.map(call => call[0])).toEqual([
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/groups/group%2Fone`,
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/groups/discover?limit=50`,
+    ]);
+  });
+
+  test("publishes and votes on an Unfathomably poll with bounded fields", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "status-with-poll" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "poll-1", voted: true }) });
+    const ctx = makeContext("unfathomably");
+
+    await createStatus(ctx, "Pick a release day", {
+      contentWarning: "Release planning",
+      poll: {
+        expiresIn: 86_400,
+        multiple: true,
+        options: [" Monday ", "Friday", "Next week", "A weekend", "Ignored fifth"],
+      },
+      sensitive: true,
+      visibility: "unlisted",
+    });
+    await voteOnPoll(ctx, "poll/one", [2, 0, 2, -1, 100]);
+
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+      poll: {
+        expires_in: 86_400,
+        multiple: true,
+        options: ["Monday", "Friday", "Next week", "A weekend"],
+      },
+      sensitive: true,
+      spoiler_text: "Release planning",
+      status: "Pick a release day",
+      visibility: "unlisted",
+    });
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/polls/poll%2Fone/votes`,
+      expect.objectContaining({
+        body: JSON.stringify({ choices: [2, 0] }),
+        method: "POST",
+      }),
+    );
+  });
+
+  test("joins and leaves current Unfathomably and Rebased events", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: "event-status" }),
+    });
+    const ctx = makeContext("unfathomably");
+
+    await setEventJoined(ctx, "event/one", true);
+    await setEventJoined(ctx, "event/one", false);
+
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      1,
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/pleroma/events/event%2Fone/join`,
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/pleroma/events/event%2Fone/leave`,
       expect.objectContaining({ method: "POST" }),
     );
   });

@@ -34,6 +34,8 @@ import {
 } from "../../testing/fediverseFixtures";
 
 const mockGetGroups = jest.fn();
+const mockGetGroup = jest.fn();
+const mockGetDiscoverableGroups = jest.fn();
 const mockGetGroupStatuses = jest.fn();
 const mockJoinGroup = jest.fn();
 let mockCurrentContext: LotideContext | undefined;
@@ -54,6 +56,8 @@ jest.mock("../../hooks/useTheme", () => ({
 }));
 
 jest.mock("../../services/UnfathomablyService", () => ({
+  getDiscoverableGroups: (...args: unknown[]) => mockGetDiscoverableGroups(...args),
+  getGroup: (...args: unknown[]) => mockGetGroup(...args),
   getGroups: (...args: unknown[]) => mockGetGroups(...args),
   getGroupStatuses: (...args: unknown[]) =>
     mockGetGroupStatuses(...args),
@@ -79,6 +83,8 @@ describe("Fediverse group screens", () => {
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
     mockCurrentContext = makeContext("unfathomably");
     mockGetGroups.mockResolvedValue([]);
+    mockGetGroup.mockResolvedValue(makeGroup("unfathomably"));
+    mockGetDiscoverableGroups.mockResolvedValue([]);
     mockGetGroupStatuses.mockResolvedValue([]);
     mockJoinGroup.mockResolvedValue({});
   });
@@ -129,6 +135,7 @@ describe("Fediverse group screens", () => {
         "",
       );
     });
+    await fireEvent.press(screen.getByRole("tab", { name: "Find" }));
     await fireEvent.changeText(
       screen.getByPlaceholderText("Find a group"),
       "release engineering",
@@ -169,7 +176,7 @@ describe("Fediverse group screens", () => {
       relationship: { member: true, requested: false },
     });
     const status = makeStatus("unfathomably");
-    mockGetGroups.mockResolvedValue([group]);
+    mockGetGroup.mockResolvedValue(group);
     mockGetGroupStatuses.mockResolvedValue([status]);
     const navigation = { navigate: jest.fn() };
     const screen = await render(
@@ -201,7 +208,7 @@ describe("Fediverse group screens", () => {
         group.id,
         true,
       );
-      expect(mockGetGroups).toHaveBeenCalledTimes(2);
+      expect(mockGetGroup).toHaveBeenCalledTimes(2);
       expect(mockGetGroupStatuses).toHaveBeenCalledTimes(2);
     });
 
@@ -230,7 +237,7 @@ describe("Fediverse group screens", () => {
     );
 
     expect(screen.toJSON()).toBeNull();
-    expect(mockGetGroups).not.toHaveBeenCalled();
+    expect(mockGetGroup).not.toHaveBeenCalled();
     expect(mockGetGroupStatuses).not.toHaveBeenCalled();
   });
 });

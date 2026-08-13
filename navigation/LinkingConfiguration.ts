@@ -1,5 +1,5 @@
 /**
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     -------------------
 
     File: LinkingConfiguration.ts
@@ -69,8 +69,13 @@ const linking: LinkingOptions<RootStackParamList> = {
       },
       Status: 'status/:statusId',
       Group: 'groups/:groupId',
+      Worlds: 'worlds',
+      Sources: 'feeds',
+      Source: 'feeds/:sourceId',
+      NativeResource: 'world-item',
       AccountProfile: 'profile',
       ImageViewer: 'image',
+      MediaViewer: 'media',
       Settings: 'settings',
       NotFound: '*',
     },

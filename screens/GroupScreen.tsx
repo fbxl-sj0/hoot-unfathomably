@@ -1,5 +1,5 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     --------------------------
 
     File: GroupScreen.tsx
@@ -7,6 +7,18 @@
     Purpose:
 
         Read and participate in a group discussion.
+
+    Responsibilities:
+
+        - Load one group identity and its status timeline
+        - Honor server-provided posting, follow, and moderation permissions
+        - Join or leave the group only after an explicit user action
+
+    This file intentionally does NOT contain:
+
+        - group discovery or search
+        - moderation mutations
+        - cross-server group requests
 */
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -33,8 +45,8 @@ export default function GroupScreen({ navigation, route }: { navigation: any; ro
     if (!ctx?.login) return;
     try {
       setError("");
-      const [allGroups, posts] = await Promise.all([Unfathomably.getGroups(ctx), Unfathomably.getGroupStatuses(ctx, id)]);
-      setGroup(allGroups.find(item => item.id === id));
+      const [nextGroup, posts] = await Promise.all([Unfathomably.getGroup(ctx, id), Unfathomably.getGroupStatuses(ctx, id)]);
+      setGroup(nextGroup);
       setStatuses(posts);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not load this group."); }
   }, [ctx, id]);
@@ -44,6 +56,8 @@ export default function GroupScreen({ navigation, route }: { navigation: any; ro
   }, [load]);
   if (!ctx?.login) return null;
   const joined = !!group?.relationship?.member;
+  const canFollow = joined || (group?.relationship?.can_follow !== false && !group?.relationship?.federation_blocked);
+  const canPost = group?.relationship?.can_post !== false && !group?.relationship?.federation_blocked;
   async function toggleMembership() {
     setJoining(true);
     try { await Unfathomably.joinGroup(ctx as LotideContext, id, joined); await load(); }
@@ -59,7 +73,7 @@ export default function GroupScreen({ navigation, route }: { navigation: any; ro
       refreshing={false}
       ListHeaderComponent={<View style={[styles.header, { borderBottomColor: theme.secondaryBackground }]}>
         {!!group?.header && <Image source={{ uri: group.header }} style={styles.cover} />}
-        <View style={styles.groupInfo}><Text style={styles.title}>{group?.display_name || route.params.title || "Group"}</Text><Text secondary>{group?.members_count || 0} members</Text>{!!group?.note && <Text>{stripHtml(group.note)}</Text>}<View style={styles.buttons}><AppButton title={joining ? "Saving..." : joined ? "Leave group" : group?.relationship?.requested ? "Requested" : "Join group"} onPress={() => void toggleMembership()} disabled={joining || !!group?.relationship?.requested} color={theme.tint} /><Pressable accessibilityRole="button" style={styles.compose} onPress={() => navigation.navigate("Root", { screen: "NewPostScreen", params: createComposeIntent({ groupId: id, groupName: group?.display_name }) })}><Text style={{ color: theme.tint }}>Write to group</Text></Pressable></View></View>
+        <View style={styles.groupInfo}><Text style={styles.title}>{group?.display_name || route.params.title || "Group"}</Text><Text secondary>{group?.platform_label || group?.target_kind_label || "Federated group"}</Text><Text secondary>{group?.members_count || 0} members{typeof group?.statuses_count === "number" ? ` · ${group.statuses_count} posts` : ""}{group?.relationship?.role ? ` · ${group.relationship.role}` : ""}</Text>{!!group?.note && <Text>{stripHtml(group.note)}</Text>}{group?.relationship?.federation_blocked ? <Text style={styles.warning}>This group is blocked by the server's federation policy.</Text> : group?.relationship?.moderation_message ? <Text style={styles.warning}>{group.relationship.moderation_message}</Text> : null}<View style={styles.buttons}><AppButton title={joining ? "Saving..." : joined ? "Leave group" : group?.relationship?.requested ? "Requested" : "Join group"} onPress={() => void toggleMembership()} disabled={joining || !!group?.relationship?.requested || !canFollow} color={theme.tint} />{canPost ? <Pressable accessibilityRole="button" style={styles.compose} onPress={() => navigation.navigate("Root", { screen: "NewPostScreen", params: createComposeIntent({ groupId: id, groupName: group?.display_name }) })}><Text style={{ color: theme.tint }}>Write to group</Text></Pressable> : null}</View></View>
       </View>}
       ListEmptyComponent={error ? <RetryState message={error} onRetry={() => void load()} /> : <Text style={styles.empty}>No discussion posts yet.</Text>}
     />
@@ -67,6 +81,6 @@ export default function GroupScreen({ navigation, route }: { navigation: any; ro
 }
 
 function stripHtml(value: string) { return value.replace(/<[^>]*>/g, "").trim(); }
-const styles = StyleSheet.create({ root: { flex: 1 }, header: { borderBottomWidth: 8 }, cover: { height: 130, width: "100%" }, groupInfo: { padding: 15, gap: 7 }, title: { fontSize: 24, fontWeight: "700" }, buttons: { flexDirection: "row", alignItems: "center", gap: 14, marginTop: 5 }, compose: { padding: 12 }, empty: { padding: 30, textAlign: "center" } });
+const styles = StyleSheet.create({ root: { flex: 1 }, header: { borderBottomWidth: 8 }, cover: { height: 130, width: "100%" }, groupInfo: { padding: 15, gap: 7 }, title: { fontSize: 24, fontWeight: "700" }, warning: { color: "#b45309", fontWeight: "600" }, buttons: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 14, marginTop: 5 }, compose: { justifyContent: "center", minHeight: 48, paddingHorizontal: 12 }, empty: { padding: 30, textAlign: "center" } });
 
 /* end of GroupScreen.tsx */

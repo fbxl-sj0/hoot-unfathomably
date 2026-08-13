@@ -1,5 +1,5 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     -------------------
 
     File: types.tsx
@@ -18,7 +18,7 @@
 
         - navigation component setup
         - deep-link path mapping
-        - Lotide API response shapes
+        - Fediverse API response shapes
 */
 
 import { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
@@ -27,6 +27,8 @@ import {
   NavigatorScreenParams,
 } from "@react-navigation/native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { WorldFamily } from "./constants/Worlds";
+import type { NativeResolvedResource } from "./services/UnfathomablyWorldsService";
 
 declare global {
   namespace ReactNavigation {
@@ -42,7 +44,22 @@ export type RootStackParamList = {
   Post: { postId: PostId; highlightedComments?: CommentId[] };
   Status: { statusId: string };
   Group: { groupId: string; title?: string };
-  ImageViewer: { uri: string; fallbackUri?: string; description?: string };
+  Worlds: { family?: WorldFamily; view?: "browse" | "feed" | "find" } | undefined;
+  Sources: undefined;
+  Source: { sourceId: string; title?: string };
+  NativeResource: { resource: NativeResolvedResource };
+  ImageViewer: {
+    uri: string;
+    fallbackUri?: string;
+    fallbackUris?: string[];
+    description?: string;
+  };
+  MediaViewer: {
+    uri: string;
+    type: "audio" | "video";
+    posterUri?: string;
+    description?: string;
+  };
   AccountProfile: undefined;
   NotFound: undefined;
   Comment: {

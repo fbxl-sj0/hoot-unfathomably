@@ -32,7 +32,7 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PROJECT_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 
 log() {
-  printf "[hoot-mobile] %s\n" "$*"
+  printf "[hoot-unfathomably] %s\n" "$*"
 }
 
 if [ -n "${ANDROID_SDK_ROOT:-}" ] && [ -d "$ANDROID_SDK_ROOT" ]; then
@@ -58,7 +58,8 @@ fi
 AVD_NAME="HootTest"
 AVD_IMAGE="system-images;android-34;google_apis;x86_64"
 EMULATOR_PACKAGES="qemu-system-x86 libvirt-daemon-system libvirt-clients bridge-utils"
-INSTALL_EMULATOR_DEPS="${HOOT_MOBILE_INSTALL_EMULATOR_DEPS:-0}"
+INSTALL_EMULATOR_DEPS="${HOOT_UNFATHOMABLY_INSTALL_EMULATOR_DEPS:-${HOOT_MOBILE_INSTALL_EMULATOR_DEPS:-0}}"
+KEEP_EMULATOR="${HOOT_UNFATHOMABLY_KEEP_EMULATOR:-${HOOT_MOBILE_KEEP_EMULATOR:-0}}"
 DEFAULT_APK_PATHS=(
   "android/app/build/outputs/apk/release/app-release-unsigned.apk"
   "android/app/build/outputs/apk/release/app-release.apk"
@@ -92,7 +93,7 @@ maybe_install_emulator_dependencies() {
 
   if [ "$INSTALL_EMULATOR_DEPS" != "1" ]; then
     log "Skipping host emulator dependency installation."
-    log "Set HOOT_MOBILE_INSTALL_EMULATOR_DEPS=1 to run apt-get for: $EMULATOR_PACKAGES"
+    log "Set HOOT_UNFATHOMABLY_INSTALL_EMULATOR_DEPS=1 to run apt-get for: $EMULATOR_PACKAGES"
     return 0
   fi
 
@@ -234,7 +235,7 @@ start_emulator() {
     -gpu off
   )
 
-  if [ "${HOOT_MOBILE_KEEP_EMULATOR:-0}" = "1" ]; then
+  if [ "$KEEP_EMULATOR" = "1" ]; then
     # A kept emulator must survive the test shell exiting.  setsid detaches it
     # from this process group, while nohup and /dev/null protect it from a
     # closed parent stdin/stdout during long follow-up ADB sessions.
@@ -255,8 +256,8 @@ cleanup_emulator() {
     return
   fi
 
-  if [ "${HOOT_MOBILE_KEEP_EMULATOR:-0}" = "1" ]; then
-    log "Leaving emulator running for inspection (HOOT_MOBILE_KEEP_EMULATOR=1)."
+  if [ "$KEEP_EMULATOR" = "1" ]; then
+    log "Leaving emulator running for inspection (HOOT_UNFATHOMABLY_KEEP_EMULATOR=1)."
     return
   fi
 
@@ -363,7 +364,7 @@ fi
 log "Running Android install and launch smoke test..."
 ANDROID_SERIAL="$EMULATOR_SERIAL" "$PROJECT_ROOT/build_scripts/android-smoke-launch.sh" "$APK_PATH"
 
-if [ "${HOOT_MOBILE_KEEP_EMULATOR:-0}" = "1" ]; then
+if [ "$KEEP_EMULATOR" = "1" ]; then
   if "$ADB" -s "$EMULATOR_SERIAL" get-state >/dev/null 2>&1; then
     log "Android emulator smoke test passed. Emulator remains running as $EMULATOR_SERIAL with PID $EMULATOR_PID."
   else

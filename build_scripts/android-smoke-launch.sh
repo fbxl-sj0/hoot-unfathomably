@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-# Project: Hoot Mobile
-# --------------------
+# Project: Hoot Unfathomably
+# --------------------------
 #
 # File: android-smoke-launch.sh
 #
 # Purpose:
 #
-#     Install and launch a Hoot Mobile Android APK on the currently
+#     Install and launch a Hoot Unfathomably Android APK on the currently
 #     connected Android device or emulator, then fail if the app does not
 #     reach a running foreground state or if fresh crash output appears.
 #
@@ -31,11 +31,11 @@ set -Eeuo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PROJECT_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 
-PACKAGE_NAME="${HOOT_MOBILE_ANDROID_PACKAGE:-org.brokenlamp.hootunfathomably}"
-WAIT_SECONDS="${HOOT_MOBILE_SMOKE_WAIT_SECONDS:-20}"
-LOG_LINES="${HOOT_MOBILE_SMOKE_LOG_LINES:-180}"
-SKIP_INSTALL="${HOOT_MOBILE_SKIP_INSTALL:-0}"
-GRANT_NOTIFICATIONS="${HOOT_MOBILE_GRANT_NOTIFICATIONS:-0}"
+PACKAGE_NAME="${HOOT_UNFATHOMABLY_ANDROID_PACKAGE:-${HOOT_MOBILE_ANDROID_PACKAGE:-org.brokenlamp.hootunfathomably}}"
+WAIT_SECONDS="${HOOT_UNFATHOMABLY_SMOKE_WAIT_SECONDS:-${HOOT_MOBILE_SMOKE_WAIT_SECONDS:-20}}"
+LOG_LINES="${HOOT_UNFATHOMABLY_SMOKE_LOG_LINES:-${HOOT_MOBILE_SMOKE_LOG_LINES:-180}}"
+SKIP_INSTALL="${HOOT_UNFATHOMABLY_SKIP_INSTALL:-${HOOT_MOBILE_SKIP_INSTALL:-0}}"
+GRANT_NOTIFICATIONS="${HOOT_UNFATHOMABLY_GRANT_NOTIFICATIONS:-${HOOT_MOBILE_GRANT_NOTIFICATIONS:-0}}"
 NOTIFICATION_PERMISSION="android.permission.POST_NOTIFICATIONS"
 
 DEFAULT_APK_PATHS=(
@@ -49,7 +49,7 @@ ADB_ARGS=()
 LOG_FILE=""
 
 log() {
-  printf "[hoot-mobile] %s\n" "$*"
+  printf "[hoot-unfathomably] %s\n" "$*"
 }
 
 die() {
@@ -67,11 +67,11 @@ Usage: $0 [apk-path]
 
 Environment:
   ANDROID_SERIAL                  adb serial to use when multiple devices exist
-  HOOT_MOBILE_SKIP_INSTALL=1      launch the already installed package
-  HOOT_MOBILE_ANDROID_PACKAGE     package name, default org.brokenlamp.hootunfathomably
-  HOOT_MOBILE_SMOKE_WAIT_SECONDS  wait for app start, default 20
-  HOOT_MOBILE_SMOKE_LOG_LINES     log lines to print on failure, default 180
-  HOOT_MOBILE_GRANT_NOTIFICATIONS=1
+  HOOT_UNFATHOMABLY_SKIP_INSTALL=1      launch the already installed package
+  HOOT_UNFATHOMABLY_ANDROID_PACKAGE     package name, default org.brokenlamp.hootunfathomably
+  HOOT_UNFATHOMABLY_SMOKE_WAIT_SECONDS  wait for app start, default 20
+  HOOT_UNFATHOMABLY_SMOKE_LOG_LINES     log lines to print on failure, default 180
+  HOOT_UNFATHOMABLY_GRANT_NOTIFICATIONS=1
                                   grant Android 13+ notification permission
                                   before launch for notification testing
 EOF
@@ -321,7 +321,7 @@ check_notification_permission_surface() {
   else
     log "Android notification permission is not granted for $PACKAGE_NAME."
     log "This is expected on a fresh Android 13+ install until the user enables notifications."
-    log "Set HOOT_MOBILE_GRANT_NOTIFICATIONS=1 when preparing an emulator for local notification testing."
+    log "Set HOOT_UNFATHOMABLY_GRANT_NOTIFICATIONS=1 when preparing an emulator for local notification testing."
   fi
 }
 

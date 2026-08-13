@@ -53,7 +53,7 @@ describe("Android smoke launcher", () => {
   test("documents the opt-in notification permission grant", () => {
     const script = readSmokeScript();
 
-    expect(script).toContain("HOOT_MOBILE_GRANT_NOTIFICATIONS=1");
+    expect(script).toContain("HOOT_UNFATHOMABLY_GRANT_NOTIFICATIONS=1");
     expect(script).toContain("pm grant");
     expect(script).toContain("POST_NOTIFICATION allow");
   });

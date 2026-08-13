@@ -158,9 +158,13 @@ describe("Fediverse discussion screens", () => {
         makeContext("pleroma"),
         "A compatible reply",
         {
+          contentWarning: undefined,
           groupId: undefined,
           inReplyToId: target.id,
+          poll: undefined,
           quoteId: undefined,
+          sensitive: false,
+          visibility: "public",
         },
       );
       expect(navigation.navigate).toHaveBeenCalledWith("Status", {
@@ -203,9 +207,13 @@ describe("Fediverse discussion screens", () => {
         makeContext("rebased"),
         "Worth sharing",
         {
+          contentWarning: undefined,
           groupId: group.id,
           inReplyToId: undefined,
+          poll: undefined,
           quoteId: target.id,
+          sensitive: false,
+          visibility: "unlisted",
         },
       );
     });
@@ -240,9 +248,72 @@ describe("Fediverse discussion screens", () => {
         makeContext("unfathomably"),
         "Group release notes",
         {
+          contentWarning: undefined,
           groupId: group.id,
           inReplyToId: undefined,
+          poll: undefined,
           quoteId: undefined,
+          sensitive: false,
+          visibility: "unlisted",
+        },
+      );
+    });
+  });
+
+  test("publishes an Unfathomably poll with visibility and a content warning", async () => {
+    const screen = await render(
+      <ComposeStatusScreen
+        navigation={{ navigate: jest.fn(), setParams: jest.fn() }}
+        route={{ params: { composeIntentId: "poll-intent" } }}
+      />,
+    );
+
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Poll" }));
+    await fireEvent.press(
+      screen.getByRole("checkbox", { name: "Content warning" }),
+    );
+    await fireEvent.press(
+      screen.getByRole("checkbox", { name: "Sensitive media" }),
+    );
+    await fireEvent.press(screen.getByRole("radio", { name: "Followers" }));
+    await fireEvent.changeText(
+      screen.getByPlaceholderText("Brief content warning"),
+      "Release planning",
+    );
+    await fireEvent.changeText(
+      screen.getByPlaceholderText("What's happening?"),
+      "Which day works?",
+    );
+    await fireEvent.changeText(
+      screen.getByLabelText("Poll option 1"),
+      "Monday",
+    );
+    await fireEvent.changeText(
+      screen.getByLabelText("Poll option 2"),
+      "Friday",
+    );
+    await fireEvent.press(
+      screen.getByRole("radio", { name: "Choose several" }),
+    );
+    await fireEvent.press(screen.getByRole("radio", { name: "7 days" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Publish" }));
+
+    await waitFor(() => {
+      expect(mockCreateStatus).toHaveBeenCalledWith(
+        makeContext("unfathomably"),
+        "Which day works?",
+        {
+          contentWarning: "Release planning",
+          groupId: undefined,
+          inReplyToId: undefined,
+          poll: {
+            expiresIn: 604_800,
+            multiple: true,
+            options: ["Monday", "Friday"],
+          },
+          quoteId: undefined,
+          sensitive: true,
+          visibility: "private",
         },
       );
     });
@@ -294,9 +365,13 @@ describe("Fediverse discussion screens", () => {
         makeContext("unfathomably"),
         "A community post",
         {
+          contentWarning: undefined,
           groupId: group.id,
           inReplyToId: undefined,
+          poll: undefined,
           quoteId: undefined,
+          sensitive: false,
+          visibility: "unlisted",
         },
       );
       expect(navigation.setParams).toHaveBeenCalledWith({
@@ -341,9 +416,13 @@ describe("Fediverse discussion screens", () => {
         makeContext("unfathomably"),
         "An ordinary reply",
         {
+          contentWarning: undefined,
           groupId: undefined,
           inReplyToId: replyTarget.id,
+          poll: undefined,
           quoteId: undefined,
+          sensitive: false,
+          visibility: "public",
         },
       );
     });

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
-# Project: Hoot Mobile
-# -------------------
+# Project: Hoot Unfathomably
+# --------------------------
 #
 # File: debian-build-hoot-mobile-android.sh
 #
 # Purpose:
 #
 #     Automates the local Android SDK setup and build commands needed to
-#     produce an Android APK for Hoot Mobile on Debian-based systems.
+#     produce an Android APK for Hoot Unfathomably on Debian-based systems.
 #
 # Responsibilities:
 #
@@ -34,8 +34,10 @@ ANDROID_HOME_DIR="$HOME/android-sdk"
 ANDROID_TOOLS_ZIP="commandlinetools-linux-11076708_latest.zip"
 NEEDED_PACKAGES="curl git unzip zip openjdk-17-jdk"
 EXPO_CLI="$PROJECT_ROOT/node_modules/.bin/expo"
-BUILD_NODE_ENV="${HOOT_MOBILE_NODE_ENV:-production}"
-INSTALL_SYSTEM_DEPS="${HOOT_MOBILE_INSTALL_SYSTEM_DEPS:-0}"
+BUILD_NODE_ENV="${HOOT_UNFATHOMABLY_NODE_ENV:-${HOOT_MOBILE_NODE_ENV:-production}}"
+INSTALL_SYSTEM_DEPS="${HOOT_UNFATHOMABLY_INSTALL_SYSTEM_DEPS:-${HOOT_MOBILE_INSTALL_SYSTEM_DEPS:-0}}"
+BUILD_NO_DEV_DEPS="${HOOT_UNFATHOMABLY_BUILD_NO_DEV_DEPS:-${HOOT_MOBILE_BUILD_NO_DEV_DEPS:-0}}"
+NPM_FALLBACK_INSTALL="${HOOT_UNFATHOMABLY_NPM_FALLBACK_INSTALL:-${HOOT_MOBILE_NPM_FALLBACK_INSTALL:-0}}"
 JAVA_HOME_CANDIDATES=(
   "/usr/lib/jvm/java-17-openjdk-amd64"
   "/usr/lib/jvm/java-1.17.0-openjdk-amd64"
@@ -45,7 +47,7 @@ JAVA_HOME_CANDIDATES=(
 )
 
 log() {
-  printf "[hoot-mobile] %s\n" "$*"
+  printf "[hoot-unfathomably] %s\n" "$*"
 }
 
 command_exists() {
@@ -84,7 +86,7 @@ maybe_install_system_packages() {
 
   if [ "$INSTALL_SYSTEM_DEPS" != "1" ]; then
     log "Skipping system package installation."
-    log "Set HOOT_MOBILE_INSTALL_SYSTEM_DEPS=1 to run apt-get for: $NEEDED_PACKAGES"
+    log "Set HOOT_UNFATHOMABLY_INSTALL_SYSTEM_DEPS=1 to run apt-get for: $NEEDED_PACKAGES"
     return 0
   fi
 
@@ -111,7 +113,7 @@ warn_if_node_modules_is_not_writable() {
 }
 
 run_npm_install() {
-  if [ "${HOOT_MOBILE_BUILD_NO_DEV_DEPS:-0}" = "1" ]; then
+  if [ "$BUILD_NO_DEV_DEPS" = "1" ]; then
     log "Installing production dependencies only to reduce legacy test-package warnings."
     if npm ci --legacy-peer-deps --omit=dev --ignore-scripts --no-audit --no-fund; then
       return 0
@@ -122,13 +124,13 @@ run_npm_install() {
     fi
   fi
 
-  if [ "${HOOT_MOBILE_NPM_FALLBACK_INSTALL:-0}" != "1" ]; then
-    log "npm ci failed and fallback is disabled. Set HOOT_MOBILE_NPM_FALLBACK_INSTALL=1 to retry with npm install."
+  if [ "$NPM_FALLBACK_INSTALL" != "1" ]; then
+    log "npm ci failed and fallback is disabled. Set HOOT_UNFATHOMABLY_NPM_FALLBACK_INSTALL=1 to retry with npm install."
     return 1
   fi
 
   log "npm ci failed. Falling back to npm install (this may be slower)."
-  if [ "${HOOT_MOBILE_BUILD_NO_DEV_DEPS:-0}" = "1" ]; then
+  if [ "$BUILD_NO_DEV_DEPS" = "1" ]; then
     npm install --legacy-peer-deps --omit=dev --ignore-scripts --no-audit --no-fund
   else
     NODE_ENV=development npm install --legacy-peer-deps --no-audit --no-fund
@@ -265,7 +267,7 @@ if ! command_exists node; then
     curl -fsSL https://deb.nodesource.com/setup_20.x | if command_exists sudo; then sudo -E bash -; else bash -; fi
     run_root_cmd apt-get install -y nodejs
   else
-    log "Node.js not found. Install Node.js 20.x manually or rerun with HOOT_MOBILE_INSTALL_SYSTEM_DEPS=1."
+    log "Node.js not found. Install Node.js 20.x manually or rerun with HOOT_UNFATHOMABLY_INSTALL_SYSTEM_DEPS=1."
     exit 1
   fi
 fi
@@ -288,7 +290,7 @@ if [ -n "${JAVA_HOME:-}" ] && java_candidate_has_javac17 "$JAVA_HOME"; then
   log "Using JAVA_HOME=$JAVA_HOME"
 else
   log "No Java 17 compiler found."
-  log "Install openjdk-17-jdk and set JAVA_HOME, or rerun with HOOT_MOBILE_INSTALL_SYSTEM_DEPS=1."
+  log "Install openjdk-17-jdk and set JAVA_HOME, or rerun with HOOT_UNFATHOMABLY_INSTALL_SYSTEM_DEPS=1."
   exit 1
 fi
 
@@ -312,6 +314,13 @@ fi
 log "Installing project dependencies..."
 warn_if_node_modules_is_not_writable
 run_npm_install
+
+# The current Expo Metro dependency has two image parser advisories without
+# an upstream release. The project patcher fails closed if the installed
+# package differs from the audited source, including no-development installs
+# where npm lifecycle scripts are intentionally disabled.
+node scripts/apply-dependency-security-patches.js
+node scripts/apply-dependency-security-patches.js --check
 
 if [ -x "$EXPO_CLI" ]; then
   log "Using local Expo CLI."

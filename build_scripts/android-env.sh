@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Project: Hoot Mobile
-# --------------------
+# Project: Hoot Unfathomably
+# --------------------------
 #
 # File: android-env.sh
 #
@@ -21,7 +21,7 @@
 #
 #     * APK build logic
 #     * Emulator creation logic
-#     * Lotide server configuration
+#     * Fediverse instance configuration
 
 set -Eeuo pipefail
 
@@ -50,7 +50,7 @@ ANDROID_AVD_HOME_CANDIDATES=(
 )
 
 log() {
-  printf "[hoot-mobile] %s\n" "$*" >&2
+  printf "[hoot-unfathomably] %s\n" "$*" >&2
 }
 
 java_candidate_has_javac17() {

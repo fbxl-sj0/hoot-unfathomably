@@ -1,5 +1,5 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     -------------------
 
     File: index.tsx
@@ -66,7 +66,12 @@ import NotFoundScreen from "../screens/NotFoundScreen";
 import NotificationScreen from "../screens/UnfathomablyNotificationsScreen";
 import StatusThreadScreen from "../screens/StatusThreadScreen";
 import ImageViewerScreen from "../screens/ImageViewerScreen";
+import MediaViewerScreen from "../screens/MediaViewerScreen";
 import GroupScreen from "../screens/GroupScreen";
+import NativeResourceScreen from "../screens/NativeResourceScreen";
+import UnfathomablySourceScreen from "../screens/UnfathomablySourceScreen";
+import UnfathomablySourcesScreen from "../screens/UnfathomablySourcesScreen";
+import WorldsScreen from "../screens/WorldsScreen";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import * as NotificationPoller from "../services/NotificationPoller";
 import {
@@ -237,7 +242,12 @@ function RootNavigator() {
       />
       <Stack.Screen name="Status" component={StatusThreadScreen} options={{ title: "Discussion" }} />
       <Stack.Screen name="ImageViewer" component={ImageViewerScreen} options={{ title: "Image" }} />
+      <Stack.Screen name="MediaViewer" component={MediaViewerScreen} options={{ title: "Media" }} />
       <Stack.Screen name="Group" component={GroupScreen} options={({ route }) => ({ title: route.params.title || "Group" })} />
+      <Stack.Screen name="Worlds" component={WorldsScreen} options={{ title: "Worlds" }} />
+      <Stack.Screen name="Sources" component={UnfathomablySourcesScreen} options={{ title: "Feeds" }} />
+      <Stack.Screen name="Source" component={UnfathomablySourceScreen} options={({ route }) => ({ title: route.params.title || "Feed" })} />
+      <Stack.Screen name="NativeResource" component={NativeResourceScreen} options={{ title: "World item" }} />
       <Stack.Screen name="AccountProfile" component={ProfileScreen} options={{ title: "Your profile" }} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen

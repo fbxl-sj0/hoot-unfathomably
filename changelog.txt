@@ -1,8 +1,35 @@
 Hoot Unfathomably Changelog
 ===========================
 
-Unreleased
-----------
+Version 0.3.0
+-------------
+
+- Add first-class browsing, timelines, bounded discovery, local resolution,
+  structured facts, bridge provenance, and original-resource links for all 16
+  Unfathomably 3.5 Worlds families.
+- Add followed Sources timelines, source lists, discovery, detail, preview,
+  follow, and unfollow support for publications, channels, feed actors, RSS,
+  and Atom sources.
+- Update groups to the current search, discovery, detail, relationship,
+  permission, moderation, federation-policy, membership, and timeline
+  contracts, with narrow fallbacks for older Rebased servers.
+- Add status polls and poll composition, content warnings, sensitive-media
+  flags, visibility controls, event details, and explicit event participation.
+- Present native status facts and Nostr, AT Protocol, or diaspora* bridge
+  provenance without obscuring ordinary discussions and reactions.
+- Extend notifications for current group, emoji, poll, event, participation,
+  move, edit, and follow event types while retaining the compatible v1 polling
+  boundary.
+- Add guarded, explicit audio and video playback. Broken federated image
+  previews now retry the proxy original and remote original before collapsing
+  to a compact unavailable state, and full-screen viewing uses the same safe
+  fallback chain.
+- Update Expo 57 dependencies to their compatible patch releases, add the
+  missing Worklets Metro peer, and harden the release gate around current
+  production dependency advisories.
+- Validate the release against unfathomably-be 3.5.0, the paired August 12,
+  2026 frontend source, capability-degraded Rebased and Pleroma fixtures, and
+  an attached Android device.
 
 - Show rich, tappable link previews using the preview-card metadata supplied by
   Unfathomably, Rebased, and Pleroma status responses.

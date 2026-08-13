@@ -33,6 +33,10 @@ import StatusCard, {
   getStatusDisplayContent,
   stripHtml,
 } from "../StatusCard";
+import {
+  getMediaOpenCandidates,
+  getMediaPreviewCandidates,
+} from "../StatusMediaAttachment";
 import { getFirstPreviewableLink } from "../StatusLinkPreview";
 import * as UnfathomablyService from "../../services/UnfathomablyService";
 import {
@@ -227,9 +231,68 @@ describe("StatusCard Fediverse contracts", () => {
     );
     expect(navigation.navigate).toHaveBeenCalledWith("ImageViewer", {
       description: "A long screenshot",
-      fallbackUri: "https://unfathomably.example/media/preview.png",
+      fallbackUris: ["https://unfathomably.example/media/preview.png"],
       uri: "https://unfathomably.example/media/original.png",
     });
+  });
+
+  test("falls back from broken proxy images without leaving a blank card", async () => {
+    const status = makeStatus("unfathomably", {
+      media_attachments: [
+        {
+          id: "remote-image",
+          type: "image",
+          description: "A federated photograph",
+          preview_url: "https://unfathomably.example/proxy/preview.jpg",
+          url: "https://unfathomably.example/proxy/full.jpg",
+          remote_url: "https://remote.example/media/original.jpg",
+        },
+      ],
+    });
+    const screen = await render(
+      <StatusCard
+        status={status}
+        ctx={makeContext("unfathomably")}
+        navigation={{ navigate: jest.fn() }}
+      />,
+    );
+
+    expect(screen.getByTestId("status-media-remote-image").props.source).toEqual({
+      uri: "https://unfathomably.example/proxy/preview.jpg",
+    });
+
+    await fireEvent(screen.getByTestId("status-media-remote-image"), "error");
+    expect(screen.getByTestId("status-media-remote-image").props.source).toEqual({
+      uri: "https://unfathomably.example/proxy/full.jpg",
+    });
+
+    await fireEvent(screen.getByTestId("status-media-remote-image"), "error");
+    expect(screen.getByTestId("status-media-remote-image").props.source).toEqual({
+      uri: "https://remote.example/media/original.jpg",
+    });
+
+    await fireEvent(screen.getByTestId("status-media-remote-image"), "error");
+    expect(screen.getByText("Media preview unavailable")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Open image full screen" }),
+    ).toBeTruthy();
+  });
+
+  test("rejects unsafe and duplicate attachment preview URLs", () => {
+    const media = {
+      id: "unsafe-image",
+      type: "image",
+      preview_url: "file:///private/data.jpg",
+      url: "https://media.example/image.jpg",
+      remote_url: "https://media.example/image.jpg",
+    };
+
+    expect(getMediaPreviewCandidates(media)).toEqual([
+      "https://media.example/image.jpg",
+    ]);
+    expect(getMediaOpenCandidates(media)).toEqual([
+      "https://media.example/image.jpg",
+    ]);
   });
 
   test.each([
@@ -419,7 +482,10 @@ describe("StatusCard Fediverse contracts", () => {
     );
     expect(navigation.navigate).toHaveBeenCalledWith("ImageViewer", {
       description: "beefisgood.jpg",
-      fallbackUri: "https://unfathomably.example/proxy/preview/beef.jpg",
+      fallbackUris: [
+        "https://remote.example/media/beefisgood.jpg",
+        "https://unfathomably.example/proxy/preview/beef.jpg",
+      ],
       uri: "https://unfathomably.example/proxy/beef.jpg",
     });
   });

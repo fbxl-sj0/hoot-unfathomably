@@ -57,7 +57,7 @@ export const FEDIVERSE_SERVERS: Record<
     family: "unfathomably",
     origin: "https://unfathomably.example",
     softwareName: "Unfathomably",
-    softwareVersion: "2.0.0",
+    softwareVersion: "3.5.0",
     supportsGroups: true,
   },
   rebased: {
@@ -108,8 +108,22 @@ export function makeGroup(
     avatar: `${server.origin}/media/group-avatar.png`,
     header: `${server.origin}/media/group-header.png`,
     members_count: 42,
+    moderators_count: 2,
+    statuses_count: 180,
     locked: false,
-    relationship: { member: true, requested: false },
+    platform: family === "unfathomably" ? "nostr" : "activitypub",
+    platform_label: family === "unfathomably" ? "Nostr community" : "ActivityPub group",
+    target_kind: "group",
+    target_kind_label: "Federated group",
+    capabilities: ["follow", "post", "timeline"],
+    relationship: {
+      can_follow: true,
+      can_post: true,
+      federation_blocked: false,
+      member: true,
+      requested: false,
+      role: "member",
+    },
     ...overrides,
   };
 }
@@ -160,6 +174,30 @@ export function makeDegradedStatus(
     pleroma: undefined,
     quote_id: undefined,
     quotes_count: undefined,
+    ...overrides,
+  });
+}
+
+export function makeNativeStatus(
+  overrides: Partial<UnfathomablyStatus> = {},
+): UnfathomablyStatus {
+  return makeStatus("unfathomably", {
+    group: null,
+    pleroma: {
+      native: {
+        canonical_id: "https://unfathomably.example/objects/photo-1",
+        class: "media",
+        context: "https://www.w3.org/ns/activitystreams",
+        controls: ["open", "reply", "favourite"],
+        fields: {
+          family: "photo",
+          license: "CC BY-SA 4.0",
+          location: "Lake Ontario",
+          title: "Summer shoreline",
+        },
+        type: "https://www.w3.org/ns/activitystreams#Image",
+      },
+    },
     ...overrides,
   });
 }

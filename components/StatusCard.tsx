@@ -1,5 +1,5 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     --------------------------
 
     File: StatusCard.tsx
@@ -7,6 +7,18 @@
     Purpose:
 
         Render a Mastodon-compatible status using Hoot's compact card style.
+
+    Responsibilities:
+
+        - Present status, reply, group, native, poll, event, and media context.
+        - Expose finger-sized reply, repost, quote, reaction, and vote actions.
+        - Route posts and attachments to their detailed views.
+
+    This file intentionally does NOT contain:
+
+        - Fediverse request construction.
+        - Full-screen media rendering.
+        - Timeline loading or pagination.
 */
 
 import Icon from "@expo/vector-icons/Ionicons";
@@ -14,7 +26,14 @@ import React, { useState } from "react";
 import { Alert, Image, Pressable, StyleSheet } from "react-native";
 
 import { Text, View } from "./Themed";
+import NativeStatusContext from "./NativeStatusContext";
+import StatusMediaAttachment, {
+  getMediaOpenCandidates,
+  getMediaPreviewCandidates,
+} from "./StatusMediaAttachment";
 import StatusLinkPreview from "./StatusLinkPreview";
+import StatusEventContext from "./StatusEventContext";
+import StatusPoll from "./StatusPoll";
 import useTheme from "../hooks/useTheme";
 import * as Unfathomably from "../services/UnfathomablyService";
 import {
@@ -50,6 +69,35 @@ export default function StatusCard({
     : visible.media_attachments;
   const capabilities = Unfathomably.getStatusCapabilities(visible);
   const [emojiMenuOpen, setEmojiMenuOpen] = useState(false);
+
+  function openMedia(media: Unfathomably.UnfathomablyMediaAttachment) {
+    const candidates = getMediaOpenCandidates(media);
+    const uri = candidates[0];
+
+    if (!uri) {
+      Alert.alert(
+        "Media unavailable",
+        "This post did not provide a safe media address.",
+      );
+      return;
+    }
+
+    if (media.type === "audio" || media.type === "video" || media.type === "gifv") {
+      navigation.navigate("MediaViewer", {
+        description: media.description || undefined,
+        posterUri: getMediaPreviewCandidates(media)[0],
+        type: media.type === "audio" ? "audio" : "video",
+        uri,
+      });
+      return;
+    }
+
+    navigation.navigate("ImageViewer", {
+      description: media.description,
+      fallbackUris: candidates.slice(1),
+      uri,
+    });
+  }
 
   async function toggleReblog() {
     try {
@@ -173,10 +221,18 @@ export default function StatusCard({
       {!!displayContent && (
         <Text selectable style={styles.content}>{displayContent}</Text>
       )}
+      <NativeStatusContext status={visible} />
+      <StatusEventContext ctx={ctx} status={visible} />
+      {visible.poll ? <StatusPoll ctx={ctx} poll={visible.poll} /> : null}
       {displayedMedia.map(media => (
-        <Pressable key={media.id} accessibilityRole="button" accessibilityLabel="Open image full screen" onPress={event => { event.stopPropagation(); navigation.navigate("ImageViewer", { uri: media.url || media.preview_url || "", fallbackUri: media.preview_url, description: media.description }); }}>
-          <Image source={{ uri: media.preview_url || media.url }} resizeMode="contain" style={[styles.media, compact && styles.compactMedia, { backgroundColor: theme.secondaryBackground }]} />
-        </Pressable>
+        <StatusMediaAttachment
+          key={media.id}
+          compact={compact}
+          media={media}
+          onOpen={() => openMedia(media)}
+          secondaryBackground={theme.secondaryBackground}
+          tint={theme.tint}
+        />
       ))}
       {compact && visible.media_attachments.length > displayedMedia.length && (
         <Text secondary style={styles.moreMedia}>
@@ -393,8 +449,6 @@ const styles = StyleSheet.create({
   group: { alignSelf: "flex-start", flexDirection: "row", gap: 5, alignItems: "center", borderRadius: 14, paddingHorizontal: 9, paddingVertical: 5, marginTop: 12 },
   spoiler: { fontWeight: "700", marginTop: 12 },
   content: { fontSize: 16, lineHeight: 22, marginTop: 12 },
-  media: { height: 220, marginTop: 12, borderRadius: 10, width: "100%" },
-  compactMedia: { height: 150 },
   moreMedia: { fontSize: 12, marginTop: 6, textAlign: "right" },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 16 },
   action: { alignItems: "center", borderRadius: 10, justifyContent: "center", minHeight: 52, minWidth: 50, paddingHorizontal: 4, width: "15%" },

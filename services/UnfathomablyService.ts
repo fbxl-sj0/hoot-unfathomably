@@ -1,5 +1,5 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     --------------------------
 
     File: UnfathomablyService.ts
@@ -8,10 +8,17 @@
 
         Provide the Mastodon-compatible client boundary used by the mobile app.
 
+    Responsibilities:
+
+        - Validate server addresses and execute bounded authenticated requests
+        - Model the shared Mastodon, Pleroma, Rebased, and Unfathomably APIs
+        - Isolate optional extension fallbacks at their API boundaries
+
     This file intentionally does NOT contain:
 
         - React state
         - screen rendering
+        - direct federation or provider requests
 */
 
 import { LOTIDE_REQUEST_TIMEOUT_MS } from "./LotideService/util";
@@ -40,8 +47,57 @@ export type UnfathomablyGroup = {
   avatar: string;
   header: string;
   members_count: number;
+  moderators_count?: number;
+  statuses_count?: number;
   locked: boolean;
-  relationship?: { member?: boolean; requested?: boolean } | null;
+  platform?: string;
+  platform_label?: string;
+  platform_family?: string;
+  target_kind?: string;
+  target_kind_label?: string;
+  capabilities?: string[];
+  relationship?: {
+    member?: boolean;
+    requested?: boolean;
+    role?: string;
+    can_follow?: boolean;
+    can_post?: boolean;
+    federation_blocked?: boolean;
+    moderation_message?: string | null;
+    moderation_status?: string;
+  } | null;
+};
+
+export type UnfathomablyNativeFieldValue =
+  | string
+  | number
+  | boolean
+  | string[];
+
+export type UnfathomablyNativePresentation = {
+  canonical_id: string;
+  class: string;
+  context?: string | null;
+  controls: string[];
+  fields: Record<string, UnfathomablyNativeFieldValue>;
+  type: string;
+};
+
+export type UnfathomablyPollOption = {
+  title: string;
+  votes_count?: number | null;
+};
+
+export type UnfathomablyPoll = {
+  id: string;
+  expires_at?: string | null;
+  expired: boolean;
+  multiple: boolean;
+  votes_count: number;
+  voters_count?: number | null;
+  voted?: boolean;
+  own_votes?: number[];
+  options: UnfathomablyPollOption[];
 };
 
 export type UnfathomablyPreviewCard = {
@@ -65,11 +121,36 @@ export type UnfathomablyMediaAttachment = {
   url: string;
   remote_url?: string | null;
   text_url?: string | null;
+  meta?: {
+    original?: { width?: number; height?: number; duration?: number };
+    small?: { width?: number; height?: number };
+  } | null;
+};
+
+export type UnfathomablyEvent = {
+  name: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  join_mode?: "free" | "restricted" | "invite" | null;
+  participants_count: number;
+  location?: {
+    name?: string | null;
+    description?: string | null;
+    country?: string | null;
+    locality?: string | null;
+    postal_code?: string | null;
+    region?: string | null;
+    street?: string | null;
+  } | null;
+  join_state?: "pending" | "reject" | "accept" | null;
+  banner?: UnfathomablyMediaAttachment | null;
+  links?: UnfathomablyMediaAttachment[] | null;
 };
 
 export type UnfathomablyStatus = {
   id: string;
   created_at: string;
+  edited_at?: string | null;
   content: string;
   url?: string;
   in_reply_to_id?: string | null;
@@ -83,6 +164,7 @@ export type UnfathomablyStatus = {
   favourited?: boolean;
   disliked?: boolean;
   reblogged?: boolean;
+  bookmarked?: boolean;
   mentions?: UnfathomablyMention[];
   emoji_reactions?: { name: string; count: number; me?: boolean; url?: string }[] | null;
   pleroma?: {
@@ -93,13 +175,20 @@ export type UnfathomablyStatus = {
     quote_id?: string | null;
     quote_visible?: boolean;
     quotes_count?: number;
+    native?: UnfathomablyNativePresentation | null;
+    event?: UnfathomablyEvent | null;
+    nostr?: { event_id?: string; pubkey?: string; relay?: string } | null;
+    atproto?: { uri?: string; cid?: string; url?: string | null } | null;
+    diaspora?: { guid?: string; author?: string } | null;
   };
   sensitive: boolean;
   spoiler_text: string;
+  visibility?: string;
   account: UnfathomablyAccount;
   card?: UnfathomablyPreviewCard | null;
   group?: UnfathomablyGroup | null;
   media_attachments: UnfathomablyMediaAttachment[];
+  poll?: UnfathomablyPoll | null;
   reblog?: UnfathomablyStatus;
 };
 
@@ -109,6 +198,37 @@ export type UnfathomablyNotification = {
   created_at: string;
   account: UnfathomablyAccount;
   status?: UnfathomablyStatus;
+  target?: UnfathomablyAccount;
+  emoji?: string;
+  emoji_url?: string;
+};
+
+export type UnfathomablyInstance = {
+  title?: string;
+  version?: string;
+  description?: string;
+  pleroma?: {
+    metadata?: {
+      features?: string[];
+    };
+  };
+  unfathomably?: {
+    backend?: string;
+    frontend?: string;
+  };
+};
+
+export type InstanceCapabilities = {
+  dislikes: boolean;
+  emojiReactions: boolean;
+  events: boolean;
+  groupedNotifications: boolean;
+  groupDiscovery: boolean;
+  groupSearch: boolean;
+  groups: boolean;
+  quotes: boolean;
+  sources: boolean;
+  worlds: boolean;
 };
 
 export type OAuthApplication = {
@@ -242,7 +362,12 @@ function getResponseErrorMessage(
   return `Unfathomably returned ${status}${reason ? ` (${reason})` : ""}.`;
 }
 
-async function request<T>(
+/*
+    Feature modules share this guarded request boundary so authentication,
+    HTTPS enforcement, timeout behavior, and server error handling cannot
+    drift between ordinary timelines and newer Unfathomably extensions.
+*/
+export async function request<T>(
   ctx: LotideContext | { apiUrl: string; login?: { token?: string } },
   path: string,
   init: RequestInit = {},
@@ -301,7 +426,9 @@ async function request<T>(
   }
 }
 
-function query(params: Record<string, string | number | undefined>): string {
+export function query(
+  params: Record<string, string | number | boolean | undefined>,
+): string {
   const search = Object.entries(params).reduce((result, [key, value]) => {
     if (value !== undefined && value !== "") result.set(key, String(value));
     return result;
@@ -338,8 +465,38 @@ function rethrowUnavailableFeature(error: unknown, message: string): never {
   throw error;
 }
 
-export async function getInstance(serverUrl: string): Promise<{ title?: string; version?: string; description?: string }> {
+export async function getInstance(serverUrl: string): Promise<UnfathomablyInstance> {
   return request({ apiUrl: serverUrl }, "/api/v1/instance");
+}
+
+export function getInstanceCapabilities(
+  instance: UnfathomablyInstance,
+): InstanceCapabilities {
+  const features = new Set(
+    Array.isArray(instance.pleroma?.metadata?.features)
+      ? instance.pleroma.metadata.features.filter(
+          (feature): feature is string => typeof feature === "string",
+        )
+      : [],
+  );
+  const isUnfathomably =
+    typeof instance.unfathomably?.backend === "string" ||
+    /unfathomably/i.test(instance.version || "");
+
+  return {
+    dislikes: features.has("pleroma_dislikes"),
+    emojiReactions:
+      features.has("pleroma_emoji_reactions") ||
+      features.has("pleroma_custom_emoji_reactions"),
+    events: features.has("events"),
+    groupedNotifications: features.has("notifications_v2"),
+    groupDiscovery: features.has("groups_discovery"),
+    groupSearch: features.has("groups_search"),
+    groups: features.has("groups"),
+    quotes: features.has("quote_posting"),
+    sources: features.has("sources"),
+    worlds: isUnfathomably,
+  };
 }
 
 export async function registerOAuthApplication(
@@ -474,9 +631,20 @@ export function getHomeTimeline(ctx: LotideContext, maxId?: string, scope: "home
   return request<UnfathomablyStatus[]>(ctx, `${endpoint}${query({ limit: 30, max_id: maxId })}`);
 }
 
-export async function getGroupTimeline(ctx: LotideContext, maxId?: string) {
+export async function getGroupTimeline(
+  ctx: LotideContext,
+  maxId?: string,
+  discover = false,
+) {
   try {
-    const statuses = await getHomeTimeline(ctx, maxId, "groups");
+    const statuses = await request<UnfathomablyStatus[]>(
+      ctx,
+      `/api/v1/timelines/groups${query({
+        limit: 30,
+        max_id: maxId,
+        discover: discover || undefined,
+      })}`,
+    );
     // A group timeline must never silently render ordinary home statuses if an
     // instance returns a malformed aggregate response.
     return statuses.filter(status => !!(status.group || status.reblog?.group));
@@ -632,7 +800,86 @@ export async function reactToStatus(ctx: LotideContext, id: string, emoji: strin
   }
 }
 
-export function createStatus(ctx: LotideContext, content: string, options: { inReplyToId?: string; quoteId?: string; groupId?: string; visibility?: string } = {}) {
+export function voteOnPoll(
+  ctx: LotideContext,
+  id: string,
+  choices: number[],
+) {
+  const validChoices = Array.from(
+    new Set(
+      choices.filter(
+        choice => Number.isInteger(choice) && choice >= 0 && choice <= 99,
+      ),
+    ),
+  );
+
+  if (validChoices.length === 0) {
+    return Promise.reject(new Error("Choose at least one poll option."));
+  }
+
+  return request<UnfathomablyPoll>(
+    ctx,
+    `/api/v1/polls/${encodeURIComponent(id)}/votes`,
+    {
+      method: "POST",
+      body: JSON.stringify({ choices: validChoices }),
+    },
+  );
+}
+
+export async function setEventJoined(
+  ctx: LotideContext,
+  id: string,
+  joined: boolean,
+) {
+  try {
+    return await request<UnfathomablyStatus>(
+      ctx,
+      `/api/v1/pleroma/events/${encodeURIComponent(id)}/${joined ? "join" : "leave"}`,
+      { method: "POST" },
+    );
+  } catch (error) {
+    rethrowUnavailableFeature(
+      error,
+      "Event participation is not available on this server.",
+    );
+  }
+}
+
+export type CreateStatusOptions = {
+  contentWarning?: string;
+  groupId?: string;
+  inReplyToId?: string;
+  poll?: {
+    expiresIn: number;
+    multiple: boolean;
+    options: string[];
+  };
+  quoteId?: string;
+  sensitive?: boolean;
+  visibility?: string;
+};
+
+export function createStatus(
+  ctx: LotideContext,
+  content: string,
+  options: CreateStatusOptions = {},
+) {
+  const pollOptions = options.poll?.options
+    .map(option => option.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+  const poll = pollOptions && pollOptions.length >= 2
+    ? {
+        expires_in: Math.max(
+          300,
+          Math.min(Math.trunc(options.poll?.expiresIn || 86_400), 2_592_000),
+        ),
+        multiple: options.poll?.multiple === true,
+        options: pollOptions,
+      }
+    : undefined;
+
   return request<UnfathomablyStatus>(ctx, "/api/v1/statuses", {
     method: "POST",
     body: JSON.stringify({
@@ -640,6 +887,9 @@ export function createStatus(ctx: LotideContext, content: string, options: { inR
       in_reply_to_id: options.inReplyToId,
       quote_id: options.quoteId,
       group_id: options.groupId,
+      poll,
+      sensitive: options.sensitive === true || undefined,
+      spoiler_text: options.contentWarning?.trim() || undefined,
       visibility: options.visibility || (options.groupId ? "unlisted" : "public"),
     }),
   });
@@ -647,11 +897,73 @@ export function createStatus(ctx: LotideContext, content: string, options: { inR
 
 export async function getGroups(ctx: LotideContext, search = "") {
   try {
-    return await request<UnfathomablyGroup[]>(ctx, `/api/v1/groups${query({ q: search })}`);
+    const normalizedSearch = search.trim();
+    if (!normalizedSearch) {
+      return await request<UnfathomablyGroup[]>(ctx, "/api/v1/groups");
+    }
+
+    try {
+      return await request<UnfathomablyGroup[]>(
+        ctx,
+        `/api/v1/groups/search${query({ q: normalizedSearch })}`,
+      );
+    } catch (error) {
+      const status = (error as Error & { status?: number })?.status;
+      if (!status || ![404, 405, 410, 501].includes(status)) throw error;
+
+      /*
+          Older Rebased group implementations search through GET /groups?q=.
+          Keep that fallback isolated to the explicit unavailable statuses so
+          gateway and authorization failures are never hidden by a retry.
+      */
+      return await request<UnfathomablyGroup[]>(
+        ctx,
+        `/api/v1/groups${query({ q: normalizedSearch })}`,
+      );
+    }
   } catch (error) {
     rethrowUnavailableFeature(
       error,
       "Groups are not available on this server.",
+    );
+  }
+}
+
+export async function getGroup(ctx: LotideContext, id: string) {
+  try {
+    return await request<UnfathomablyGroup>(
+      ctx,
+      `/api/v1/groups/${encodeURIComponent(id)}`,
+    );
+  } catch (error) {
+    const status = (error as Error & { status?: number })?.status;
+    if (status && [404, 405, 410, 501].includes(status)) {
+      /*
+          Early Rebased group APIs exposed only the collection route. The
+          detail screen can still operate in a reduced mode when that older
+          collection includes the selected group.
+      */
+      const groups = await getGroups(ctx);
+      const group = groups.find(item => item.id === id);
+      if (group) return group;
+    }
+    rethrowUnavailableFeature(
+      error,
+      "Group details are not available on this server.",
+    );
+  }
+}
+
+export async function getDiscoverableGroups(ctx: LotideContext) {
+  try {
+    return await request<UnfathomablyGroup[]>(
+      ctx,
+      `/api/v1/groups/discover${query({ limit: 50 })}`,
+    );
+  } catch (error) {
+    rethrowUnavailableFeature(
+      error,
+      "Group discovery is not available on this server.",
     );
   }
 }

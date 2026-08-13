@@ -2,9 +2,15 @@
 
 Hoot Unfathomably is a mobile client for the Unfathomably Fediverse stack. It
 keeps Hoot's compact, readable post cards while adding a normal home timeline,
-group discussions, and the Mastodon-compatible features supported by
+group discussions, first-class Worlds and Sources, and compatible features from
 [unfathomably-be](https://github.com/fbxl-sj0/unfathomably-be) and
 [unfathomably-fe](https://github.com/fbxl-sj0/unfathomably-fe).
+
+Version 0.3.0 is the Unfathomably 3.5 compatibility release. It was developed
+against unfathomably-be 3.5.0 and the paired August 12, 2026 frontend source.
+The client reads the instance feature manifest at runtime, so optional screens
+and controls follow the selected server rather than a hard-coded host or a
+guessed software version.
 
 It connects directly to an Unfathomably server. Compatible Pleroma and Rebased
 servers provide the normal timeline and discussion experience; group features
@@ -31,17 +37,31 @@ saved account therefore cannot silently redirect that account to FBXL Social.
 ## What it does
 
 - Browse your home timeline and a dedicated followed-groups timeline.
+- Explore all 16 Worlds families, including books, culture, audio, video,
+  photography, articles, events, software, routes, communities, and
+  marketplace material. Native posts retain their structured facts, bridge
+  provenance, and authoritative source link.
+- Search bounded, server-approved Worlds providers and resolve a selected item
+  through your own server before opening it locally.
+- Read a combined followed-Sources timeline; list, find, preview, follow, and
+  unfollow publications, channels, RSS or Atom feeds, and federated source
+  actors.
 - Discover groups, join or leave them, read their discussions, and post to a
-  group.
-- Compose posts, replies, quote reposts, and reposts.
+  group while honoring posting, follow, moderation, and federation policy
+  returned by the server.
+- Compose posts, replies, quote reposts, polls, content warnings, and
+  visibility-limited posts.
 - Use server-supported reactions, including emoji reactions and positive or
   negative reactions.
-- Read notifications and your own account timeline.
+- Vote in polls, read event details, and explicitly join, request to join, or
+  leave events.
+- Read notifications for ordinary activity, groups, emoji reactions, polls,
+  event reminders, event updates, and participation requests.
 - Preview linked pages from server-supplied titles, descriptions, providers,
   and images; compatible servers without rich-card data retain a tappable link
   fallback.
-- Open a status thread, and open attached images in a full-screen zoomable
-  viewer so long images remain readable.
+- Open a status thread, open attached images in a full-screen zoomable viewer,
+  and play server-provided audio or video with guarded native controls.
 
 On Android, the app asks once after the first account becomes active whether
 to enable background notifications. The choice can be changed later under
@@ -117,10 +137,10 @@ The scripts do not run `apt-get` by default. On a machine where you want them
 to install the required Debian/Ubuntu host packages, opt in explicitly:
 
 ```bash
-HOOT_MOBILE_INSTALL_SYSTEM_DEPS=1 \
+HOOT_UNFATHOMABLY_INSTALL_SYSTEM_DEPS=1 \
   ./build_scripts/debian-build-hoot-mobile-android.sh
 
-HOOT_MOBILE_INSTALL_EMULATOR_DEPS=1 \
+HOOT_UNFATHOMABLY_INSTALL_EMULATOR_DEPS=1 \
   ./build_scripts/debian-test-hoot-mobile-android.sh
 ```
 
@@ -138,16 +158,24 @@ npm run verify:release
 
 It runs strict ESLint and TypeScript checks, the Jest suite, Expo dependency
 and project diagnostics, a complete dependency-tree check, and a production
-dependency audit.
+dependency audit. Expo's current Metro release includes `image-size` without
+an upstream patched release for two build-time denial-of-service advisories.
+The install step applies exact ICNS, HEIF, and JXL loop guards, and the release
+gate accepts those advisories only when the audited package version and every
+guard are present. Any other advisory still fails the build.
 
-The release suite uses canonical Unfathomably, Rebased, and Pleroma fixtures.
-It covers the Mastodon-compatible v1 API plus the group, quote-repost, and
-emoji-reaction extensions used by those server families. It also requires
-capability-degraded Rebased and Pleroma fixtures that omit every optional
-extension while preserving the baseline feed and discussion actions. A strict
-contract check rejects retired service imports, old API routes, and
-server-version branching; the only retained pre-migration fixture verifies
-that existing users are moved safely away from an obsolete saved API URL.
+The release suite uses canonical Unfathomably 3.5, Rebased, and Pleroma
+fixtures. It covers the Mastodon-compatible v1 API plus Worlds, Sources,
+groups, native metadata, polls, events, quote reposts, media, and emoji
+reactions. It also requires capability-degraded Rebased and Pleroma fixtures
+that omit every optional extension while preserving baseline login, feeds,
+discussions, replies, reposts, favourites, and notifications. A strict contract
+check rejects retired service imports, old API routes, and server-version
+branching; the only retained pre-migration fixture verifies that existing users
+are moved safely away from an obsolete saved API URL.
+
+The exact compatibility boundary and intentional mobile exclusions are in
+[UNFATHOMABLY-COMPATIBILITY.md](UNFATHOMABLY-COMPATIBILITY.md).
 
 Build and smoke-test the Android release APK:
 
@@ -174,3 +202,5 @@ test instance you control for write-path verification.
 ## License
 
 See [LICENSE](LICENSE).
+
+<!-- end of README.md -->

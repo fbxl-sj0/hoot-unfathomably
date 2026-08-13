@@ -1,5 +1,5 @@
 /*
-    Project: Hoot Mobile
+    Project: Hoot Unfathomably
     --------------------------
 
     File: ImageViewerScreen.tsx
@@ -7,6 +7,18 @@
     Purpose:
 
         View an attached status image at full size with touch zoom and pan.
+
+    Responsibilities:
+
+        - Render an image at a fit-to-screen starting scale.
+        - Support pinch, pan, and double-tap zoom gestures.
+        - Retry alternate media URLs when a federated proxy image fails.
+
+    This file intentionally does NOT contain:
+
+        - Feed attachment previews.
+        - Video or audio playback.
+        - Network requests outside the native image loader.
 */
 
 import React, { useState } from "react";
@@ -29,8 +41,28 @@ function clampScale(value: number) {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
 }
 
+function isHttpUrl(candidate: string | undefined): candidate is string {
+  return !!candidate && /^https?:\/\//i.test(candidate);
+}
+
+export function getImageCandidates(
+  uri: string,
+  fallbackUris: string[] = [],
+  fallbackUri?: string,
+): string[] {
+  return [...new Set(
+    [uri, ...fallbackUris, fallbackUri].filter(isHttpUrl),
+  )];
+}
+
 export default function ImageViewerScreen({ route }: RootStackScreenProps<"ImageViewer">) {
-  const [imageUri, setImageUri] = useState(route.params.uri);
+  const imageCandidates = getImageCandidates(
+    route.params.uri,
+    route.params.fallbackUris,
+    route.params.fallbackUri,
+  );
+  const [imageIndex, setImageIndex] = useState(0);
+  const imageUri = imageCandidates[imageIndex];
   const scale = useSharedValue(MIN_SCALE);
   const savedScale = useSharedValue(MIN_SCALE);
   const translateX = useSharedValue(0);
@@ -86,13 +118,30 @@ export default function ImageViewerScreen({ route }: RootStackScreenProps<"Image
   }));
 
   return <View style={styles.root}>
-    <GestureDetector gesture={Gesture.Exclusive(doubleTap, Gesture.Simultaneous(pinch, pan))}>
-      <Animated.Image source={{ uri: imageUri }} resizeMode="contain" style={[styles.image, imageStyle]} accessibilityLabel={route.params.description || "Status image"} onError={() => { if (route.params.fallbackUri && imageUri !== route.params.fallbackUri) setImageUri(route.params.fallbackUri); }} />
-    </GestureDetector>
+    {imageUri ? (
+      <GestureDetector gesture={Gesture.Exclusive(doubleTap, Gesture.Simultaneous(pinch, pan))}>
+        <Animated.Image
+          source={{ uri: imageUri }}
+          resizeMode="contain"
+          style={[styles.image, imageStyle]}
+          accessibilityLabel={route.params.description || "Status image"}
+          onError={() => setImageIndex(index => Math.min(index + 1, imageCandidates.length))}
+        />
+      </GestureDetector>
+    ) : (
+      <View style={styles.unavailable}>
+        <Text>Image unavailable</Text>
+      </View>
+    )}
     <Text secondary style={styles.hint}>Pinch to zoom · drag to pan · double tap to toggle zoom</Text>
   </View>;
 }
 
-const styles = StyleSheet.create({ root: { flex: 1, backgroundColor: "#000" }, image: { flex: 1, height: "100%", width: "100%" }, hint: { padding: 14, textAlign: "center" } });
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#000" },
+  image: { flex: 1, height: "100%", width: "100%" },
+  unavailable: { alignItems: "center", flex: 1, justifyContent: "center" },
+  hint: { padding: 14, textAlign: "center" },
+});
 
 /* end of ImageViewerScreen.tsx */

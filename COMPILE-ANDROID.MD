@@ -36,7 +36,7 @@ android/app/build/outputs/apk/release/app-release.apk
 ```
 
 The build helper only installs Debian host packages when
-`HOOT_MOBILE_INSTALL_SYSTEM_DEPS=1` is explicitly set. Missing Node.js or Java
+`HOOT_UNFATHOMABLY_INSTALL_SYSTEM_DEPS=1` is explicitly set. Missing Node.js or Java
 17 is otherwise reported as an environment problem.
 
 ## Device smoke test
@@ -57,7 +57,7 @@ For a fresh emulator, grant that permission before launch when notification
 testing is required:
 
 ```bash
-HOOT_MOBILE_GRANT_NOTIFICATIONS=1 \
+HOOT_UNFATHOMABLY_GRANT_NOTIFICATIONS=1 \
   npm run smoke:android -- android/app/build/outputs/apk/release/app-release.apk
 ```
 
@@ -69,7 +69,7 @@ To have the helper create and manage an emulator:
 ```
 
 It installs qemu/libvirt host dependencies only with
-`HOOT_MOBILE_INSTALL_EMULATOR_DEPS=1`.
+`HOOT_UNFATHOMABLY_INSTALL_EMULATOR_DEPS=1`.
 
 ## Release checklist
 

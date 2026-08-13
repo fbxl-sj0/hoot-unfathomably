@@ -412,10 +412,20 @@ function notificationContent(
     follow: `${actor} followed you`,
     follow_request: `${actor} requested to follow you`,
     group_follow: `${actor} followed your group`,
+    group_follow_request: `${actor} requested to join your group`,
+    group_favourite: `${actor} liked your group post`,
+    group_reblog: `${actor} reposted your group post`,
     mention: `${actor} mentioned you`,
     poll: "A poll you participated in has ended",
+    "pleroma:chat_mention": `${actor} sent you a message`,
+    "pleroma:emoji_reaction": `${actor} reacted to your post${notification.emoji ? ` ${notification.emoji}` : ""}`,
+    "pleroma:event_reminder": "An event you are participating in starts soon",
+    "pleroma:event_update": "An event you follow was updated",
+    "pleroma:participation_accepted": `${actor} accepted your participation request`,
+    "pleroma:participation_request": `${actor} requested to participate`,
     reblog: `${actor} boosted your post`,
     status: `${actor} posted a new status`,
+    update: `${actor} edited a post you interacted with`,
   };
   const readableType = notification.type.replace(/[_-]+/g, " ");
 
