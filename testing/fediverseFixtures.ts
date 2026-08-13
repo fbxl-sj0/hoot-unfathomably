@@ -7,7 +7,7 @@
     Purpose:
 
         Provide one canonical set of release-test fixtures for the supported
-        Unfathomably, Rebased, and Pleroma server families.
+        Unfathomably, Rebased, Pleroma, Akkoma, and Mastodon server families.
 
     Responsibilities:
 
@@ -25,11 +25,14 @@
 import type {
   UnfathomablyAccount,
   UnfathomablyGroup,
+  UnfathomablyInstance,
   UnfathomablyNotification,
   UnfathomablyStatus,
 } from "../services/UnfathomablyService";
 
 export type FediverseServerFamily =
+  | "akkoma"
+  | "mastodon"
   | "unfathomably"
   | "rebased"
   | "pleroma";
@@ -40,6 +43,7 @@ export type FediverseServerFixture = {
   softwareName: string;
   softwareVersion: string;
   supportsGroups: boolean;
+  versionResponse: string;
 };
 
 export type FediverseContext = LotideContext & {
@@ -53,12 +57,30 @@ export const FEDIVERSE_SERVERS: Record<
   FediverseServerFamily,
   FediverseServerFixture
 > = {
+  akkoma: {
+    family: "akkoma",
+    origin: "https://akkoma.example",
+    softwareName: "Akkoma",
+    softwareVersion: "3.20.0",
+    supportsGroups: false,
+    versionResponse: "2.7.2 (compatible; Akkoma 3.20.0)",
+  },
+  mastodon: {
+    family: "mastodon",
+    origin: "https://mastodon.example",
+    softwareName: "Mastodon",
+    softwareVersion: "4.6.5",
+    supportsGroups: false,
+    versionResponse: "4.6.5",
+  },
   unfathomably: {
     family: "unfathomably",
     origin: "https://unfathomably.example",
     softwareName: "Unfathomably",
     softwareVersion: "3.5.0",
     supportsGroups: true,
+    versionResponse:
+      "2.7.2 (compatible; unfathomably-be 3.5.0+unfathomably-be)",
   },
   rebased: {
     family: "rebased",
@@ -66,6 +88,8 @@ export const FEDIVERSE_SERVERS: Record<
     softwareName: "Rebased",
     softwareVersion: "3.0.0",
     supportsGroups: true,
+    versionResponse:
+      "2.7.2 (compatible; Pleroma 2.5.51-436-ge8928e22.develop+soapbox)",
   },
   pleroma: {
     family: "pleroma",
@@ -73,8 +97,69 @@ export const FEDIVERSE_SERVERS: Record<
     softwareName: "Pleroma",
     softwareVersion: "2.9.0",
     supportsGroups: false,
+    versionResponse: "2.7.2 (compatible; Pleroma 2.10.2)",
   },
 };
+
+export function makeInstance(
+  family: FediverseServerFamily = "unfathomably",
+): UnfathomablyInstance {
+  const server = FEDIVERSE_SERVERS[family];
+  const featuresByFamily: Record<FediverseServerFamily, string[]> = {
+    akkoma: [
+      "akkoma_api",
+      "custom_emoji_reactions",
+      "mastodon_api",
+      "pleroma_api",
+      "pleroma_emoji_reactions",
+      "quote_posting",
+    ],
+    mastodon: [],
+    pleroma: [
+      "mastodon_api",
+      "pleroma_api",
+      "pleroma_custom_emoji_reactions",
+      "pleroma_emoji_reactions",
+      "quote_posting",
+    ],
+    rebased: [
+      "events",
+      "mastodon_api",
+      "pleroma_api",
+      "pleroma_custom_emoji_reactions",
+      "pleroma_emoji_reactions",
+      "quote_posting",
+    ],
+    unfathomably: [
+      "events",
+      "groups",
+      "groups_discovery",
+      "groups_search",
+      "mastodon_api",
+      "notifications_v2",
+      "pleroma_api",
+      "pleroma_custom_emoji_reactions",
+      "pleroma_dislikes",
+      "pleroma_emoji_reactions",
+      "quote_posting",
+      "sources",
+    ],
+  };
+
+  return {
+    title: `${server.softwareName} Test Server`,
+    version: server.versionResponse,
+    pleroma: featuresByFamily[family].length > 0
+      ? { metadata: { features: featuresByFamily[family] } }
+      : undefined,
+    unfathomably: family === "unfathomably"
+      ? {
+          backend: "unfathomably-be 3.5.0+unfathomably-be",
+          frontend: "unfathomably-fe 3.5.0",
+        }
+      : undefined,
+  };
+}
 
 export function makeAccount(
   family: FediverseServerFamily = "unfathomably",
@@ -133,6 +218,10 @@ export function makeStatus(
   overrides: Partial<UnfathomablyStatus> = {},
 ): UnfathomablyStatus {
   const server = FEDIVERSE_SERVERS[family];
+  const supportsGroups = server.supportsGroups;
+  const supportsPleromaQuotes = family !== "mastodon";
+  const supportsEmojiReactions = family !== "mastodon";
+  const supportsDislikes = family === "unfathomably";
 
   return {
     id: `${family}-status-1`,
@@ -141,29 +230,44 @@ export function makeStatus(
     url: `${server.origin}/notice/${family}-status-1`,
     in_reply_to_id: null,
     in_reply_to_account_id: null,
-    quote_id: null,
+    quote: family === "mastodon" ? null : undefined,
+    quote_approval: family === "mastodon"
+      ? { automatic: ["public"], current_user: "automatic", manual: [] }
+      : undefined,
+    quote_id: supportsPleromaQuotes ? null : undefined,
     quotes_count: 0,
     replies_count: 2,
     reblogs_count: 3,
     favourites_count: 5,
-    dislikes_count: 1,
+    dislikes_count: supportsDislikes ? 1 : undefined,
     favourited: false,
-    disliked: false,
+    disliked: supportsDislikes ? false : undefined,
     reblogged: false,
     mentions: [],
-    emoji_reactions: [],
+    emoji_reactions: family === "akkoma" ? [] : undefined,
     sensitive: false,
     spoiler_text: "",
     account: makeAccount(family),
     card: null,
-    group: family === "pleroma" ? null : makeGroup(family),
+    group: supportsGroups
+      ? makeGroup(family as "unfathomably" | "rebased")
+      : null,
     media_attachments: [],
+    pleroma: supportsEmojiReactions && family !== "akkoma"
+      ? {
+          emoji_reactions: [],
+          quote: null,
+          quote_id: null,
+          quote_visible: true,
+          quotes_count: 0,
+        }
+      : undefined,
     ...overrides,
   };
 }
 
 export function makeDegradedStatus(
-  family: Extract<FediverseServerFamily, "rebased" | "pleroma">,
+  family: Exclude<FediverseServerFamily, "unfathomably">,
   overrides: Partial<UnfathomablyStatus> = {},
 ): UnfathomablyStatus {
   return makeStatus(family, {
@@ -172,6 +276,8 @@ export function makeDegradedStatus(
     emoji_reactions: undefined,
     group: null,
     pleroma: undefined,
+    quote: undefined,
+    quote_approval: undefined,
     quote_id: undefined,
     quotes_count: undefined,
     ...overrides,

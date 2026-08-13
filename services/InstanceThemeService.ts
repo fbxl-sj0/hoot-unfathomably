@@ -45,8 +45,11 @@ type FrontendColors = {
 
 export type InstanceThemeConfiguration = {
   accentColor: string;
+  backgroundColor?: string;
   brandColor: string;
   colors: FrontendColors;
+  secondaryBackgroundColor?: string;
+  textColor?: string;
   themeMode: InstanceThemeMode;
 };
 
@@ -82,6 +85,7 @@ type CachedTheme = {
 const CACHE_KEY_PREFIX = "@hoot_instance_theme_v1:";
 const CONFIGURATION_PATHS = [
   "/api/pleroma/frontend_configurations",
+  "/api/v1/pleroma/frontend_configurations",
   "/instance/soapbox.json",
 ] as const;
 const FRONTEND_CONFIGURATION_KEYS = [
@@ -91,6 +95,7 @@ const FRONTEND_CONFIGURATION_KEYS = [
 ] as const;
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 const MAX_CONFIGURATION_CHARACTERS = 256 * 1024;
+const PLEROMA_THEME_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,127}$/i;
 const REQUEST_TIMEOUT_MS = 8_000;
 const THEME_SHADES: ThemeShade[] = [
   "50",
@@ -182,12 +187,69 @@ function normalizeFrontendConfiguration(
     accentColor: normalizeHexColor(candidate.accentColor) ??
       colors.accent["500"] ??
       brandColor,
+    backgroundColor: normalizeHexColor(candidate.backgroundColor),
     brandColor,
     colors,
+    secondaryBackgroundColor: normalizeHexColor(
+      candidate.secondaryBackgroundColor,
+    ),
+    textColor: normalizeHexColor(candidate.textColor),
     themeMode: normalizeThemeMode(
       defaultSettings.themeMode ?? candidate.themeMode,
     ),
   };
+}
+
+function normalizePleromaThemeConfiguration(
+  responseBody: Record<string, unknown>,
+): InstanceThemeConfiguration | undefined {
+  const theme = isRecord(responseBody.theme)
+    ? responseBody.theme
+    : responseBody.source;
+  if (!isRecord(theme) || !isRecord(theme.colors)) return undefined;
+
+  const sourceColors = theme.colors;
+  const backgroundColor = normalizeHexColor(sourceColors.bg);
+  const secondaryBackgroundColor = normalizeHexColor(sourceColors.fg) ??
+    backgroundColor;
+  const textColor = normalizeHexColor(sourceColors.text);
+  const brandColor = normalizeHexColor(sourceColors.accent) ??
+    normalizeHexColor(sourceColors.link);
+  if (!backgroundColor || !textColor || !brandColor) return undefined;
+
+  const linkColor = normalizeHexColor(sourceColors.link) ?? brandColor;
+  const dangerColor = normalizeHexColor(sourceColors.cRed);
+  const successColor = normalizeHexColor(sourceColors.cGreen);
+
+  return normalizeFrontendConfiguration({
+    accentColor: linkColor,
+    backgroundColor,
+    brandColor,
+    colors: {
+      accent: { "500": linkColor },
+      danger: { "400": dangerColor, "600": dangerColor },
+      gray: {
+        "50": textColor,
+        "100": textColor,
+        "800": textColor,
+        "900": textColor,
+      },
+      primary: {
+        "500": brandColor,
+        "800": secondaryBackgroundColor,
+        "900": backgroundColor,
+      },
+      secondary: { "500": linkColor },
+      success: { "400": successColor, "700": successColor },
+    },
+    defaultSettings: {
+      themeMode: relativeLuminance(backgroundColor) >= 0.4
+        ? "light"
+        : "dark",
+    },
+    secondaryBackgroundColor,
+    textColor,
+  });
 }
 
 export function normalizeInstanceThemeConfiguration(
@@ -203,7 +265,8 @@ export function normalizeInstanceThemeConfiguration(
     if (configuration) return configuration;
   }
 
-  return normalizeFrontendConfiguration(responseBody);
+  return normalizeFrontendConfiguration(responseBody) ??
+    normalizePleromaThemeConfiguration(responseBody);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -351,8 +414,9 @@ function createPalette(
   let tertiaryBackground: string;
 
   if (variant === "light") {
-    background = "#ffffff";
-    secondaryBackground = colors.gray["50"] ??
+    background = configuration.backgroundColor ?? "#ffffff";
+    secondaryBackground = configuration.secondaryBackgroundColor ??
+      colors.gray["50"] ??
       mixColors(configuration.brandColor, "#ffffff", 0.035);
     tertiaryBackground = colors.gray["200"] ??
       mixColors(configuration.brandColor, "#ffffff", 0.12);
@@ -369,10 +433,16 @@ function createPalette(
       mixColors(configuration.brandColor, "#000000", 0.35),
     );
   } else {
-    background = colors.primary["900"] ??
+    background = configuration.backgroundColor ??
+      colors.primary["900"] ??
       mixColors(configuration.brandColor, "#000000", 0.16);
     secondaryBackground = pickDistinctBackground(
-      [colors.primary["800"], colors.gray["900"], colors.gray["800"]],
+      [
+        configuration.secondaryBackgroundColor,
+        colors.primary["800"],
+        colors.gray["900"],
+        colors.gray["800"],
+      ],
       background,
       mixColors(configuration.brandColor, "#000000", 0.28),
     );
@@ -395,8 +465,8 @@ function createPalette(
   );
   const text = pickReadableColor(
     isLight
-      ? [colors.gray["900"], colors.gray["800"], fallback.text]
-      : [colors.gray["50"], colors.gray["100"], fallback.text],
+      ? [configuration.textColor, colors.gray["900"], colors.gray["800"], fallback.text]
+      : [configuration.textColor, colors.gray["50"], colors.gray["100"], fallback.text],
     background,
   );
   const secondaryText = pickReadableColor(
@@ -476,10 +546,10 @@ function cacheKey(origin: string): string {
   return `${CACHE_KEY_PREFIX}${encodeURIComponent(origin)}`;
 }
 
-async function requestConfiguration(
+async function requestConfigurationDocument(
   origin: string,
-  path: typeof CONFIGURATION_PATHS[number],
-): Promise<InstanceThemeConfiguration | undefined> {
+  path: string,
+): Promise<unknown | undefined> {
   const controller = typeof AbortController === "undefined"
     ? undefined
     : new AbortController();
@@ -514,7 +584,7 @@ async function requestConfiguration(
     if (text.length > MAX_CONFIGURATION_CHARACTERS) return undefined;
 
     try {
-      return normalizeInstanceThemeConfiguration(JSON.parse(text) as unknown);
+      return JSON.parse(text) as unknown;
     } catch {
       return undefined;
     }
@@ -523,6 +593,18 @@ async function requestConfiguration(
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
+}
+
+function getPleromaThemeName(responseBody: unknown): string | undefined {
+  if (!isRecord(responseBody) || !isRecord(responseBody.pleroma_fe)) {
+    return undefined;
+  }
+
+  const themeName = responseBody.pleroma_fe.theme;
+  return typeof themeName === "string" &&
+    PLEROMA_THEME_NAME_PATTERN.test(themeName)
+    ? themeName
+    : undefined;
 }
 
 async function requestCurrentTheme(
@@ -534,11 +616,31 @@ async function requestCurrentTheme(
       public and independent, so running them together avoids making a missing
       or slow optional endpoint delay startup by a second timeout period.
   */
-  const [backendConfiguration, staticConfiguration] = await Promise.all(
-    CONFIGURATION_PATHS.map(path => requestConfiguration(origin, path)),
+  const documents = await Promise.all(
+    CONFIGURATION_PATHS.map(path => requestConfigurationDocument(origin, path)),
   );
 
-  return backendConfiguration ?? staticConfiguration;
+  for (const document of documents) {
+    const configuration = normalizeInstanceThemeConfiguration(document);
+    if (configuration) return configuration;
+  }
+
+  const themeName = documents
+    .map(getPleromaThemeName)
+    .find((candidate): candidate is string => !!candidate);
+  if (!themeName) return undefined;
+
+  /*
+      Pleroma FE and Akkoma advertise the default preset by name, then serve
+      its palette from /static/themes. Restricting the name before building the
+      path prevents an instance response from turning this into an arbitrary
+      URL request.
+  */
+  const themeDocument = await requestConfigurationDocument(
+    origin,
+    `/static/themes/${encodeURIComponent(themeName)}.json`,
+  );
+  return normalizeInstanceThemeConfiguration(themeDocument);
 }
 
 export async function loadCachedInstanceTheme(

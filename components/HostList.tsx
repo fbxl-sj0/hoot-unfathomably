@@ -158,11 +158,16 @@ export default function HostList(props: HostListProps) {
           return;
         }
 
+        const software = UnfathomablyService.getInstanceSoftware(instance);
+
         setKnownHosts(hosts =>
           updateKnownHostInstanceInfo(hosts, host.domain, {
             apiVersion: 1,
             description: instance.description,
-            software: { name: "Unfathomably", version: instance.version || "Mastodon API" },
+            software: {
+              name: software.name,
+              version: software.version,
+            },
             site_name: instance.title || host.name,
           } as InstanceInfo),
         );
@@ -213,7 +218,7 @@ export default function HostList(props: HostListProps) {
     if (!serverUrl) {
       Alert.alert(
         "Enter a server",
-        "Enter a valid HTTPS Unfathomably, Pleroma, Rebased, or Mastodon-compatible server.",
+        "Enter a valid HTTPS Unfathomably, Rebased, Pleroma, Akkoma, or Mastodon server.",
       );
       return;
     }

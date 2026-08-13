@@ -11,7 +11,7 @@
     Responsibilities:
 
         - Discover and validate the server-advertised streaming origin
-        - Build current Unfathomably, Rebased, and Pleroma stream paths
+        - Build current Mastodon, Pleroma, Akkoma, Rebased, and Unfathomably paths
         - Authenticate WebSockets without placing access tokens in URLs
         - Parse bounded event envelopes and recover failed connections
 
@@ -23,6 +23,7 @@
 */
 
 import {
+  getInstanceSoftware,
   getSupportedServerUrl,
   request,
   UnfathomablyNotification,
@@ -62,6 +63,7 @@ export type UnfathomablyStreamConnection = {
 };
 
 type StreamingInstanceResponse = {
+  version?: string;
   configuration?: {
     urls?: {
       streaming?: unknown;
@@ -70,6 +72,22 @@ type StreamingInstanceResponse = {
   urls?: {
     streaming_api?: unknown;
   };
+  pleroma?: {
+    metadata?: {
+      features?: string[];
+    };
+  };
+  unfathomably?: {
+    backend?: string;
+    frontend?: string;
+  };
+};
+
+type StreamingEndpointStyle = "path" | "query";
+
+type StreamingEndpoint = {
+  origin: string;
+  style: StreamingEndpointStyle;
 };
 
 const STREAMING_PATH = "/api/v1/streaming";
@@ -108,7 +126,7 @@ const STRUCTURED_PAYLOAD_EVENTS = new Set([
   "update",
 ]);
 
-const streamingOriginCache = new Map<string, Promise<string>>();
+const streamingEndpointCache = new Map<string, Promise<StreamingEndpoint>>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -165,7 +183,23 @@ function advertisedStreamingUrl(value: unknown): string | undefined {
 /* URL discovery and construction                                            */
 /* ------------------------------------------------------------------------- */
 
-async function discoverStreamingOrigin(ctx: LotideContext): Promise<string> {
+function endpointStyle(
+  instance: StreamingInstanceResponse,
+): StreamingEndpointStyle {
+  const family = getInstanceSoftware({
+    pleroma: instance.pleroma,
+    unfathomably: instance.unfathomably,
+    version: instance.version,
+  }).family;
+
+  return family === "pleroma" || family === "akkoma" || family === "rebased"
+    ? "query"
+    : "path";
+}
+
+async function discoverStreamingEndpoint(
+  ctx: LotideContext,
+): Promise<StreamingEndpoint> {
   const apiOrigin = getSupportedServerUrl(ctx.apiUrl || "");
   if (!apiOrigin) {
     throw new Error("A valid server is required for live updates.");
@@ -179,7 +213,9 @@ async function discoverStreamingOrigin(ctx: LotideContext): Promise<string> {
     const configured = advertisedStreamingUrl(
       instance.configuration?.urls?.streaming,
     );
-    if (configured) return configured;
+    if (configured) {
+      return { origin: configured, style: endpointStyle(instance) };
+    }
   } catch {
     /*
         Pleroma and older Rebased releases may omit the Mastodon v2 instance
@@ -193,7 +229,9 @@ async function discoverStreamingOrigin(ctx: LotideContext): Promise<string> {
       "/api/v1/instance",
     );
     const configured = advertisedStreamingUrl(instance.urls?.streaming_api);
-    if (configured) return configured;
+    if (configured) {
+      return { origin: configured, style: endpointStyle(instance) };
+    }
   } catch {
     /*
         Streaming is an enhancement. If discovery is unavailable, the API
@@ -206,7 +244,7 @@ async function discoverStreamingOrigin(ctx: LotideContext): Promise<string> {
   if (!fallback) {
     throw new Error("The selected server does not provide a safe streaming URL.");
   }
-  return fallback;
+  return { origin: fallback, style: "path" };
 }
 
 export function resolveStreamingOrigin(ctx: LotideContext): Promise<string> {
@@ -217,30 +255,39 @@ export function resolveStreamingOrigin(ctx: LotideContext): Promise<string> {
     );
   }
 
-  const existing = streamingOriginCache.get(cacheKey);
-  if (existing) return existing;
+  const existing = streamingEndpointCache.get(cacheKey);
+  if (existing) return existing.then(endpoint => endpoint.origin);
 
-  const pending = discoverStreamingOrigin(ctx).catch(error => {
-    streamingOriginCache.delete(cacheKey);
+  const pending = discoverStreamingEndpoint(ctx).catch(error => {
+    streamingEndpointCache.delete(cacheKey);
     throw error;
   });
-  streamingOriginCache.set(cacheKey, pending);
-  return pending;
+  streamingEndpointCache.set(cacheKey, pending);
+  return pending.then(endpoint => endpoint.origin);
 }
 
 export function clearStreamingOriginCache(): void {
-  streamingOriginCache.clear();
+  streamingEndpointCache.clear();
 }
 
 export function buildStreamingUrl(
   streamingOrigin: string,
   descriptor: UnfathomablyStreamDescriptor,
+  style: StreamingEndpointStyle = "path",
 ): string {
   const base = normalizeStreamingOrigin(streamingOrigin);
   if (!base) throw new Error("The server returned an unsafe streaming URL.");
 
   const params = new URLSearchParams();
   let path: string;
+
+  if (style === "query" && isCommonQueryStyleStream(descriptor)) {
+    path = STREAMING_PATH;
+    addQueryStyleStreamParameters(params, descriptor);
+    const url = new URL(path, base);
+    params.forEach((value, key) => url.searchParams.set(key, value));
+    return url.toString();
+  }
 
   switch (descriptor.stream) {
     case "direct":
@@ -308,6 +355,51 @@ export function buildStreamingUrl(
   const url = new URL(path, base);
   params.forEach((value, key) => url.searchParams.set(key, value));
   return url.toString();
+}
+
+function isCommonQueryStyleStream(
+  descriptor: UnfathomablyStreamDescriptor,
+): boolean {
+  return descriptor.stream !== "group" &&
+    descriptor.stream !== "source" &&
+    descriptor.stream !== "user:groups" &&
+    descriptor.stream !== "user:sources";
+}
+
+function addQueryStyleStreamParameters(
+  params: URLSearchParams,
+  descriptor: UnfathomablyStreamDescriptor,
+): void {
+  switch (descriptor.stream) {
+    case "hashtag":
+    case "hashtag:local":
+      params.set("stream", descriptor.stream);
+      params.set("tag", requiredStreamParameter(descriptor.tag, "hashtag"));
+      break;
+    case "list":
+      params.set("stream", descriptor.stream);
+      params.set("list", requiredStreamParameter(descriptor.list, "list"));
+      break;
+    case "public:remote":
+    case "public:remote:media":
+      params.set("stream", descriptor.stream);
+      params.set(
+        "instance",
+        requiredStreamParameter(descriptor.instance, "remote instance"),
+      );
+      break;
+    case "user:notification":
+      /* Pleroma and Akkoma retain the older plural stream spelling. */
+      params.set("stream", "user:notifications");
+      break;
+    case "group":
+    case "source":
+    case "user:groups":
+    case "user:sources":
+      throw new Error("This extension requires path-style streaming.");
+    default:
+      params.set("stream", descriptor.stream);
+  }
 }
 
 /* ------------------------------------------------------------------------- */
@@ -479,9 +571,25 @@ export function connectToUnfathomablyStream(
     connectionEpoch = epoch;
 
     try {
-      const origin = await resolveStreamingOrigin(ctx);
+      const cacheKey = getSupportedServerUrl(ctx.apiUrl || "");
+      if (!cacheKey) {
+        throw new Error("A valid server is required for live updates.");
+      }
+      let endpoint = await streamingEndpointCache.get(cacheKey);
+      if (!endpoint) {
+        const pending = discoverStreamingEndpoint(ctx).catch(error => {
+          streamingEndpointCache.delete(cacheKey);
+          throw error;
+        });
+        streamingEndpointCache.set(cacheKey, pending);
+        endpoint = await pending;
+      }
       if (closed || epoch !== connectionEpoch) return;
-      const url = buildStreamingUrl(origin, descriptor);
+      const url = buildStreamingUrl(
+        endpoint.origin,
+        descriptor,
+        endpoint.style,
+      );
 
       /*
           The backend reads the first WebSocket subprotocol as the OAuth token

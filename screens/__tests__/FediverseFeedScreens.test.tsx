@@ -11,7 +11,7 @@
 
     Responsibilities:
 
-        - Load Unfathomably, Rebased, and Pleroma home timelines
+        - Load every supported Fediverse home-timeline shape
         - Keep group-feed requests on the dedicated group endpoint
         - Render recoverable errors when an extension is unavailable
 
@@ -87,6 +87,8 @@ describe("Fediverse feed screens", () => {
   });
 
   test.each([
+    ["Akkoma", "akkoma"],
+    ["Mastodon", "mastodon"],
     ["Unfathomably", "unfathomably"],
     ["Rebased", "rebased"],
     ["Pleroma", "pleroma"],
@@ -115,6 +117,8 @@ describe("Fediverse feed screens", () => {
   });
 
   test.each([
+    ["Akkoma", "akkoma"],
+    ["Mastodon", "mastodon"],
     ["Rebased", "rebased"],
     ["Pleroma", "pleroma"],
   ] as const)(
@@ -225,8 +229,12 @@ describe("Fediverse feed screens", () => {
     });
   });
 
-  test("shows a retry state when Pleroma does not provide the group extension", async () => {
-    mockCurrentContext = makeContext("pleroma");
+  test.each([
+    ["Akkoma", "akkoma"],
+    ["Mastodon", "mastodon"],
+    ["Pleroma", "pleroma"],
+  ] as const)("shows a retry state when %s has no group extension", async (_name, family) => {
+    mockCurrentContext = makeContext(family);
     mockGetGroupTimeline.mockRejectedValue(
       new Error("Group timelines are not available on this server."),
     );

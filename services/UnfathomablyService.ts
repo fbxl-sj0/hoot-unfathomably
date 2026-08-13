@@ -11,7 +11,7 @@
     Responsibilities:
 
         - Validate server addresses and execute bounded authenticated requests
-        - Model the shared Mastodon, Pleroma, Rebased, and Unfathomably APIs
+        - Model shared Mastodon, Pleroma, Akkoma, Rebased, and Unfathomably APIs
         - Isolate optional extension fallbacks at their API boundaries
 
     This file intentionally does NOT contain:
@@ -156,6 +156,18 @@ export type UnfathomablyStatus = {
   in_reply_to_id?: string | null;
   in_reply_to_account_id?: string | null;
   quote_id?: string | null;
+  quote?:
+    | UnfathomablyStatus
+    | {
+        state?: string;
+        quoted_status?: UnfathomablyStatus | null;
+      }
+    | null;
+  quote_approval?: {
+    automatic?: string[];
+    current_user?: string;
+    manual?: string[];
+  } | null;
   quotes_count?: number;
   replies_count: number;
   reblogs_count: number;
@@ -189,7 +201,7 @@ export type UnfathomablyStatus = {
   group?: UnfathomablyGroup | null;
   media_attachments: UnfathomablyMediaAttachment[];
   poll?: UnfathomablyPoll | null;
-  reblog?: UnfathomablyStatus;
+  reblog?: UnfathomablyStatus | null;
 };
 
 export type UnfathomablyNotification = {
@@ -226,6 +238,20 @@ export type UnfathomablyInstance = {
   };
 };
 
+export type FediverseServerFamily =
+  | "akkoma"
+  | "mastodon"
+  | "pleroma"
+  | "rebased"
+  | "unfathomably"
+  | "unknown";
+
+export type FediverseSoftwareIdentity = {
+  family: FediverseServerFamily;
+  name: string;
+  version: string;
+};
+
 export type InstanceCapabilities = {
   dislikes: boolean;
   emojiReactions: boolean;
@@ -250,6 +276,8 @@ export type StatusCapabilities = {
   emojiReactions: boolean;
   quote: boolean;
 };
+
+export type QuoteParameter = "quote_id" | "quoted_status_id";
 
 export type StatusContextPage = {
   statuses: UnfathomablyStatus[];
@@ -323,7 +351,7 @@ export function getSupportedServerUrl(value: string): string | undefined {
 
 function requireSupportedServerUrl(value: string): string {
   if (!value.trim()) {
-    throw new Error("No Unfathomably server URL selected.");
+    throw new Error("No Fediverse server URL selected.");
   }
 
   const supported = getSupportedServerUrl(value);
@@ -332,11 +360,11 @@ function requireSupportedServerUrl(value: string): string {
   const parsed = parseServerInput(value);
   if (parsed?.protocol === "http:") {
     throw new Error(
-      "For your account security, remote Unfathomably servers must use HTTPS.",
+      "For your account security, remote Fediverse servers must use HTTPS.",
     );
   }
 
-  throw new Error("Enter a valid Unfathomably server URL.");
+  throw new Error("Enter a valid Fediverse server URL.");
 }
 
 function getResponseErrorMessage(
@@ -367,7 +395,7 @@ function getResponseErrorMessage(
   }
 
   const reason = statusText?.trim();
-  return `Unfathomably returned ${status}${reason ? ` (${reason})` : ""}.`;
+  return `The selected server returned ${status}${reason ? ` (${reason})` : ""}.`;
 }
 
 /*
@@ -392,7 +420,7 @@ export async function request<T>(
     ...(init.headers as Record<string, string> | undefined),
   };
   const timeoutError = new Error(
-    `The Unfathomably server did not respond within ${Math.ceil(timeoutMs / 1000)} seconds.`,
+    `The selected server did not respond within ${Math.ceil(timeoutMs / 1000)} seconds.`,
   );
   const timeout = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => {
@@ -448,6 +476,8 @@ export function query(
 export function getStatusCapabilities(
   status: UnfathomablyStatus,
 ): StatusCapabilities {
+  const mastodonQuoteDenied = status.quote_approval?.current_user === "denied";
+
   return {
     dislike:
       typeof status.disliked === "boolean" ||
@@ -456,13 +486,35 @@ export function getStatusCapabilities(
       Array.isArray(status.emoji_reactions) ||
       Array.isArray(status.pleroma?.emoji_reactions),
     quote:
-      status.quote_id !== undefined ||
-      status.quotes_count !== undefined ||
-      status.pleroma?.quote !== undefined ||
-      status.pleroma?.quote_id !== undefined ||
-      status.pleroma?.quote_visible !== undefined ||
-      status.pleroma?.quotes_count !== undefined,
+      !mastodonQuoteDenied && (
+        status.quote !== undefined ||
+        status.quote_id !== undefined ||
+        status.quote_approval !== undefined ||
+        status.quotes_count !== undefined ||
+        status.pleroma?.quote !== undefined ||
+        status.pleroma?.quote_id !== undefined ||
+        status.pleroma?.quote_visible !== undefined ||
+        status.pleroma?.quotes_count !== undefined
+      ),
   };
+}
+
+export function getQuoteParameter(
+  status: UnfathomablyStatus,
+): QuoteParameter {
+  return status.quote_approval !== undefined
+    ? "quoted_status_id"
+    : "quote_id";
+}
+
+export function getQuotedStatus(
+  status: UnfathomablyStatus,
+): UnfathomablyStatus | undefined {
+  const topLevelQuote = status.quote;
+  if (topLevelQuote && "id" in topLevelQuote) return topLevelQuote;
+  if (topLevelQuote?.quoted_status) return topLevelQuote.quoted_status;
+
+  return status.pleroma?.quote || undefined;
 }
 
 function rethrowUnavailableFeature(error: unknown, message: string): never {
@@ -475,6 +527,53 @@ function rethrowUnavailableFeature(error: unknown, message: string): never {
 
 export async function getInstance(serverUrl: string): Promise<UnfathomablyInstance> {
   return request({ apiUrl: serverUrl }, "/api/v1/instance");
+}
+
+export function getInstanceSoftware(
+  instance: UnfathomablyInstance,
+): FediverseSoftwareIdentity {
+  const advertisedVersion = instance.version?.trim() || "Mastodon API";
+  const compatible = advertisedVersion.match(
+    /^([^\s(]+)(?:\s+\(compatible;\s*([^\s)]+)\s+([^)]*)\))?/i,
+  );
+  const backendName = compatible?.[2] || "";
+  const backendVersion = compatible?.[3]?.trim() || advertisedVersion;
+  const features = new Set(
+    instance.pleroma?.metadata?.features?.filter(
+      (feature): feature is string => typeof feature === "string",
+    ) || [],
+  );
+  const identity = [
+    backendName,
+    backendVersion,
+    instance.unfathomably?.backend || "",
+  ].join(" ");
+
+  if (/unfathomably/i.test(identity)) {
+    return {
+      family: "unfathomably",
+      name: "Unfathomably",
+      version: backendVersion,
+    };
+  }
+  if (/akkoma/i.test(identity) || features.has("akkoma_api")) {
+    return { family: "akkoma", name: "Akkoma", version: backendVersion };
+  }
+  if (/rebased/i.test(identity) || /\+soapbox\b/i.test(backendVersion)) {
+    return { family: "rebased", name: "Rebased", version: backendVersion };
+  }
+  if (/pleroma/i.test(identity) || features.has("pleroma_api")) {
+    return { family: "pleroma", name: "Pleroma", version: backendVersion };
+  }
+  if (/^\d+\.\d+(?:\.\d+)?(?:[-+].*)?$/i.test(advertisedVersion)) {
+    return {
+      family: "mastodon",
+      name: "Mastodon",
+      version: advertisedVersion,
+    };
+  }
+
+  return { family: "unknown", name: backendName || "Fediverse", version: backendVersion };
 }
 
 export function getInstanceCapabilities(
@@ -495,7 +594,8 @@ export function getInstanceCapabilities(
     dislikes: features.has("pleroma_dislikes"),
     emojiReactions:
       features.has("pleroma_emoji_reactions") ||
-      features.has("pleroma_custom_emoji_reactions"),
+      features.has("pleroma_custom_emoji_reactions") ||
+      features.has("custom_emoji_reactions"),
     events: features.has("events"),
     groupedNotifications: features.has("notifications_v2"),
     groupDiscovery: features.has("groups_discovery"),
@@ -771,7 +871,7 @@ export async function getStatusContextWindow(
     };
   }
 
-  throw new Error("The Unfathomably server returned an incomplete discussion.");
+  throw new Error("The selected server returned an incomplete discussion.");
 }
 
 export function favouriteStatus(ctx: LotideContext, id: string, remove = false) {
@@ -864,6 +964,7 @@ export type CreateStatusOptions = {
     options: string[];
   };
   quoteId?: string;
+  quoteParameter?: QuoteParameter;
   sensitive?: boolean;
   visibility?: string;
 };
@@ -888,12 +989,16 @@ export function createStatus(
       }
     : undefined;
 
+  const quote = options.quoteId
+    ? { [options.quoteParameter || "quote_id"]: options.quoteId }
+    : {};
+
   return request<UnfathomablyStatus>(ctx, "/api/v1/statuses", {
     method: "POST",
     body: JSON.stringify({
       status: content,
       in_reply_to_id: options.inReplyToId,
-      quote_id: options.quoteId,
+      ...quote,
       group_id: options.groupId,
       poll,
       sensitive: options.sensitive === true || undefined,

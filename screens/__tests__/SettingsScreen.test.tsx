@@ -242,7 +242,7 @@ describe("SettingsScreen", () => {
     const screen = await renderSettingsScreen();
 
     await fireEvent.changeText(
-      screen.getByLabelText("Unfathomably server URL"),
+      screen.getByLabelText("Fediverse server URL"),
       "httpnot-a-url",
     );
     await fireEvent.press(screen.getByRole("button", { name: "Save Changes" }));
@@ -258,7 +258,7 @@ describe("SettingsScreen", () => {
     const screen = await renderSettingsScreen();
 
     await fireEvent.changeText(
-      screen.getByLabelText("Unfathomably server URL"),
+      screen.getByLabelText("Fediverse server URL"),
       "  https://pleroma.example///  ",
     );
     await fireEvent.press(screen.getByRole("button", { name: "Save Changes" }));

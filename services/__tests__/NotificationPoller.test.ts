@@ -172,6 +172,8 @@ describe("NotificationPoller", () => {
   });
 
   test.each([
+    ["Akkoma", "akkoma"],
+    ["Mastodon", "mastodon"],
     ["Unfathomably", "unfathomably"],
     ["Rebased", "rebased"],
     ["Pleroma", "pleroma"],

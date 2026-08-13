@@ -7,7 +7,7 @@
     Purpose:
 
         Keep the release suite centered on the app's supported
-        Unfathomably, Rebased, and Pleroma contracts.
+        Unfathomably, Rebased, Pleroma, Akkoma, and Mastodon contracts.
 
     Responsibilities:
 
@@ -40,7 +40,7 @@ const forbiddenPatterns = [
   },
   {
     pattern: /lotide\.fbxl\.net/gi,
-    reason: "use a canonical Unfathomably, Rebased, or Pleroma fixture",
+    reason: "use a canonical supported Fediverse fixture",
   },
   {
     pattern: /\/api\/stable/g,
@@ -58,6 +58,7 @@ const forbiddenPatterns = [
 const requiredContractFiles = [
   "testing/fediverseFixtures.ts",
   "services/__tests__/UnfathomablyService.test.ts",
+  "scripts/__tests__/FediverseCompatibilityProbe.test.ts",
   "components/__tests__/StatusCard.test.tsx",
   "screens/__tests__/FediverseFeedScreens.test.tsx",
   "screens/__tests__/FediverseGroupsScreens.test.tsx",
@@ -65,7 +66,13 @@ const requiredContractFiles = [
   "screens/__tests__/FediverseAccountScreens.test.tsx",
   "screens/__tests__/FediverseOptionsScreen.test.tsx",
 ];
-const requiredFamilies = ["unfathomably", "rebased", "pleroma"];
+const requiredFamilies = [
+  "akkoma",
+  "mastodon",
+  "pleroma",
+  "rebased",
+  "unfathomably",
+];
 const degradedContractFiles = [
   "components/__tests__/StatusCard.test.tsx",
   "screens/__tests__/FediverseFeedScreens.test.tsx",
@@ -160,7 +167,7 @@ for (const family of requiredFamilies) {
 
 if (!fixtureText.includes("export function makeDegradedStatus(")) {
   problems.push(
-    "testing/fediverseFixtures.ts: missing capability-degraded Rebased/Pleroma fixture",
+    "testing/fediverseFixtures.ts: missing capability-degraded Fediverse fixture",
   );
 }
 
@@ -170,7 +177,7 @@ for (const fileName of degradedContractFiles) {
     : "";
   if (!text.includes("makeDegradedStatus")) {
     problems.push(
-      `${fileName}: missing capability-degraded Rebased/Pleroma coverage`,
+      `${fileName}: missing capability-degraded Fediverse coverage`,
     );
   }
 }

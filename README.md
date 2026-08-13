@@ -6,25 +6,30 @@ group discussions, first-class Worlds and Sources, and compatible features from
 [unfathomably-be](https://github.com/fbxl-sj0/unfathomably-be) and
 [unfathomably-fe](https://github.com/fbxl-sj0/unfathomably-fe).
 
-Version 0.4.3 adds per-instance frontend themes and reader-aware live timeline
-updates. It was developed against unfathomably-be 3.5.0 and the paired August
+Version 0.4.4 adds a live-tested Rebased, Pleroma, Akkoma, and Mastodon
+compatibility matrix alongside per-instance themes and reader-aware live
+timeline updates. It was developed against unfathomably-be 3.5.0 and the paired August
 12, 2026 frontend source. The client reads instance capabilities and frontend
 configuration at runtime, so optional workflows and colors follow the selected
 server rather than a hard-coded host or a guessed software version.
 
 After an account becomes active, the native palette reads the host's public
 `soapbox_fe`, compatible Unfathomably frontend configuration, or
-`/instance/soapbox.json`. It follows the instance's light, dark, black, or
-system default and uses its primary, accent, neutral, success, and danger
-colors when supplied. Server data is validated before use, controls retain
-accessible contrast, and the last valid theme is cached per host for offline
-startup. The canonical galaxy launcher, splash, and login mark continue to
-identify Hoot Unfathomably itself.
+`/instance/soapbox.json`. Pleroma FE and Akkoma hosts use the advertised default
+theme preset from `/static/themes` when they do not run Soapbox. The app follows
+the instance's light, dark, black, or system default and uses its primary,
+accent, neutral, success, and danger colors when supplied. Server data and
+theme names are validated before use, controls retain accessible contrast, and
+the last valid theme is cached per host for offline startup. Hosts such as
+Mastodon that do not publish a supported color configuration use the accessible
+Hoot Unfathomably palette. The canonical galaxy launcher, splash, and login
+mark continue to identify Hoot Unfathomably itself.
 
-It connects directly to an Unfathomably server. Compatible Pleroma and Rebased
-servers provide the normal timeline and discussion experience; group features
+It connects directly to the Fediverse server selected at login. Compatible
+Rebased, Pleroma, Akkoma, and Mastodon servers provide the normal timeline and
+discussion experience; group features
 appear when the server provides the Unfathomably-compatible group endpoints.
-Older or capability-degraded Rebased and Pleroma servers retain the shared
+Older or capability-degraded servers retain the shared
 Mastodon-compatible experience: login, home timeline, status discussions,
 replies, reposts, favourites, notifications, and account timelines. Optional
 quote, emoji, and negative-reaction controls appear only when the server's
@@ -37,8 +42,9 @@ FBXL Social is a convenience shortcut, not a fixed service. On the login
 screen, enter any compatible server domain and continue. The preferred
 **Sign in with Server** action uses the selected host's OAuth authorization
 page, so the host handles credentials, multi-factor authentication, and account
-approval. Direct password login remains available for Unfathomably, Pleroma,
-and Rebased servers that support it.
+approval. Direct password login remains available for Unfathomably, Rebased,
+Pleroma, and Akkoma servers that support it. Browser login is the dependable
+choice on Mastodon and on hosts that disable the legacy password grant.
 
 Each saved profile retains its own server URL and secure token. Selecting a
 saved account therefore cannot silently redirect that account to FBXL Social.
@@ -88,7 +94,7 @@ saved account therefore cannot silently redirect that account to FBXL Social.
 
 On Android, the app asks once after the first account becomes active whether
 to enable background notifications. The choice can be changed later under
-Options → App settings.
+More → App settings.
 
 GPS path recording asks for foreground location only when **Start recording**
 is pressed. It does not request background or always-on location access. Keep
@@ -96,7 +102,7 @@ the route screen and app open while recording. The local preview uses no map
 tiles; opening the starting point in OpenStreetMap is a separate action.
 
 The bottom navigation is Home, Group feed, Groups, New post, Notifications,
-and Options. Post controls are icon-only and finger-sized to keep the feed
+and More. Post controls are icon-only and finger-sized to keep the feed
 compact without making actions hard to tap.
 
 ## Privacy and connection security
@@ -201,11 +207,11 @@ The install step applies exact ICNS, HEIF, and JXL loop guards, and the release
 gate accepts those advisories only when the audited package version and every
 guard are present. Any other advisory still fails the build.
 
-The release suite uses canonical Unfathomably 3.5, Rebased, and Pleroma
-fixtures. It covers the Mastodon-compatible v1 REST and streaming APIs plus Worlds, Sources,
+The release suite uses canonical Unfathomably 3.5, Rebased, Pleroma, Akkoma,
+and Mastodon 4.6 fixtures. It covers the Mastodon-compatible v1 REST and streaming APIs plus Worlds, Sources,
 groups, native metadata, book libraries, GPX routes, polls, events, quote
 reposts, media, and emoji
-reactions. It also requires capability-degraded Rebased and Pleroma fixtures
+reactions. It also requires capability-degraded non-Unfathomably fixtures
 that omit every optional extension while preserving baseline login, feeds,
 discussions, replies, reposts, favourites, and notifications. A strict contract
 check rejects retired service imports, old API routes, and server-version
@@ -214,6 +220,17 @@ are moved safely away from an obsolete saved API URL.
 
 The exact compatibility boundary and intentional mobile exclusions are in
 [UNFATHOMABLY-COMPATIBILITY.md](UNFATHOMABLY-COMPATIBILITY.md).
+
+To repeat the read-only public-server check, run:
+
+```bash
+npm run probe:fediverse
+```
+
+The probe sends only unauthenticated `GET` requests. It checks instance
+metadata, one public timeline item when policy permits, streaming discovery,
+and public frontend configuration. It never registers an OAuth application or
+creates, reacts to, follows, or deletes anything.
 
 Build and smoke-test the Android release APK:
 

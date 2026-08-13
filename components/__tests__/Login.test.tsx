@@ -246,6 +246,8 @@ describe("Login", () => {
   });
 
   test.each([
+    ["Akkoma", "akkoma"],
+    ["Mastodon", "mastodon"],
     ["Unfathomably", "unfathomably"],
     ["Rebased", "rebased"],
     ["Pleroma", "pleroma"],

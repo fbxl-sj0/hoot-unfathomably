@@ -44,6 +44,7 @@ type ComposeRouteParams = {
   groupName?: string;
   inReplyToId?: string;
   quoteId?: string;
+  quoteParameter?: Unfathomably.QuoteParameter;
 };
 
 export default function ComposeStatusScreen({ navigation, route }: { navigation: any; route: { params?: ComposeRouteParams } }) {
@@ -57,6 +58,7 @@ export default function ComposeStatusScreen({ navigation, route }: { navigation:
     params.groupId || "",
     params.inReplyToId || "",
     params.quoteId || "",
+    params.quoteParameter || "",
   ].join(":");
 
   return (
@@ -132,6 +134,7 @@ function ComposeStatusForm({
       groupName: undefined,
       inReplyToId: undefined,
       quoteId: undefined,
+      quoteParameter: undefined,
     });
   }
 
@@ -139,12 +142,19 @@ function ComposeStatusForm({
     if (!content.trim() || submitting) return;
     setSubmitting(true);
     try {
+      let quoteParameter = params.quoteParameter;
+      if (!quoteId) quoteParameter = undefined;
+      else if (targetStatus) {
+        quoteParameter = Unfathomably.getQuoteParameter(targetStatus);
+      }
+
       const status = await Unfathomably.createStatus(ctx as LotideContext, content.trim(), {
         contentWarning: contentWarningEnabled ? contentWarning : undefined,
         groupId,
         inReplyToId: replyId,
         poll: pollEnabled ? poll : undefined,
         quoteId,
+        quoteParameter,
         sensitive,
         visibility,
       });

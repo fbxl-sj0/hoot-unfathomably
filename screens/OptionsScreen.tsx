@@ -6,7 +6,7 @@
 
     Purpose:
 
-        Provide account and app options without crowding the main feed tabs.
+        Provide a More hub without crowding the main feed tabs.
 
     Responsibilities:
 

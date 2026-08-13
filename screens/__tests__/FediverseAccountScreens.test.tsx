@@ -109,6 +109,8 @@ describe("Fediverse account screens", () => {
   });
 
   test.each([
+    ["Akkoma", "akkoma", "pleroma:emoji_reaction", "reacted to your post"],
+    ["Mastodon", "mastodon", "follow", "followed you"],
     ["Unfathomably", "unfathomably", "favourite", "favourited your post"],
     ["Rebased", "rebased", "reblog", "boosted your post"],
     ["Pleroma", "pleroma", "mention", "mentioned you"],
@@ -179,6 +181,8 @@ describe("Fediverse account screens", () => {
   });
 
   test.each([
+    ["Akkoma", "akkoma"],
+    ["Mastodon", "mastodon"],
     ["Unfathomably", "unfathomably"],
     ["Rebased", "rebased"],
     ["Pleroma", "pleroma"],

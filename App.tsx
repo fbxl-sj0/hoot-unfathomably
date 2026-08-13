@@ -152,7 +152,7 @@ function App() {
 
         Alert.alert(
           "Turn on notifications?",
-          "Hoot Unfathomably can check your account in the background and alert you about new activity. You can change this later in Options → App settings.",
+          "Hoot Unfathomably can check your account in the background and alert you about new activity. You can change this later in More → App settings.",
           [
             {
               text: "Not now",

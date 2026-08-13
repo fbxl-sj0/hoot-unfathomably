@@ -102,7 +102,7 @@ export type RootStackParamList = {
   SearchScreen: undefined;
   SourceListScreen: undefined;
   MessageListScreen: undefined;
-  NewPostScreen: { community?: Community; composeIntentId?: string; groupId?: string; groupName?: string; inReplyToId?: string; quoteId?: string };
+  NewPostScreen: { community?: Community; composeIntentId?: string; groupId?: string; groupName?: string; inReplyToId?: string; quoteId?: string; quoteParameter?: import("./services/UnfathomablyService").QuoteParameter };
   NotificationScreen: undefined;
   OptionsScreen: undefined;
   // Retained for the legacy profile screen; the Unfathomably UI opens it from Options.
@@ -121,7 +121,7 @@ export type RootTabParamList = {
   SearchScreen: undefined;
   SourceListScreen: undefined;
   MessageListScreen: undefined;
-  NewPostScreen: { community?: Community; composeIntentId?: string; groupId?: string; groupName?: string; inReplyToId?: string; quoteId?: string };
+  NewPostScreen: { community?: Community; composeIntentId?: string; groupId?: string; groupName?: string; inReplyToId?: string; quoteId?: string; quoteParameter?: import("./services/UnfathomablyService").QuoteParameter };
   NotificationScreen: undefined;
   OptionsScreen: undefined;
   ProfileScreen: undefined;

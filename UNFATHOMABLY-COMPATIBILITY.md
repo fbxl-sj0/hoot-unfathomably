@@ -1,6 +1,6 @@
 # Unfathomably compatibility
 
-Hoot Unfathomably 0.4.1 was reviewed against these upstream revisions:
+Hoot Unfathomably 0.4.4 was reviewed against these upstream revisions:
 
 - unfathomably-be 3.5.0, commit `de930df6d18bf0f9cd124c4beb9d85dc23303620`
 - unfathomably-fe, commit `5cf055beeb9f0a1453dca99b3559d1b786ae7f82`
@@ -21,16 +21,18 @@ advertised.
 
 The stable Mastodon-compatible notification v1 endpoint remains the mobile
 polling boundary. It provides deterministic per-event identifiers and works on
-Unfathomably, Rebased, and Pleroma. The app understands the expanded 3.5 event,
+Unfathomably, Rebased, Pleroma, Akkoma, and Mastodon. The app understands the
+expanded 3.5 event,
 participation, group, emoji, poll, move, edit, and follow notification types.
 The v2 grouped envelope is therefore not required to keep notifications
 correct or to preserve degraded compatibility.
 
-Foreground screens also use the backend's path-style streaming API. The app
+Foreground screens also use the backend's advertised streaming API. The app
 prefers the streaming origin from Mastodon v2
 `configuration.urls.streaming`, falls back to the v1 `urls.streaming_api`
 advertisement, and finally uses the selected API origin. The OAuth token is a
-WebSocket subprotocol, not a URL query parameter. The mapped streams are:
+WebSocket subprotocol, not a URL query parameter. Mastodon and Unfathomably use
+the current path-style routes. The mapped streams are:
 
 - `/api/v1/streaming/user` for the home timeline
 - `/api/v1/streaming/user/notification` for notification activity
@@ -38,6 +40,12 @@ WebSocket subprotocol, not a URL query parameter. The mapped streams are:
 - `/api/v1/streaming/group/:id` for one group discussion
 - `/api/v1/streaming/user/sources` for all followed-source posts
 - `/api/v1/streaming/source/:id` for one source
+
+Pleroma, Akkoma, and Rebased use their documented unified
+`/api/v1/streaming?stream=...` form for common streams. Notification activity
+uses Pleroma's plural `user:notifications` spelling. Unfathomably-only group
+and Source extensions retain their path routes. Backend selection comes from
+public instance metadata, not a hostname list.
 
 The client understands `update`, `status.update`, `delete`, and `notification`
 events on the screens that consume them. It closes foreground sockets when the
@@ -95,7 +103,7 @@ by a status receives the normal reply and reaction controls. A resolved
 resource without a local status remains read-only and retains its authoritative
 source link, except for the focused Books library action.
 
-## Rebased and Pleroma degradation
+## Wider Fediverse degradation
 
 The common baseline remains available when an optional extension is absent:
 
@@ -111,7 +119,7 @@ The common baseline remains available when an optional extension is absent:
 Quote reposts, emoji reactions, dislikes, groups, Worlds, Sources, event
 participation, book libraries, route publishing, and other extensions are shown
 only when their response fields or instance features make them usable. The app
-reports a concise unavailable state when a Rebased or Pleroma server returns
+reports a concise unavailable state when a compatible server returns
 404, 405, 410, or 501 for a Books or Routes extension; ordinary feeds and
 discussions remain usable. Older Rebased group search falls back
 from `/api/v1/groups/search` to `/api/v1/groups?q=...` only for explicit
@@ -122,5 +130,48 @@ Missing group or Source streams do not remove their REST workflows. This keeps
 older Rebased extensions useful and leaves plain Pleroma on its common live or
 REST baseline without treating a missing optional WebSocket path as a screen
 failure.
+
+Akkoma uses the same common Mastodon API and Pleroma reaction endpoints. The
+client accepts both `pleroma_custom_emoji_reactions` and Akkoma's current
+`custom_emoji_reactions` capability spelling. Its top-level `quote`,
+`quote_id`, and `emoji_reactions` status fields are handled without requiring
+an Unfathomably extension.
+
+Mastodon keeps replies, reposts, favourites, polls, notifications, context,
+profiles, and media on the common baseline. Mastodon 4.5 and newer quote posts
+use `quoted_status_id` when publishing and a nested `quote.quoted_status` when
+reading. The composer selects that contract from the target status instead of
+sending the Rebased, Pleroma, Akkoma, and Unfathomably `quote_id` field. Quote
+controls are hidden when Mastodon's per-status approval data says the current
+account is denied. Emoji and thumbs-down controls remain hidden when their
+response fields are absent.
+
+## Read-only live compatibility check
+
+On August 13, 2026, `npm run probe:fediverse` verified the public response
+contracts of these established servers:
+
+- social.fbxl.net, Unfathomably
+- social.teci.world, Rebased with Soapbox
+- poa.st, Pleroma with Soapbox
+- pleroma.soykaf.com and udongein.xyz, Pleroma
+- outmo.de, Akkoma
+- fosstodon.org and mstdn.social, Mastodon 4.6
+
+FBXL Social, TECI Social, and Poast exposed usable Soapbox or Unfathomably
+frontend colors. Pleroma/Soykaf, Udongein, and Outmo.de advertised valid
+Pleroma FE theme presets, which the app loads from their documented public
+static theme path. The Mastodon servers did not publish a supported color
+configuration and therefore used the accessible local fallback. Poast requires
+authorization for its public timeline, which the probe records as a valid
+server policy. The other tested servers returned a standard status array or an
+empty standard array. Older Pleroma and Akkoma servers may omit
+`/api/v2/instance`; the app already falls back to the v1 streaming advertisement
+and then the selected origin.
+
+The live probe uses public `GET` requests only. It does not receive credentials,
+register an application, create content, react, follow, or change server state.
+The same response differences are retained as local fixtures, so the release
+suite does not depend on these public hosts remaining online.
 
 <!-- end of UNFATHOMABLY-COMPATIBILITY.md -->

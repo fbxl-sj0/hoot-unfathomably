@@ -150,6 +150,39 @@ describe("UnfathomablyStreamingService", () => {
     );
   });
 
+  test("builds Pleroma, Akkoma, and Rebased unified stream queries", () => {
+    const base = "wss://pleroma.example";
+
+    expect(buildStreamingUrl(
+      base,
+      { stream: "user" },
+      "query",
+    )).toBe(
+      "wss://pleroma.example/api/v1/streaming?stream=user",
+    );
+    expect(buildStreamingUrl(
+      base,
+      { stream: "user:notification" },
+      "query",
+    )).toBe(
+      "wss://pleroma.example/api/v1/streaming?stream=user%3Anotifications",
+    );
+    expect(buildStreamingUrl(
+      base,
+      { stream: "hashtag:local", tag: "release engineering" },
+      "query",
+    )).toBe(
+      "wss://pleroma.example/api/v1/streaming?stream=hashtag%3Alocal&tag=release+engineering",
+    );
+    expect(buildStreamingUrl(
+      base,
+      { stream: "public:remote:media", instance: "remote.example" },
+      "query",
+    )).toBe(
+      "wss://pleroma.example/api/v1/streaming?stream=public%3Aremote%3Amedia&instance=remote.example",
+    );
+  });
+
   test("uses v2 discovery, then the v1 advertisement, then the API origin", async () => {
     const ctx = makeContext("unfathomably");
     await expect(resolveStreamingOrigin(ctx)).resolves.toBe(
@@ -270,6 +303,36 @@ describe("UnfathomablyStreamingService", () => {
 
     connection.close();
     expect(second.readyState).toBe(MockWebSocket.CLOSED);
+  });
+
+  test("selects the unified query contract from Pleroma instance metadata", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        configuration: {
+          urls: { streaming: "wss://stream.pleroma.example" },
+        },
+        version: "2.7.2 (compatible; Pleroma 2.10.2)",
+      }),
+    });
+    const ctx = makeContext("pleroma");
+    await resolveStreamingOrigin(ctx);
+    jest.useFakeTimers();
+    const connection = connectToUnfathomablyStream(
+      ctx,
+      { stream: "user:notification" },
+      { onEvent: jest.fn() },
+    );
+    await flushPromises();
+
+    expect(MockWebSocket.instances[0].url).toBe(
+      "wss://stream.pleroma.example/api/v1/streaming?stream=user%3Anotifications",
+    );
+    expect(MockWebSocket.instances[0].protocols).toEqual([
+      "pleroma-access-token",
+    ]);
+
+    connection.close();
   });
 
   test("bounds reconnect backoff and rejects unsafe stream inputs", () => {

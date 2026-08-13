@@ -62,17 +62,23 @@ jest.mock("../../hooks/useTheme", () => ({
   }),
 }));
 
-jest.mock("../../services/UnfathomablyService", () => ({
-  createStatus: (...args: unknown[]) => mockCreateStatus(...args),
-  getGroups: (...args: unknown[]) => mockGetGroups(...args),
-  getStatus: (...args: unknown[]) => mockGetStatus(...args),
-  getStatusAncestors: (...args: unknown[]) =>
-    mockGetStatusAncestors(...args),
-  getStatusContextWindow: (...args: unknown[]) =>
-    mockGetStatusContextWindow(...args),
-  getStatusDescendants: (...args: unknown[]) =>
-    mockGetStatusDescendants(...args),
-}));
+jest.mock("../../services/UnfathomablyService", () => {
+  const actual = jest.requireActual("../../services/UnfathomablyService");
+
+  return {
+    __esModule: true,
+    ...actual,
+    createStatus: (...args: unknown[]) => mockCreateStatus(...args),
+    getGroups: (...args: unknown[]) => mockGetGroups(...args),
+    getStatus: (...args: unknown[]) => mockGetStatus(...args),
+    getStatusAncestors: (...args: unknown[]) =>
+      mockGetStatusAncestors(...args),
+    getStatusContextWindow: (...args: unknown[]) =>
+      mockGetStatusContextWindow(...args),
+    getStatusDescendants: (...args: unknown[]) =>
+      mockGetStatusDescendants(...args),
+  };
+});
 
 jest.mock("../../components/StatusCard", () => {
   const actual = jest.requireActual("../../components/StatusCard");
@@ -163,6 +169,7 @@ describe("Fediverse discussion screens", () => {
           inReplyToId: target.id,
           poll: undefined,
           quoteId: undefined,
+          quoteParameter: undefined,
           sensitive: false,
           visibility: "public",
         },
@@ -212,8 +219,60 @@ describe("Fediverse discussion screens", () => {
           inReplyToId: undefined,
           poll: undefined,
           quoteId: target.id,
+          quoteParameter: "quote_id",
           sensitive: false,
           visibility: "unlisted",
+        },
+      );
+    });
+  });
+
+  test("publishes a Mastodon 4.6 quote with its current API parameter", async () => {
+    mockCurrentContext = makeContext("mastodon");
+    const target = makeStatus("mastodon");
+    mockGetStatus.mockResolvedValue(target);
+    mockGetGroups.mockRejectedValue(
+      new Error("Groups are not available on this server."),
+    );
+    mockCreateStatus.mockResolvedValue(
+      makeStatus("mastodon", { id: "mastodon-quote-2" }),
+    );
+    const screen = await render(
+      <ComposeStatusScreen
+        navigation={{ navigate: jest.fn() }}
+        route={{
+          params: {
+            quoteId: target.id,
+            quoteParameter: "quoted_status_id",
+          },
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Hello from Mastodon.")).toBeTruthy();
+    });
+    await fireEvent.changeText(
+      screen.getByPlaceholderText("Add your thoughts"),
+      "Mastodon quote",
+    );
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Publish quote" }),
+    );
+
+    await waitFor(() => {
+      expect(mockCreateStatus).toHaveBeenCalledWith(
+        makeContext("mastodon"),
+        "Mastodon quote",
+        {
+          contentWarning: undefined,
+          groupId: undefined,
+          inReplyToId: undefined,
+          poll: undefined,
+          quoteId: target.id,
+          quoteParameter: "quoted_status_id",
+          sensitive: false,
+          visibility: "public",
         },
       );
     });
@@ -253,6 +312,7 @@ describe("Fediverse discussion screens", () => {
           inReplyToId: undefined,
           poll: undefined,
           quoteId: undefined,
+          quoteParameter: undefined,
           sensitive: false,
           visibility: "unlisted",
         },
@@ -312,6 +372,7 @@ describe("Fediverse discussion screens", () => {
             options: ["Monday", "Friday"],
           },
           quoteId: undefined,
+          quoteParameter: undefined,
           sensitive: true,
           visibility: "private",
         },
@@ -370,6 +431,7 @@ describe("Fediverse discussion screens", () => {
           inReplyToId: undefined,
           poll: undefined,
           quoteId: undefined,
+          quoteParameter: undefined,
           sensitive: false,
           visibility: "unlisted",
         },
@@ -380,6 +442,7 @@ describe("Fediverse discussion screens", () => {
         groupName: undefined,
         inReplyToId: undefined,
         quoteId: undefined,
+        quoteParameter: undefined,
       });
     });
 
@@ -421,6 +484,7 @@ describe("Fediverse discussion screens", () => {
           inReplyToId: replyTarget.id,
           poll: undefined,
           quoteId: undefined,
+          quoteParameter: undefined,
           sensitive: false,
           visibility: "public",
         },
@@ -567,6 +631,7 @@ describe("Fediverse discussion screens", () => {
         groupName: undefined,
         inReplyToId: current.id,
         quoteId: undefined,
+        quoteParameter: undefined,
       },
     });
   });
@@ -624,7 +689,7 @@ describe("Fediverse discussion screens", () => {
     mockGetStatus.mockResolvedValue(current);
     mockGetStatusContextWindow.mockRejectedValue(
       new Error(
-        "The Unfathomably server did not respond within 120 seconds.",
+        "The selected server did not respond within 120 seconds.",
       ),
     );
     const screen = await render(

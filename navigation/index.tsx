@@ -397,9 +397,9 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
         name="OptionsScreen"
         component={OptionsScreen}
         options={{
-          title: "Options",
+          title: "More",
           tabBarIcon: ({ color }) => (
-            <TabBarIcon name="settings-outline" color={color} />
+            <TabBarIcon name="ellipsis-horizontal-outline" color={color} />
           ),
         }}
       />
@@ -508,9 +508,9 @@ function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
         name="OptionsScreen"
         component={OptionsScreen}
         options={{
-          title: "Options",
+          title: "More",
           drawerIcon: ({ color }) => (
-            <TabBarIcon name="settings-outline" color={color} />
+            <TabBarIcon name="ellipsis-horizontal-outline" color={color} />
           ),
           headerRight: () => (
             <Pressable

@@ -6,13 +6,13 @@
 
     Purpose:
 
-        Verify the request boundary against Unfathomably, Rebased, and
-        Pleroma-compatible contracts.
+        Verify the request boundary against Unfathomably, Rebased, Pleroma,
+        Akkoma, and Mastodon-compatible contracts.
 
     Responsibilities:
 
         - Verify current Unfathomably endpoints and feature detection
-        - Verify degraded Rebased and Pleroma request behavior
+        - Verify degraded Rebased, Pleroma, Akkoma, and Mastodon behavior
         - Guard authentication, group, status, poll, and context contracts
 
     This file intentionally does NOT contain:
@@ -36,7 +36,9 @@ import {
   getHomeTimeline,
   getInstance,
   getInstanceCapabilities,
+  getInstanceSoftware,
   getNotifications,
+  getQuoteParameter,
   getStatus,
   getStatusAncestors,
   getStatusCapabilities,
@@ -60,6 +62,7 @@ import {
   FEDIVERSE_SERVERS,
   makeContext,
   makeDegradedStatus,
+  makeInstance,
   makeNotification,
   makeStatus,
 } from "../../testing/fediverseFixtures";
@@ -81,7 +84,7 @@ describe("UnfathomablyService", () => {
     );
   });
 
-  test("accepts secure Unfathomably, Rebased, and Pleroma hosts", () => {
+  test("accepts every supported secure Fediverse host", () => {
     Object.values(FEDIVERSE_SERVERS).forEach(server => {
       expect(getSupportedServerUrl(server.origin)).toBe(server.origin);
     });
@@ -275,6 +278,8 @@ describe("UnfathomablyService", () => {
   });
 
   test.each([
+    ["Akkoma", "akkoma"],
+    ["Mastodon", "mastodon"],
     ["Unfathomably", "unfathomably"],
     ["Rebased", "rebased"],
     ["Pleroma", "pleroma"],
@@ -367,6 +372,30 @@ describe("UnfathomablyService", () => {
   });
 
   test.each([
+    ["Akkoma", "akkoma"],
+    ["Mastodon", "mastodon"],
+    ["Pleroma", "pleroma"],
+    ["Rebased", "rebased"],
+    ["Unfathomably", "unfathomably"],
+  ] as const)("identifies a live-shaped %s instance response", (name, family) => {
+    expect(getInstanceSoftware(makeInstance(family))).toMatchObject({
+      family,
+      name,
+    });
+  });
+
+  test("recognizes Akkoma's current custom-reaction feature alias", () => {
+    expect(getInstanceCapabilities(makeInstance("akkoma"))).toMatchObject({
+      emojiReactions: true,
+      groups: false,
+      quotes: true,
+      worlds: false,
+    });
+  });
+
+  test.each([
+    ["Akkoma", "akkoma"],
+    ["Mastodon", "mastodon"],
     ["Rebased", "rebased"],
     ["Pleroma", "pleroma"],
   ] as const)(
@@ -378,8 +407,8 @@ describe("UnfathomablyService", () => {
         quote: false,
       });
       expect(getStatusCapabilities(makeStatus(family))).toEqual({
-        dislike: true,
-        emojiReactions: true,
+        dislike: false,
+        emojiReactions: family !== "mastodon",
         quote: true,
       });
     },
@@ -435,6 +464,41 @@ describe("UnfathomablyService", () => {
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual(expect.objectContaining({ status: "My thoughts", quote_id: "quoted-post" }));
     expect(mockFetch).toHaveBeenNthCalledWith(2, `${FEDIVERSE_SERVERS.rebased.origin}/api/v1/statuses/post-1/reblog`, expect.objectContaining({ method: "POST" }));
     expect(mockFetch).toHaveBeenNthCalledWith(3, `${FEDIVERSE_SERVERS.rebased.origin}/api/v1/pleroma/statuses/post-1/reactions/%F0%9F%91%8D`, expect.objectContaining({ method: "PUT" }));
+  });
+
+  test("uses Mastodon's current quote field without leaking extension fields", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => makeStatus("mastodon", { id: "mastodon-quote" }),
+    });
+    const target = makeStatus("mastodon");
+
+    expect(getQuoteParameter(target)).toBe("quoted_status_id");
+    await createStatus(makeContext("mastodon"), "Current quote", {
+      quoteId: target.id,
+      quoteParameter: getQuoteParameter(target),
+    });
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body).toMatchObject({
+      quoted_status_id: target.id,
+      status: "Current quote",
+      visibility: "public",
+    });
+    expect(body.quote_id).toBeUndefined();
+    expect(body.group_id).toBeUndefined();
+  });
+
+  test("hides a Mastodon quote action when the server denies it", () => {
+    const status = makeStatus("mastodon", {
+      quote_approval: {
+        automatic: [],
+        current_user: "denied",
+        manual: [],
+      },
+    });
+
+    expect(getStatusCapabilities(status).quote).toBe(false);
   });
 
   test("omits community and quote fields from an ordinary reply", async () => {
@@ -657,7 +721,7 @@ describe("UnfathomablyService", () => {
     ]);
   });
 
-  test("falls back to the legacy context contract on older Rebased and Pleroma servers", async () => {
+  test("falls back to the legacy context contract on older compatible servers", async () => {
     const unavailable = {
       ok: false,
       status: 404,
@@ -705,7 +769,7 @@ describe("UnfathomablyService", () => {
         makeContext("unfathomably"),
         "large-thread",
       ),
-    ).rejects.toThrow("Unfathomably returned 502 (Bad Gateway).");
+    ).rejects.toThrow("The selected server returned 502 (Bad Gateway).");
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(mockFetch.mock.calls.map(call => call[0])).not.toContain(
       `${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/statuses/large-thread/context`,
@@ -732,7 +796,7 @@ describe("UnfathomablyService", () => {
         makeContext("unfathomably"),
         "partially-failed-thread",
       ),
-    ).rejects.toThrow("Unfathomably returned 502 (Bad Gateway).");
+    ).rejects.toThrow("The selected server returned 502 (Bad Gateway).");
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 

@@ -1,6 +1,27 @@
 Hoot Unfathomably Changelog
 ===========================
 
+Version 0.4.4
+-------------
+
+- Change the mixed-purpose bottom navigation destination from a settings gear
+  to a More ellipsis, with app settings remaining a distinct action inside it.
+- Load the selected Pleroma FE theme preset on Pleroma and Akkoma hosts that do
+  not publish Soapbox colors, with bounded parsing and safe theme-name checks.
+- Add explicit Mastodon 4.6 and Akkoma fixtures to the strict compatibility
+  suite while preserving capability-degraded Rebased and Pleroma coverage.
+- Identify the selected server correctly in the host picker instead of labeling
+  every Mastodon-compatible server as Unfathomably.
+- Publish Mastodon 4.5 and newer quote posts with `quoted_status_id`, retain the
+  `quote_id` contract on Unfathomably, Rebased, Pleroma, and Akkoma, and render
+  each family's returned quote shape.
+- Use unified query-style WebSocket streams on Rebased, Pleroma, and Akkoma,
+  including their plural `user:notifications` stream, while retaining current
+  path-style streams on Unfathomably and Mastodon.
+- Add a public, read-only compatibility probe covering established Soapbox,
+  Rebased, Pleroma, Akkoma, Mastodon, and Unfathomably servers without
+  registering applications or changing server state.
+
 Version 0.4.1
 -------------
 

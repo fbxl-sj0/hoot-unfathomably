@@ -23,6 +23,7 @@ describe("compose intents", () => {
       groupName: "Group One",
       inReplyToId: undefined,
       quoteId: undefined,
+      quoteParameter: undefined,
     });
     expect(replyIntent).toEqual({
       composeIntentId: expect.any(String),
@@ -30,6 +31,7 @@ describe("compose intents", () => {
       groupName: undefined,
       inReplyToId: "status-1",
       quoteId: undefined,
+      quoteParameter: undefined,
     });
     expect(replyIntent.composeIntentId).not.toBe(
       groupIntent.composeIntentId,

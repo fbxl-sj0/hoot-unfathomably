@@ -22,6 +22,7 @@
     "lint:test-selection": "node scripts/check-test-selection.js",
     "lint:text": "node scripts/check-text-hygiene.js",
     "lint:strict": "npm run lint -- --report-unused-disable-directives && npm run lint:text && npm run lint:source && npm run lint:android && npm run lint:deps && npm run lint:diagnostics && npm run lint:test-selection && npm run lint:fediverse-tests && npx tsc --noEmit --pretty false",
+    "probe:fediverse": "node scripts/probe-fediverse-compatibility.js",
     "postinstall": "node scripts/apply-dependency-security-patches.js",
     "verify:release": "npm run lint:strict && npm test && expo install --check && npx expo-doctor && npm ls --all && npm run lint:security"
   },
@@ -100,7 +101,7 @@
   },
   "private": true,
   "name": "hoot-unfathomably",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "overrides": {
     "uuid": "^14.0.0",
     "babel-plugin-istanbul": "^8.0.0",

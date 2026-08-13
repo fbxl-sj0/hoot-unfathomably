@@ -7,12 +7,15 @@
     carrying a previous group, reply, or quote target into the next post.
 */
 
+import type { QuoteParameter } from "../services/UnfathomablyService";
+
 export type ComposeIntent = {
   composeIntentId: string;
   groupId?: string;
   groupName?: string;
   inReplyToId?: string;
   quoteId?: string;
+  quoteParameter?: QuoteParameter;
 };
 
 let composeIntentSequence = 0;
@@ -27,6 +30,7 @@ export function createComposeIntent(
     groupName: undefined,
     inReplyToId: undefined,
     quoteId: undefined,
+    quoteParameter: undefined,
     ...requested,
   };
 }

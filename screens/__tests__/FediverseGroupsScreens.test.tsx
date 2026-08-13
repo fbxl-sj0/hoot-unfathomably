@@ -13,7 +13,7 @@
 
         - Browse and search groups on supported servers
         - Read group statuses and update membership
-        - Degrade cleanly when plain Pleroma lacks group endpoints
+        - Degrade cleanly when a baseline server lacks group endpoints
 
     This file intentionally does NOT contain:
 
@@ -159,10 +159,14 @@ describe("Fediverse group screens", () => {
     });
   });
 
-  test("shows a useful error on Pleroma without the groups extension", async () => {
-    mockCurrentContext = makeContext("pleroma");
+  test.each([
+    ["Akkoma", "akkoma"],
+    ["Mastodon", "mastodon"],
+    ["Pleroma", "pleroma"],
+  ] as const)("shows a useful error on %s without the groups extension", async (_name, family) => {
+    mockCurrentContext = makeContext(family);
     mockGetGroups.mockRejectedValue(
-      new Error("Groups are not supported by this Pleroma server."),
+      new Error("Groups are not available on this server."),
     );
     const screen = await render(
       <GroupsScreen navigation={{ navigate: jest.fn() }} />,
@@ -171,7 +175,7 @@ describe("Fediverse group screens", () => {
     await waitFor(() => {
       expect(
         screen.getByText(
-          "Groups are not supported by this Pleroma server.",
+          "Groups are not available on this server.",
         ),
       ).toBeTruthy();
     });
@@ -234,6 +238,7 @@ describe("Fediverse group screens", () => {
         groupName: group.display_name,
         inReplyToId: undefined,
         quoteId: undefined,
+        quoteParameter: undefined,
       },
     });
   });

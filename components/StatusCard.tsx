@@ -64,6 +64,7 @@ export default function StatusCard({
     replyAccount,
   );
   const displayContent = getStatusDisplayContent(visible);
+  const quotedStatus = Unfathomably.getQuotedStatus(visible);
   const displayedMedia = compact
     ? visible.media_attachments.slice(0, 1)
     : visible.media_attachments;
@@ -242,6 +243,36 @@ export default function StatusCard({
       {!compact && (
         <StatusLinkPreview card={visible.card} content={visible.content} />
       )}
+      {!!quotedStatus && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Open quoted post by ${
+            quotedStatus.account.display_name || quotedStatus.account.acct
+          }`}
+          onPress={event => {
+            event.stopPropagation();
+            navigation.navigate("Status", { statusId: quotedStatus.id });
+          }}
+          style={[
+            styles.quotePreview,
+            { borderColor: theme.secondaryBackground },
+          ]}
+        >
+          <Text style={styles.quoteAuthor} numberOfLines={1}>
+            {quotedStatus.account.display_name || quotedStatus.account.acct}
+            <Text secondary> @{quotedStatus.account.acct}</Text>
+          </Text>
+          <Text numberOfLines={4}>
+            {getStatusDisplayContent(quotedStatus) || "Quoted post"}
+          </Text>
+          {quotedStatus.media_attachments.length > 0 ? (
+            <Text secondary style={styles.quoteMedia}>
+              {quotedStatus.media_attachments.length} media attachment
+              {quotedStatus.media_attachments.length === 1 ? "" : "s"}
+            </Text>
+          ) : null}
+        </Pressable>
+      )}
       <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"
@@ -263,7 +294,12 @@ export default function StatusCard({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Quote repost"
-            onPress={actionPress(() => openComposer({ quoteId: visible.id, groupId: group?.id, groupName: group?.display_name }))}
+            onPress={actionPress(() => openComposer({
+              groupId: group?.id,
+              groupName: group?.display_name,
+              quoteId: visible.id,
+              quoteParameter: Unfathomably.getQuoteParameter(visible),
+            }))}
             style={[styles.action, { backgroundColor: theme.secondaryBackground }]}
           >
             <Text style={styles.actionText}><Icon name="chatbox-ellipses-outline" size={22} /></Text>
@@ -450,6 +486,9 @@ const styles = StyleSheet.create({
   spoiler: { fontWeight: "700", marginTop: 12 },
   content: { fontSize: 16, lineHeight: 22, marginTop: 12 },
   moreMedia: { fontSize: 12, marginTop: 6, textAlign: "right" },
+  quotePreview: { borderRadius: 10, borderWidth: 1, gap: 6, marginTop: 12, padding: 12 },
+  quoteAuthor: { fontWeight: "700" },
+  quoteMedia: { fontSize: 12 },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 16 },
   action: { alignItems: "center", borderRadius: 10, justifyContent: "center", minHeight: 52, minWidth: 50, paddingHorizontal: 4, width: "15%" },
   actionText: { fontSize: 14, fontWeight: "600", textAlign: "center" },

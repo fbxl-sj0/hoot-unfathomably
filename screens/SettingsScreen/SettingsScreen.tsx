@@ -7,11 +7,11 @@
     Purpose:
 
         Provides a user interface for configuring application settings,
-        including the Unfathomably server, feed sorting, and notifications.
+        including the Fediverse server, feed sorting, and notifications.
 
     Responsibilities:
 
-        • Display and edit the active Unfathomably server URL
+        • Display and edit the active Fediverse server URL
         • Configure default sorting preferences
         • Persist settings changes to local storage and Redux state
         • Manage Android notification diagnostics and test actions
@@ -430,10 +430,10 @@ export default function SettingsScreen() {
       <View style={styles.section}>
         <Text style={styles.header}>SERVER SETTINGS</Text>
         <Text style={[styles.label, { color: theme.secondaryText }]}>
-          Unfathomably server URL
+          Fediverse server URL
         </Text>
         <TextInput
-          accessibilityLabel="Unfathomably server URL"
+          accessibilityLabel="Fediverse server URL"
           style={[
             styles.input,
             {

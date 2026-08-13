@@ -10,7 +10,7 @@
 
     Responsibilities:
 
-        - Cover Soapbox, Unfathomably, Rebased, and Pleroma config shapes
+        - Cover Soapbox, Unfathomably, Rebased, Pleroma, and Akkoma themes
         - Verify instance default modes and accessible control contrast
         - Verify public endpoint priority and offline per-host caching
         - Reject malformed and oversized configuration responses
@@ -81,6 +81,27 @@ describe("InstanceThemeService", () => {
     expect(normalizeInstanceThemeConfiguration({
       pleroma_fe: { theme: "pleroma-dark" },
     })).toBeUndefined();
+    expect(normalizeInstanceThemeConfiguration({
+      _pleroma_theme_version: 2,
+      source: {
+        colors: {
+          accent: "#e2b188",
+          bg: "#0f161e",
+          cGreen: "#5dc94a",
+          cRed: "#d31014",
+          fg: "#151e2b",
+          link: "#81beea",
+          text: "#b9b9ba",
+        },
+      },
+    })).toMatchObject({
+      accentColor: "#81beea",
+      backgroundColor: "#0f161e",
+      brandColor: "#e2b188",
+      secondaryBackgroundColor: "#151e2b",
+      textColor: "#b9b9ba",
+      themeMode: "dark",
+    });
     expect(normalizeInstanceThemeConfiguration({
       brandColor: "javascript:alert(1)",
     })).toBeUndefined();
@@ -161,9 +182,10 @@ describe("InstanceThemeService", () => {
       brandColor: "#167a3c",
       themeMode: "light",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
       "https://themes.example/api/pleroma/frontend_configurations",
+      "https://themes.example/api/v1/pleroma/frontend_configurations",
       "https://themes.example/instance/soapbox.json",
     ]);
     for (const [, options] of fetchMock.mock.calls) {
@@ -179,6 +201,72 @@ describe("InstanceThemeService", () => {
       brandColor: "#167a3c",
       themeMode: "light",
     });
+  });
+
+  test("loads the Pleroma FE default theme preset from its public static path", async () => {
+    const fetchMock = jest.spyOn(global, "fetch").mockImplementation(
+      async request => {
+        const url = String(request);
+        if (url.endsWith("/api/pleroma/frontend_configurations")) {
+          return mockResponse({ pleroma_fe: { theme: "blueplasma" } });
+        }
+        if (url.endsWith("/static/themes/blueplasma.json")) {
+          return mockResponse({
+            _pleroma_theme_version: 2,
+            theme: {
+              colors: {
+                accent: "#713dda",
+                bg: "#110727",
+                cGreen: "#0fa00f",
+                cRed: "#d31014",
+                fg: "#20113f",
+                link: "#5926c2",
+                text: "#b9b9ba",
+              },
+            },
+          });
+        }
+
+        return mockResponse({}, { ok: false });
+      },
+    );
+
+    const refreshed = await refreshInstanceTheme("https://akkoma.example");
+    const resolved = resolveInstanceTheme(refreshed, "light");
+
+    expect(refreshed).toMatchObject({
+      backgroundColor: "#110727",
+      brandColor: "#713dda",
+      secondaryBackgroundColor: "#20113f",
+      themeMode: "dark",
+    });
+    expect(resolved).toMatchObject({
+      colorScheme: "dark",
+      colors: {
+        background: "#110727",
+        secondaryBackground: "#20113f",
+        text: "#b9b9ba",
+      },
+    });
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toContain(
+      "https://akkoma.example/static/themes/blueplasma.json",
+    );
+  });
+
+  test("does not request an unsafe Pleroma theme path", async () => {
+    const fetchMock = jest.spyOn(global, "fetch").mockImplementation(
+      async request => {
+        if (String(request).endsWith("/api/pleroma/frontend_configurations")) {
+          return mockResponse({ pleroma_fe: { theme: "../private" } });
+        }
+        return mockResponse({}, { ok: false });
+      },
+    );
+
+    await expect(
+      refreshInstanceTheme("https://themes.example"),
+    ).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   test("ignores oversized responses and falls back without throwing", async () => {

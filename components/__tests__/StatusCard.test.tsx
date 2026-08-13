@@ -6,8 +6,8 @@
 
     Purpose:
 
-        Verify the active status card against Unfathomably, Rebased, and
-        Pleroma response shapes.
+        Verify the active status card against Unfathomably, Rebased, Pleroma,
+        Akkoma, and Mastodon response shapes.
 
     Responsibilities:
 
@@ -97,10 +97,17 @@ describe("StatusCard Fediverse contracts", () => {
   });
 
   test.each([
-    ["Unfathomably", "unfathomably"],
-    ["Rebased", "rebased"],
-    ["Pleroma", "pleroma"],
-  ] as const)("renders a %s status", async (softwareName, family) => {
+    ["Akkoma", "akkoma", true, false],
+    ["Mastodon", "mastodon", false, false],
+    ["Unfathomably", "unfathomably", true, true],
+    ["Rebased", "rebased", true, false],
+    ["Pleroma", "pleroma", true, false],
+  ] as const)("renders a %s status", async (
+    softwareName,
+    family,
+    hasEmoji,
+    hasDislike,
+  ) => {
     const status = makeStatus(family);
     const screen = await render(
       <StatusCard
@@ -116,18 +123,99 @@ describe("StatusCard Fediverse contracts", () => {
       screen.getByRole("button", { name: "Reply to post" }),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Repost" })).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "Quote repost" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Quote repost" })).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "React with thumbs up" }),
     ).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "React with thumbs down" }),
-    ).toBeTruthy();
+    const thumbsDown = screen.queryByRole("button", {
+      name: "React with thumbs down",
+    });
+    const emoji = screen.queryByRole("button", {
+      name: "Choose an emoji reaction",
+    });
+
+    expect(thumbsDown !== null).toBe(hasDislike);
+    expect(emoji !== null).toBe(hasEmoji);
   });
 
   test.each([
+    [
+      "Mastodon",
+      "mastodon",
+      (quoted: ReturnType<typeof makeStatus>) => ({
+        quote: { state: "accepted", quoted_status: quoted },
+      }),
+    ],
+    [
+      "Akkoma",
+      "akkoma",
+      (quoted: ReturnType<typeof makeStatus>) => ({ quote: quoted }),
+    ],
+    [
+      "Pleroma",
+      "pleroma",
+      (quoted: ReturnType<typeof makeStatus>) => ({
+        pleroma: { quote: quoted, quote_id: quoted.id, quote_visible: true },
+      }),
+    ],
+  ] as const)("renders and opens a %s quote response", async (_name, family, shape) => {
+    const quoted = makeStatus(family, {
+      content: "<p>The quoted post body.</p>",
+      id: `${family}-quoted-status`,
+    });
+    const status = makeStatus(family, shape(quoted));
+    const navigation = { navigate: jest.fn() };
+    const screen = await render(
+      <StatusCard
+        status={status}
+        ctx={makeContext(family)}
+        navigation={navigation}
+      />,
+    );
+
+    expect(screen.getByText("The quoted post body.")).toBeTruthy();
+    await fireEvent.press(
+      screen.getByRole("button", {
+        name: `Open quoted post by ${quoted.account.display_name}`,
+      }),
+      { stopPropagation: jest.fn() },
+    );
+    expect(navigation.navigate).toHaveBeenCalledWith("Status", {
+      statusId: `${family}-quoted-status`,
+    });
+  });
+
+  test("carries Mastodon's current quote parameter into the composer", async () => {
+    const navigation = { navigate: jest.fn() };
+    const status = makeStatus("mastodon");
+    const screen = await render(
+      <StatusCard
+        status={status}
+        ctx={makeContext("mastodon")}
+        navigation={navigation}
+      />,
+    );
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Quote repost" }),
+      { stopPropagation: jest.fn() },
+    );
+    expect(navigation.navigate).toHaveBeenCalledWith("Root", {
+      screen: "NewPostScreen",
+      params: {
+        composeIntentId: expect.any(String),
+        groupId: undefined,
+        groupName: undefined,
+        inReplyToId: undefined,
+        quoteId: status.id,
+        quoteParameter: "quoted_status_id",
+      },
+    });
+  });
+
+  test.each([
+    ["Akkoma", "akkoma"],
+    ["Mastodon", "mastodon"],
     ["Rebased", "rebased"],
     ["Pleroma", "pleroma"],
   ] as const)(
@@ -207,6 +295,7 @@ describe("StatusCard Fediverse contracts", () => {
         groupName: "Unfathomably Test Group",
         inReplyToId: "unfathomably-status-1",
         quoteId: undefined,
+        quoteParameter: undefined,
       },
     });
 
@@ -222,6 +311,7 @@ describe("StatusCard Fediverse contracts", () => {
         groupName: "Unfathomably Test Group",
         inReplyToId: undefined,
         quoteId: "unfathomably-status-1",
+        quoteParameter: "quote_id",
       },
     });
 
@@ -296,6 +386,8 @@ describe("StatusCard Fediverse contracts", () => {
   });
 
   test.each([
+    ["Akkoma", "akkoma"],
+    ["Mastodon", "mastodon"],
     ["Unfathomably", "unfathomably"],
     ["Rebased", "rebased"],
     ["Pleroma", "pleroma"],
@@ -636,21 +728,21 @@ describe("StatusCard Fediverse contracts", () => {
 
   test("uses favourite and dislike endpoints for thumbs up and down", async () => {
     mockFavouriteStatus.mockResolvedValue(
-      makeStatus("rebased", {
+      makeStatus("unfathomably", {
         favourited: true,
         favourites_count: 6,
       }),
     );
     mockDislikeStatus.mockResolvedValue(
-      makeStatus("rebased", {
+      makeStatus("unfathomably", {
         disliked: true,
         dislikes_count: 2,
       }),
     );
-    const context = makeContext("rebased");
+    const context = makeContext("unfathomably");
     const screen = await render(
       <StatusCard
-        status={makeStatus("rebased")}
+        status={makeStatus("unfathomably")}
         ctx={context}
         navigation={{ navigate: jest.fn() }}
       />,
@@ -663,7 +755,7 @@ describe("StatusCard Fediverse contracts", () => {
     await waitFor(() => {
       expect(mockFavouriteStatus).toHaveBeenCalledWith(
         context,
-        "rebased-status-1",
+        "unfathomably-status-1",
         false,
       );
       expect(
@@ -678,7 +770,7 @@ describe("StatusCard Fediverse contracts", () => {
     await waitFor(() => {
       expect(mockDislikeStatus).toHaveBeenCalledWith(
         context,
-        "rebased-status-1",
+        "unfathomably-status-1",
         false,
       );
       expect(

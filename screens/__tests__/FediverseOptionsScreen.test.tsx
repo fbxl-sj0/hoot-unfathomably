@@ -10,7 +10,7 @@
 
     Responsibilities:
 
-        - Render Unfathomably, Rebased, and Pleroma account identities.
+        - Render every supported Fediverse account identity.
         - Open the current account profile and application settings.
 
     This file intentionally does NOT contain:
@@ -43,6 +43,8 @@ jest.mock("../../hooks/useTheme", () => ({
 
 describe("Fediverse account options", () => {
   test.each([
+    ["Akkoma", "akkoma"],
+    ["Mastodon", "mastodon"],
     ["Unfathomably", "unfathomably"],
     ["Rebased", "rebased"],
     ["Pleroma", "pleroma"],

@@ -140,7 +140,7 @@ describe("HostList", () => {
     ).toBeTruthy();
 
     await waitFor(() => {
-      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
+      expect(screen.getByText("Mastodon 4.3.0")).toBeTruthy();
     });
 
     await fireEvent.press(
@@ -215,7 +215,7 @@ describe("HostList", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
+      expect(screen.getByText("Mastodon 4.3.0")).toBeTruthy();
       expect(mockGetInstance).toHaveBeenCalledTimes(2);
     });
   });
@@ -228,7 +228,7 @@ describe("HostList", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
+      expect(screen.getByText("Mastodon 4.3.0")).toBeTruthy();
     });
     await fireEvent.changeText(
       input,
@@ -246,7 +246,7 @@ describe("HostList", () => {
     const screen = await renderWithStore(<HostList onSelect={onSelect} />);
 
     await waitFor(() => {
-      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
+      expect(screen.getByText("Mastodon 4.3.0")).toBeTruthy();
     });
     await fireEvent.changeText(
       screen.getByPlaceholderText(
@@ -269,7 +269,7 @@ describe("HostList", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
+      expect(screen.getByText("Mastodon 4.3.0")).toBeTruthy();
     });
     await fireEvent.changeText(input, "http://remote.example");
     expect(
@@ -282,7 +282,7 @@ describe("HostList", () => {
     expect(onSelect).not.toHaveBeenCalled();
     expect(Alert.alert).toHaveBeenCalledWith(
       "Enter a server",
-      "Enter a valid HTTPS Unfathomably, Pleroma, Rebased, or Mastodon-compatible server.",
+      "Enter a valid HTTPS Unfathomably, Rebased, Pleroma, Akkoma, or Mastodon server.",
     );
   });
 
@@ -310,7 +310,7 @@ describe("HostList", () => {
           name: "Select profile alice@pleroma.example",
         }),
       ).toBeTruthy();
-      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
+      expect(screen.getByText("Mastodon 4.3.0")).toBeTruthy();
     });
 
     await fireEvent.press(
@@ -348,7 +348,7 @@ describe("HostList", () => {
           name: "Select profile alice@rebased.example",
         }),
       ).toBeTruthy();
-      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
+      expect(screen.getByText("Mastodon 4.3.0")).toBeTruthy();
     });
 
     await fireEvent.press(
@@ -387,7 +387,7 @@ describe("HostList", () => {
       }),
     );
     await waitFor(() => {
-      expect(screen.getByText("Unfathomably 4.3.0")).toBeTruthy();
+      expect(screen.getByText("Mastodon 4.3.0")).toBeTruthy();
     });
 
     await fireEvent.press(profileButton);
