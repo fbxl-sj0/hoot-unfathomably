@@ -1,6 +1,6 @@
 /*
-    Project: Hoot Mobile
-    -------------------
+    Project: Hoot Unfathomably
+    --------------------------
 
     File: TouchTargets.ts
 
@@ -12,6 +12,7 @@
 
         - Keep tappable controls at a comfortable Android phone size
         - Provide shared hit slop for compact inline controls
+        - Reserve scroll space below form actions at enlarged text sizes
         - Avoid repeated magic numbers across screens
 
     This file intentionally does NOT contain:
@@ -39,5 +40,12 @@ export const TOUCH_TARGET_HIT_SLOP = {
   bottom: 12,
   left: 12,
 };
+
+/*
+    Scrollable forms need room below their last action so Android can move it
+    above the navigation area. This is especially important when both system
+    font scaling and the app's extra-large text preference are active.
+*/
+export const SCROLL_FORM_BOTTOM_PADDING = 120;
 
 /* end of TouchTargets.ts */

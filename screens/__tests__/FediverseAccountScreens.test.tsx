@@ -34,7 +34,9 @@ import {
 } from "../../testing/fediverseFixtures";
 
 const mockDispatch = jest.fn();
+const mockDismissGroupedNotification = jest.fn();
 const mockGetAccountStatuses = jest.fn();
+const mockGetGroupedNotifications = jest.fn();
 const mockGetNotifications = jest.fn();
 const mockResolveFollowRequest = jest.fn();
 const mockLogout = jest.fn();
@@ -80,10 +82,12 @@ jest.mock("../../services/UnfathomablyAccountService", () => ({
 }));
 
 jest.mock("../../services/UnfathomablyService", () => ({
-  getAccountStatuses: (...args: unknown[]) =>
-    mockGetAccountStatuses(...args),
-  getNotifications: (...args: unknown[]) =>
-    mockGetNotifications(...args),
+  dismissGroupedNotification: (...args: unknown[]) =>
+    mockDismissGroupedNotification(...args),
+  getAccountStatuses: (...args: unknown[]) => mockGetAccountStatuses(...args),
+  getGroupedNotifications: (...args: unknown[]) =>
+    mockGetGroupedNotifications(...args),
+  getNotifications: (...args: unknown[]) => mockGetNotifications(...args),
 }));
 
 jest.mock("../../components/StatusCard", () => {
@@ -94,11 +98,7 @@ jest.mock("../../components/StatusCard", () => {
   return {
     __esModule: true,
     ...actual,
-    default: function MockStatusCard({
-      status,
-    }: {
-      status: { id: string };
-    }) {
+    default: function MockStatusCard({ status }: { status: { id: string } }) {
       return React.createElement(Text, null, `status:${status.id}`);
     },
   };
@@ -108,7 +108,9 @@ describe("Fediverse account screens", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCurrentContext = makeContext("unfathomably");
+    mockDismissGroupedNotification.mockResolvedValue({});
     mockGetAccountStatuses.mockResolvedValue([]);
+    mockGetGroupedNotifications.mockResolvedValue(undefined);
     mockGetNotifications.mockResolvedValue([]);
     mockResolveFollowRequest.mockResolvedValue({
       followed_by: true,
@@ -137,22 +139,16 @@ describe("Fediverse account screens", () => {
 
       await waitFor(() => {
         expect(screen.getByText(new RegExp(actionLabel))).toBeTruthy();
-        expect(
-          screen.getByText(`Hello from ${_label}.`),
-        ).toBeTruthy();
+        expect(screen.getByText(`Hello from ${_label}.`)).toBeTruthy();
       });
-      expect(mockGetNotifications).toHaveBeenCalledWith(
-        makeContext(family),
-      );
+      expect(mockGetNotifications).toHaveBeenCalledWith(makeContext(family));
       expect(mockUseStream).toHaveBeenCalledWith(
         makeContext(family),
         { stream: "user:notification" },
         expect.objectContaining({ onEvent: expect.any(Function) }),
       );
 
-      await fireEvent.press(
-        screen.getByText(new RegExp(actionLabel)),
-      );
+      await fireEvent.press(screen.getByText(new RegExp(actionLabel)));
       expect(navigation.navigate).toHaveBeenCalledWith("Status", {
         statusId: `${family}-status-1`,
       });
@@ -168,9 +164,7 @@ describe("Fediverse account screens", () => {
       .mockResolvedValueOnce([first])
       .mockResolvedValueOnce([duplicate, second]);
     const screen = await render(
-      <UnfathomablyNotificationsScreen
-        navigation={{ navigate: jest.fn() }}
-      />,
+      <UnfathomablyNotificationsScreen navigation={{ navigate: jest.fn() }} />,
     );
 
     await waitFor(() => {
@@ -232,7 +226,9 @@ describe("Fediverse account screens", () => {
       <UnfathomablyNotificationsScreen navigation={{ navigate: jest.fn() }} />,
     );
 
-    await waitFor(() => expect(screen.getByText(/requested to follow you/)).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText(/requested to follow you/)).toBeTruthy(),
+    );
     await fireEvent.press(screen.getByRole("button", { name: "Accept" }));
     await waitFor(() => {
       expect(mockResolveFollowRequest).toHaveBeenCalledWith(
@@ -241,6 +237,47 @@ describe("Fediverse account screens", () => {
         true,
       );
       expect(screen.queryByText(/requested to follow you/)).toBeNull();
+    });
+  });
+
+  test("renders and dismisses an Unfathomably notification group", async () => {
+    const account = makeNotification("unfathomably").account;
+    const status = makeStatus("unfathomably");
+    mockGetGroupedNotifications.mockResolvedValue({
+      accounts: [account],
+      notification_groups: [
+        {
+          group_key: "favourite-status-1",
+          latest_page_notification_at: "2026-08-13T12:00:00.000Z",
+          most_recent_notification_id: "notice-group-1",
+          notifications_count: 3,
+          page_min_id: "notice-group-1",
+          sample_account_ids: [account.id],
+          status_id: status.id,
+          type: "favourite",
+        },
+      ],
+      statuses: [status],
+    });
+    const screen = await render(
+      <UnfathomablyNotificationsScreen navigation={{ navigate: jest.fn() }} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("3 related notifications")).toBeTruthy();
+    });
+    await fireEvent.press(
+      screen.getByRole("button", {
+        name: "Dismiss related notifications",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockDismissGroupedNotification).toHaveBeenCalledWith(
+        makeContext("unfathomably"),
+        "favourite-status-1",
+      );
+      expect(screen.queryByText("3 related notifications")).toBeNull();
     });
   });
 
@@ -254,19 +291,13 @@ describe("Fediverse account screens", () => {
     mockCurrentContext = makeContext(family);
     mockGetAccountStatuses.mockResolvedValue([makeStatus(family)]);
     const screen = await render(
-      <UnfathomablyProfileScreen
-        navigation={{ navigate: jest.fn() }}
-      />,
+      <UnfathomablyProfileScreen navigation={{ navigate: jest.fn() }} />,
     );
 
     await waitFor(() => {
       expect(screen.getByText(`${_label} Alice`)).toBeTruthy();
-      expect(
-        screen.getByText(`Testing ${_label} compatibility.`),
-      ).toBeTruthy();
-      expect(
-        screen.getByText(`status:${family}-status-1`),
-      ).toBeTruthy();
+      expect(screen.getByText(`Testing ${_label} compatibility.`)).toBeTruthy();
+      expect(screen.getByText(`status:${family}-status-1`)).toBeTruthy();
     });
     expect(mockGetAccountStatuses).toHaveBeenCalledWith(
       makeContext(family),
@@ -285,23 +316,17 @@ describe("Fediverse account screens", () => {
       makeStatus("unfathomably", { id: "logout-profile-status" }),
     ]);
     const screen = await render(
-      <UnfathomablyProfileScreen
-        navigation={{ navigate: jest.fn() }}
-      />,
+      <UnfathomablyProfileScreen navigation={{ navigate: jest.fn() }} />,
     );
 
     await waitFor(() => {
       expect(screen.getByText("status:logout-profile-status")).toBeTruthy();
     });
 
-    await fireEvent.press(
-      screen.getByRole("button", { name: "Log out" }),
-    );
+    await fireEvent.press(screen.getByRole("button", { name: "Log out" }));
 
     await waitFor(() => {
-      expect(mockLogout).toHaveBeenCalledWith(
-        makeContext("unfathomably"),
-      );
+      expect(mockLogout).toHaveBeenCalledWith(makeContext("unfathomably"));
       expect(mockRemoveActiveContext).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith(
         expect.objectContaining({

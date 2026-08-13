@@ -68,6 +68,18 @@ import AccountScreen from "../screens/AccountScreen";
 import AccountConnectionsScreen from "../screens/AccountConnectionsScreen";
 import PeopleScreen from "../screens/PeopleScreen";
 import SavedPostsScreen from "../screens/SavedPostsScreen";
+import DraftsScreen from "../screens/DraftsScreen";
+import ScheduledPostsScreen from "../screens/ScheduledPostsScreen";
+import ListsScreen from "../screens/ListsScreen";
+import ListEditorScreen from "../screens/ListEditorScreen";
+import ListDetailScreen from "../screens/ListDetailScreen";
+import FiltersScreen from "../screens/FiltersScreen";
+import FilterEditorScreen from "../screens/FilterEditorScreen";
+import StatusActionsScreen from "../screens/StatusActionsScreen";
+import ReportScreen from "../screens/ReportScreen";
+import CrossAccountActionScreen from "../screens/CrossAccountActionScreen";
+import EditProfileScreen from "../screens/EditProfileScreen";
+import NotificationPreferencesScreen from "../screens/NotificationPreferencesScreen";
 import ImageViewerScreen from "../screens/ImageViewerScreen";
 import MediaViewerScreen from "../screens/MediaViewerScreen";
 import GroupScreen from "../screens/GroupScreen";
@@ -85,6 +97,8 @@ import {
   TOUCH_TARGET_HIT_SLOP,
 } from "../constants/TouchTargets";
 import { createComposeIntent } from "../utils/composeIntent";
+import { useAccessibilityPreferences } from "../contexts/AccessibilityPreferencesContext";
+import useI18n from "../hooks/useI18n";
 
 type RootNavigation = RootStackScreenProps<"Root">["navigation"];
 type SortIconName = React.ComponentProps<typeof Icon>["name"];
@@ -138,9 +152,9 @@ function useFeedSort(
 
   const changeSort = useCallback(
     (requestedSort: SortOption) => {
-      dispatch(setActiveFeedSort(
-        normalizeSortForServer(requestedSort, supportsTop),
-      ));
+      dispatch(
+        setActiveFeedSort(normalizeSortForServer(requestedSort, supportsTop)),
+      );
     },
     [dispatch, supportsTop],
   );
@@ -155,10 +169,9 @@ export default function Navigation() {
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const colorScheme = useInstanceColorScheme();
   const theme = useTheme();
-  const pendingNotificationTarget =
-    useRef<NotificationPoller.NotificationNavigationTarget | undefined>(
-      undefined,
-    );
+  const pendingNotificationTarget = useRef<
+    NotificationPoller.NotificationNavigationTarget | undefined
+  >(undefined);
   const navigationTheme = {
     ...(colorScheme === "dark" ? DarkTheme : DefaultTheme),
     colors: {
@@ -235,8 +248,12 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function RootNavigator() {
   const dimensions = useWindowDimensions();
+  const { reduceMotion } = useAccessibilityPreferences();
+  const { t } = useI18n();
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{ animation: reduceMotion ? "none" : "default" }}
+    >
       <Stack.Screen
         name="Root"
         component={
@@ -244,27 +261,170 @@ function RootNavigator() {
         }
         options={{ headerShown: false }}
       />
-      <Stack.Screen name="Status" component={StatusThreadScreen} options={{ title: "Discussion" }} />
-      <Stack.Screen name="Account" component={AccountScreen} options={({ route }) => ({ title: route.params.account?.display_name || route.params.account?.username || "Profile" })} />
-      <Stack.Screen name="AccountConnections" component={AccountConnectionsScreen} options={({ route }) => ({ title: `${route.params.title || "Account"} ${route.params.mode}` })} />
-      <Stack.Screen name="People" component={PeopleScreen} options={{ title: "People" }} />
-      <Stack.Screen name="SavedPosts" component={SavedPostsScreen} options={{ title: "Saved posts" }} />
-      <Stack.Screen name="ImageViewer" component={ImageViewerScreen} options={{ title: "Image" }} />
-      <Stack.Screen name="MediaViewer" component={MediaViewerScreen} options={{ title: "Media" }} />
-      <Stack.Screen name="Group" component={GroupScreen} options={({ route }) => ({ title: route.params.title || "Group" })} />
-      <Stack.Screen name="Worlds" component={WorldsScreen} options={{ title: "Worlds" }} />
-      <Stack.Screen name="BookLibrary" component={BookLibraryScreen} options={{ title: "My books" }} />
-      <Stack.Screen name="BookReview" component={BookReviewScreen} options={{ title: "Book activity" }} />
-      <Stack.Screen name="RouteRecorder" component={RouteRecorderScreen} options={{ title: "GPS paths" }} />
-      <Stack.Screen name="Sources" component={UnfathomablySourcesScreen} options={{ title: "Feeds" }} />
-      <Stack.Screen name="Source" component={UnfathomablySourceScreen} options={({ route }) => ({ title: route.params.title || "Feed" })} />
-      <Stack.Screen name="NativeResource" component={NativeResourceScreen} options={{ title: "World item" }} />
-      <Stack.Screen name="AccountProfile" component={ProfileScreen} options={{ title: "Your profile" }} />
-      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen
+        name="Status"
+        component={StatusThreadScreen}
+        options={{ title: t("nav.discussion") }}
+      />
+      <Stack.Screen
+        name="Account"
+        component={AccountScreen}
+        options={({ route }) => ({
+          title:
+            route.params.account?.display_name ||
+            route.params.account?.username ||
+            "Profile",
+        })}
+      />
+      <Stack.Screen
+        name="AccountConnections"
+        component={AccountConnectionsScreen}
+        options={({ route }) => ({
+          title: `${route.params.title || "Account"} ${route.params.mode}`,
+        })}
+      />
+      <Stack.Screen
+        name="People"
+        component={PeopleScreen}
+        options={{ title: t("nav.people") }}
+      />
+      <Stack.Screen
+        name="SavedPosts"
+        component={SavedPostsScreen}
+        options={{ title: t("nav.savedPosts") }}
+      />
+      <Stack.Screen
+        name="Drafts"
+        component={DraftsScreen}
+        options={{ title: t("nav.drafts") }}
+      />
+      <Stack.Screen
+        name="ScheduledPosts"
+        component={ScheduledPostsScreen}
+        options={{ title: t("nav.scheduledPosts") }}
+      />
+      <Stack.Screen
+        name="Lists"
+        component={ListsScreen}
+        options={{ title: t("nav.lists") }}
+      />
+      <Stack.Screen
+        name="ListEditor"
+        component={ListEditorScreen}
+        options={({ route }) => ({
+          title: route.params?.list ? "Edit list" : "Create list",
+        })}
+      />
+      <Stack.Screen
+        name="ListDetail"
+        component={ListDetailScreen}
+        options={({ route }) => ({ title: route.params.title })}
+      />
+      <Stack.Screen
+        name="Filters"
+        component={FiltersScreen}
+        options={{ title: t("nav.contentFilters") }}
+      />
+      <Stack.Screen
+        name="FilterEditor"
+        component={FilterEditorScreen}
+        options={({ route }) => ({
+          title: route.params?.filter ? "Edit filter" : "Create filter",
+        })}
+      />
+      <Stack.Screen
+        name="StatusActions"
+        component={StatusActionsScreen}
+        options={{ title: t("nav.postActions") }}
+      />
+      <Stack.Screen
+        name="Report"
+        component={ReportScreen}
+        options={{ title: t("nav.report") }}
+      />
+      <Stack.Screen
+        name="CrossAccountAction"
+        component={CrossAccountActionScreen}
+        options={{ title: t("nav.anotherAccount") }}
+      />
+      <Stack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ title: t("nav.editProfile") }}
+      />
+      <Stack.Screen
+        name="NotificationPreferences"
+        component={NotificationPreferencesScreen}
+        options={{ title: t("nav.notificationPreferences") }}
+      />
+      <Stack.Screen
+        name="ImageViewer"
+        component={ImageViewerScreen}
+        options={{ title: t("nav.image") }}
+      />
+      <Stack.Screen
+        name="MediaViewer"
+        component={MediaViewerScreen}
+        options={{ title: t("nav.media") }}
+      />
+      <Stack.Screen
+        name="Group"
+        component={GroupScreen}
+        options={({ route }) => ({
+          title: route.params.title || t("nav.group"),
+        })}
+      />
+      <Stack.Screen
+        name="Worlds"
+        component={WorldsScreen}
+        options={{ title: t("nav.worlds") }}
+      />
+      <Stack.Screen
+        name="BookLibrary"
+        component={BookLibraryScreen}
+        options={{ title: t("nav.myBooks") }}
+      />
+      <Stack.Screen
+        name="BookReview"
+        component={BookReviewScreen}
+        options={{ title: t("nav.bookActivity") }}
+      />
+      <Stack.Screen
+        name="RouteRecorder"
+        component={RouteRecorderScreen}
+        options={{ title: t("nav.gpsPaths") }}
+      />
+      <Stack.Screen
+        name="Sources"
+        component={UnfathomablySourcesScreen}
+        options={{ title: t("nav.feeds") }}
+      />
+      <Stack.Screen
+        name="Source"
+        component={UnfathomablySourceScreen}
+        options={({ route }) => ({
+          title: route.params.title || t("nav.feed"),
+        })}
+      />
+      <Stack.Screen
+        name="NativeResource"
+        component={NativeResourceScreen}
+        options={{ title: t("nav.worldItem") }}
+      />
+      <Stack.Screen
+        name="AccountProfile"
+        component={ProfileScreen}
+        options={{ title: t("nav.yourProfile") }}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ title: t("nav.settings") }}
+      />
       <Stack.Screen
         name="NotFound"
         component={NotFoundScreen}
-        options={{ title: "Oops!" }}
+        options={{ title: t("nav.notFound") }}
       />
     </Stack.Navigator>
   );
@@ -278,6 +438,7 @@ const BottomTab = createBottomTabNavigator<RootTabParamList>();
 
 function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
   const theme = useTheme();
+  const { t } = useI18n();
   const supportsTop = false;
   const { safeSort, changeSort } = useFeedSort(navigation, supportsTop);
 
@@ -286,9 +447,7 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
     "hot",
     "new",
     ...(supportsTop ? (["top"] as SortOption[]) : []),
-  ].filter(
-    (value, i, arr): value is SortOption => arr.indexOf(value) === i,
-  );
+  ].filter((value, i, arr): value is SortOption => arr.indexOf(value) === i);
 
   return (
     <BottomTab.Navigator
@@ -305,13 +464,14 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
         component={TimelineScreen}
         initialParams={{ sort: safeSort }}
         options={() => ({
-          title: "Timeline",
+          title: t("nav.timeline"),
+          tabBarAccessibilityLabel: t("nav.timeline"),
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="home-outline" color={color} />
           ),
           headerRight: () => (
             <Pressable
-              accessibilityLabel="Change feed sort"
+              accessibilityLabel={t("nav.changeSort")}
               accessibilityRole="button"
               hitSlop={TOUCH_TARGET_HIT_SLOP}
               onPress={() => {
@@ -361,7 +521,8 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
         name="GroupFeedScreen"
         component={GroupFeedScreen}
         options={{
-          title: "Group feed",
+          title: t("nav.groupFeed"),
+          tabBarAccessibilityLabel: t("nav.groupFeed"),
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="chatbubbles-outline" color={color} />
           ),
@@ -371,7 +532,8 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
         name="SearchScreen"
         component={GroupsScreen}
         options={{
-          title: "Groups",
+          title: t("nav.groups"),
+          tabBarAccessibilityLabel: t("nav.groups"),
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="people-outline" color={color} />
           ),
@@ -385,7 +547,8 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
           tabPress: () => navigation.setParams(createComposeIntent()),
         })}
         options={{
-          title: "New post",
+          title: t("nav.newPost"),
+          tabBarAccessibilityLabel: t("nav.newPost"),
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="add-outline" color={color} size={40} />
           ),
@@ -395,7 +558,8 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
         name="NotificationScreen"
         component={NotificationScreen}
         options={{
-          title: "Notifications",
+          title: t("nav.notifications"),
+          tabBarAccessibilityLabel: t("nav.notifications"),
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="notifications-outline" color={color} />
           ),
@@ -405,7 +569,8 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
         name="OptionsScreen"
         component={OptionsScreen}
         options={{
-          title: "More",
+          title: t("nav.more"),
+          tabBarAccessibilityLabel: t("nav.more"),
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="ellipsis-horizontal-outline" color={color} />
           ),
@@ -419,6 +584,7 @@ const Drawer = createDrawerNavigator<RootTabParamList>();
 
 function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
   const theme = useTheme();
+  const { t } = useI18n();
   const supportsTop = false;
   const { safeSort, changeSort } = useFeedSort(navigation, supportsTop);
 
@@ -437,13 +603,13 @@ function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
         component={TimelineScreen}
         initialParams={{ sort: safeSort }}
         options={({ navigation }) => ({
-          title: "Timeline",
+          title: t("nav.timeline"),
           drawerIcon: ({ color }) => (
             <TabBarIcon name="home-outline" color={color} />
           ),
           headerRight: () => (
             <Pressable
-              accessibilityLabel="Change feed sort"
+              accessibilityLabel={t("nav.changeSort")}
               accessibilityRole="button"
               hitSlop={TOUCH_TARGET_HIT_SLOP}
               onPress={() => {
@@ -472,7 +638,7 @@ function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
         name="GroupFeedScreen"
         component={GroupFeedScreen}
         options={{
-          title: "Group feed",
+          title: t("nav.groupFeed"),
           drawerIcon: ({ color }) => (
             <TabBarIcon name="chatbubbles-outline" color={color} />
           ),
@@ -482,7 +648,7 @@ function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
         name="SearchScreen"
         component={GroupsScreen}
         options={{
-          title: "Groups",
+          title: t("nav.groups"),
           drawerIcon: ({ color }) => (
             <TabBarIcon name="people-outline" color={color} />
           ),
@@ -496,7 +662,7 @@ function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
           drawerItemPress: () => navigation.setParams(createComposeIntent()),
         })}
         options={{
-          title: "New Post",
+          title: t("nav.newPost"),
           drawerIcon: ({ color }) => (
             <TabBarIcon name="add-outline" color={color} size={40} />
           ),
@@ -506,7 +672,7 @@ function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
         name="NotificationScreen"
         component={NotificationScreen}
         options={{
-          title: "Notifications",
+          title: t("nav.notifications"),
           drawerIcon: ({ color }) => (
             <TabBarIcon name="notifications-outline" color={color} />
           ),
@@ -516,7 +682,7 @@ function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
         name="OptionsScreen"
         component={OptionsScreen}
         options={{
-          title: "More",
+          title: t("nav.more"),
           drawerIcon: ({ color }) => (
             <TabBarIcon name="ellipsis-horizontal-outline" color={color} />
           ),

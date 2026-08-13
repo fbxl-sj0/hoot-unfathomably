@@ -266,7 +266,13 @@ describe("StorageService", () => {
 
   test("loads default app settings when storage is empty", async () => {
     await expect(appSettings.query()).resolves.toEqual({
+      alwaysExpandContentWarnings: false,
       defaultFeedSort: "hot",
+      highContrast: false,
+      locale: "system",
+      reduceMotion: false,
+      showMediaDescriptions: false,
+      textScale: 1,
     });
   });
 
@@ -276,7 +282,13 @@ describe("StorageService", () => {
     });
 
     await expect(appSettings.query()).resolves.toEqual({
+      alwaysExpandContentWarnings: false,
       defaultFeedSort: "new",
+      highContrast: false,
+      locale: "system",
+      reduceMotion: false,
+      showMediaDescriptions: false,
+      textScale: 1,
     });
   });
 
@@ -289,7 +301,13 @@ describe("StorageService", () => {
     );
 
     await expect(appSettings.query()).resolves.toEqual({
+      alwaysExpandContentWarnings: false,
       defaultFeedSort: "hot",
+      highContrast: false,
+      locale: "system",
+      reduceMotion: false,
+      showMediaDescriptions: false,
+      textScale: 1,
     });
   });
 });

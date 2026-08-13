@@ -1,6 +1,6 @@
 # Unfathomably compatibility
 
-Hoot Unfathomably 0.5.0 was reviewed against these upstream revisions:
+Hoot Unfathomably 0.6.0 was reviewed against these upstream revisions:
 
 - unfathomably-be 3.5.0, commit `de930df6d18bf0f9cd124c4beb9d85dc23303620`
 - unfathomably-fe, commit `5cf055beeb9f0a1453dca99b3559d1b786ae7f82`
@@ -24,8 +24,10 @@ polling boundary. It provides deterministic per-event identifiers and works on
 Unfathomably, Rebased, Pleroma, Akkoma, and Mastodon. The app understands the
 expanded 3.5 event,
 participation, group, emoji, poll, move, edit, and follow notification types.
-The v2 grouped envelope is therefore not required to keep notifications
-correct or to preserve degraded compatibility.
+The v2 grouped envelope is used when advertised by Unfathomably or Mastodon,
+but is not required to keep notifications correct or preserve degraded
+compatibility. Local categories, digest delivery, quiet hours, sound, and
+preview preferences operate on the normalized v1 event boundary.
 
 Foreground screens also use the backend's advertised streaming API. The app
 prefers the streaming origin from Mastodon v2
@@ -84,6 +86,14 @@ The app supports:
   pending-request cancellation, unfollow, follower and following lists
 - incoming follow-request approval and rejection, plus account mute and block
 - standard bookmarks, a saved-post timeline, and signed-in account post deletion
+- account-scoped offline timeline and notification caches
+- complete local composer drafts with durable media and alt text
+- standard scheduled statuses, source retrieval, and existing-post editing
+- standard lists, membership, and list timelines
+- Mastodon filter v2 with a legacy filter v1 fallback
+- server translation and native moderation reports
+- profile text, fields, image, and privacy editing
+- explicit cross-account favourite, repost, and emoji actions
 
 Worlds search and source discovery are requested only from the selected local
 server. The app does not contact a remote provider itself. Opening a discovery
@@ -117,6 +127,8 @@ The common baseline remains available when an optional extension is absent:
 - ordinary posts and replies
 - reposts and favourites
 - profiles, account search, follow relationships, bookmarks, and own-post deletion
+- drafts, lists, compatible filters, profile editing, reports, and scheduling
+  when the corresponding standard server endpoint is present
 - notifications and link previews
 - classic user and notification live streams when the server provides them
 - image and supported media viewing
@@ -178,5 +190,29 @@ The live probe uses public `GET` requests only. It does not receive credentials,
 register an application, create content, react, follow, or change server state.
 The same response differences are retained as local fixtures, so the release
 suite does not depend on these public hosts remaining online.
+
+## Authenticated local Docker matrix
+
+On August 13, 2026, the version 0.6.0 service layer passed all 11 authenticated
+workflows against disposable Docker targets built from Unfathomably
+`de930df6d18b`, Rebased `cb3e04623556`, Pleroma 2.10.2 at `cd8816eccec3`,
+Akkoma 3.20.0 at `98fcccccb153`, and the official Mastodon 4.6.5 image.
+
+The local suite verified profile editing, status create/read/resolve/edit,
+reactions, lists, filters, scheduled posts, notifications, reports, group
+capability handling, grouped-notification availability, and translation
+availability. It found and now guards four interoperability defects:
+
+- Pleroma-family status resolution must prefer the canonical ActivityPub URI
+  over a presentation URL.
+- concurrent OAuth application registration for one server must share one
+  in-flight request.
+- Pleroma 2.10 must retry list creation with its portable title-only payload
+  after rejecting newer optional fields.
+- a missing source language must become a useful translation-unavailable
+  message rather than a raw HTTP error.
+
+The loopback-only runner and exact safety boundary are in
+[testing/docker-fediverse/README.md](testing/docker-fediverse/README.md).
 
 <!-- end of UNFATHOMABLY-COMPATIBILITY.md -->

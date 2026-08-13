@@ -163,7 +163,7 @@ describe("Fediverse discussion screens", () => {
       expect(mockCreateStatus).toHaveBeenCalledWith(
         makeContext("pleroma"),
         "A compatible reply",
-        {
+        expect.objectContaining({
           contentWarning: undefined,
           groupId: undefined,
           inReplyToId: target.id,
@@ -172,7 +172,7 @@ describe("Fediverse discussion screens", () => {
           quoteParameter: undefined,
           sensitive: false,
           visibility: "public",
-        },
+        }),
       );
       expect(navigation.navigate).toHaveBeenCalledWith("Status", {
         statusId: "pleroma-reply-2",
@@ -213,7 +213,7 @@ describe("Fediverse discussion screens", () => {
       expect(mockCreateStatus).toHaveBeenCalledWith(
         makeContext("rebased"),
         "Worth sharing",
-        {
+        expect.objectContaining({
           contentWarning: undefined,
           groupId: group.id,
           inReplyToId: undefined,
@@ -222,7 +222,7 @@ describe("Fediverse discussion screens", () => {
           quoteParameter: "quote_id",
           sensitive: false,
           visibility: "unlisted",
-        },
+        }),
       );
     });
   });
@@ -264,7 +264,7 @@ describe("Fediverse discussion screens", () => {
       expect(mockCreateStatus).toHaveBeenCalledWith(
         makeContext("mastodon"),
         "Mastodon quote",
-        {
+        expect.objectContaining({
           contentWarning: undefined,
           groupId: undefined,
           inReplyToId: undefined,
@@ -273,7 +273,7 @@ describe("Fediverse discussion screens", () => {
           quoteParameter: "quoted_status_id",
           sensitive: false,
           visibility: "public",
-        },
+        }),
       );
     });
   });
@@ -306,7 +306,7 @@ describe("Fediverse discussion screens", () => {
       expect(mockCreateStatus).toHaveBeenCalledWith(
         makeContext("unfathomably"),
         "Group release notes",
-        {
+        expect.objectContaining({
           contentWarning: undefined,
           groupId: group.id,
           inReplyToId: undefined,
@@ -315,7 +315,7 @@ describe("Fediverse discussion screens", () => {
           quoteParameter: undefined,
           sensitive: false,
           visibility: "unlisted",
-        },
+        }),
       );
     });
   });
@@ -362,7 +362,7 @@ describe("Fediverse discussion screens", () => {
       expect(mockCreateStatus).toHaveBeenCalledWith(
         makeContext("unfathomably"),
         "Which day works?",
-        {
+        expect.objectContaining({
           contentWarning: "Release planning",
           groupId: undefined,
           inReplyToId: undefined,
@@ -375,7 +375,7 @@ describe("Fediverse discussion screens", () => {
           quoteParameter: undefined,
           sensitive: true,
           visibility: "private",
-        },
+        }),
       );
     });
   });
@@ -425,7 +425,7 @@ describe("Fediverse discussion screens", () => {
         1,
         makeContext("unfathomably"),
         "A community post",
-        {
+        expect.objectContaining({
           contentWarning: undefined,
           groupId: group.id,
           inReplyToId: undefined,
@@ -434,10 +434,12 @@ describe("Fediverse discussion screens", () => {
           quoteParameter: undefined,
           sensitive: false,
           visibility: "unlisted",
-        },
+        }),
       );
       expect(navigation.setParams).toHaveBeenCalledWith({
         composeIntentId: undefined,
+        draftId: undefined,
+        editStatusId: undefined,
         groupId: undefined,
         groupName: undefined,
         inReplyToId: undefined,
@@ -478,7 +480,7 @@ describe("Fediverse discussion screens", () => {
         2,
         makeContext("unfathomably"),
         "An ordinary reply",
-        {
+        expect.objectContaining({
           contentWarning: undefined,
           groupId: undefined,
           inReplyToId: replyTarget.id,
@@ -487,7 +489,7 @@ describe("Fediverse discussion screens", () => {
           quoteParameter: undefined,
           sensitive: false,
           visibility: "public",
-        },
+        }),
       );
     });
   });

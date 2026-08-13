@@ -48,7 +48,10 @@ import {
   normalizeServerUrl,
 } from "../../services/UnfathomablyService";
 import { getErrorMessage } from "../../utils/error";
-import { MINIMUM_TOUCH_TARGET_SIZE } from "../../constants/TouchTargets";
+import {
+  MINIMUM_TOUCH_TARGET_SIZE,
+  SCROLL_FORM_BOTTOM_PADDING,
+} from "../../constants/TouchTargets";
 
 /* ------------------------------------------------------------------------- */
 /* Settings Screen Component                                                 */
@@ -129,33 +132,49 @@ function shouldOfferNotificationSettings(
   if (!diagnostics.supported) return false;
   if (diagnostics.permissionGranted) return false;
 
-  return !diagnostics.permissionCanAskAgain ||
-    diagnostics.permissionStatus === "denied";
+  return (
+    !diagnostics.permissionCanAskAgain ||
+    diagnostics.permissionStatus === "denied"
+  );
 }
 
 function isSupportedApiUrl(value: string): boolean {
   return getSupportedServerUrl(value) !== undefined;
 }
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }: { navigation?: any }) {
   const theme = useTheme();
   const ctx = useLotideCtx();
   const dispatch = useDispatch();
   const defaultFeedSort = useSelector(
     (state: RootState) => state.settings.defaultFeedSort,
   );
+  const storedSettings = useSelector((state: RootState) => state.settings);
+  const accessibilitySettings = {
+    alwaysExpandContentWarnings:
+      storedSettings.alwaysExpandContentWarnings ?? false,
+    highContrast: storedSettings.highContrast ?? false,
+    locale: storedSettings.locale ?? "system",
+    reduceMotion: storedSettings.reduceMotion ?? false,
+    showMediaDescriptions: storedSettings.showMediaDescriptions ?? false,
+    textScale: storedSettings.textScale ?? 1,
+  };
 
   const [apiUrl, setApiUrl] = useState(ctx?.apiUrl || "");
   const [updatingDefaultFeedSort, setUpdatingDefaultFeedSort] = useState(false);
   const [notificationEnabled, setNotificationEnabledState] = useState(false);
-  const [updatingNotificationSetting, setUpdatingNotificationSetting] = useState(false);
+  const [updatingNotificationSetting, setUpdatingNotificationSetting] =
+    useState(false);
   const [sendingTestNotification, setSendingTestNotification] = useState(false);
-  const [checkingNotificationsNow, setCheckingNotificationsNow] = useState(false);
+  const [checkingNotificationsNow, setCheckingNotificationsNow] =
+    useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [updatingAccessibility, setUpdatingAccessibility] = useState(false);
   const [openingNotificationSettings, setOpeningNotificationSettings] =
     useState(false);
-  const [notificationDiagnostics, setNotificationDiagnostics] =
-    useState<NotificationPoller.NotificationDiagnostics | undefined>();
+  const [notificationDiagnostics, setNotificationDiagnostics] = useState<
+    NotificationPoller.NotificationDiagnostics | undefined
+  >();
   const isMountedRef = useRef(true);
   const defaultFeedSortRequestRef = useRef(false);
   const notificationSettingRequestRef = useRef(false);
@@ -163,6 +182,7 @@ export default function SettingsScreen() {
   const checkNotificationsRequestRef = useRef(false);
   const openNotificationSettingsRequestRef = useRef(false);
   const saveSettingsRequestRef = useRef(false);
+  const accessibilityRequestRef = useRef(false);
   const notificationDiagnosticsRequestId = useRef(0);
 
   useEffect(() => {
@@ -174,6 +194,7 @@ export default function SettingsScreen() {
       checkNotificationsRequestRef.current = false;
       openNotificationSettingsRequestRef.current = false;
       saveSettingsRequestRef.current = false;
+      accessibilityRequestRef.current = false;
       notificationDiagnosticsRequestId.current += 1;
     };
   }, []);
@@ -313,14 +334,15 @@ export default function SettingsScreen() {
       }
       await refreshNotificationDiagnostics();
     } catch (error) {
-      const current =
-        await NotificationPoller.getNotificationEnabled();
+      const current = await NotificationPoller.getNotificationEnabled();
       if (isMountedRef.current) {
         setNotificationEnabledState(current);
       }
       await refreshNotificationDiagnostics();
       alertIfMounted(
-        nextValue ? "Cannot enable notifications" : "Cannot update notifications",
+        nextValue
+          ? "Cannot enable notifications"
+          : "Cannot update notifications",
         getErrorMessage(error),
       );
     } finally {
@@ -329,6 +351,26 @@ export default function SettingsScreen() {
       if (isMountedRef.current) {
         setUpdatingNotificationSetting(false);
       }
+    }
+  };
+
+  const updateAccessibilitySettings = async (
+    patch: Partial<StorageService.AppSettings>,
+  ) => {
+    if (accessibilityRequestRef.current) return;
+    accessibilityRequestRef.current = true;
+    setUpdatingAccessibility(true);
+    try {
+      const settings = await StorageService.appSettings.update(patch);
+      dispatch(setAppSettings(settings));
+    } catch (error) {
+      alertIfMounted(
+        "Cannot save accessibility settings",
+        getErrorMessage(error),
+      );
+    } finally {
+      accessibilityRequestRef.current = false;
+      if (isMountedRef.current) setUpdatingAccessibility(false);
     }
   };
 
@@ -426,7 +468,9 @@ export default function SettingsScreen() {
   /* ------------------------------------------------------------------------- */
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.background }]}
+    >
       <View style={styles.section}>
         <Text style={styles.header}>SERVER SETTINGS</Text>
         <Text style={[styles.label, { color: theme.secondaryText }]}>
@@ -439,8 +483,8 @@ export default function SettingsScreen() {
             {
               color: theme.text,
               backgroundColor: theme.secondaryBackground,
-              borderColor: theme.tertiaryBackground
-            }
+              borderColor: theme.tertiaryBackground,
+            },
           ]}
           value={apiUrl}
           onChangeText={setApiUrl}
@@ -518,10 +562,143 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      <View style={styles.section}>
+        <Text style={styles.header}>ACCESSIBILITY AND LANGUAGE</Text>
+        <Text style={[styles.label, { color: theme.secondaryText }]}>
+          Text size
+        </Text>
+        <View style={styles.sortOptions}>
+          {(
+            [
+              [1, "Standard"],
+              [1.15, "Large"],
+              [1.3, "Extra large"],
+            ] as [1 | 1.15 | 1.3, string][]
+          ).map(([value, label]) => {
+            const selected = accessibilitySettings.textScale === value;
+            return (
+              <Pressable
+                accessibilityLabel={`Use ${label.toLowerCase()} app text`}
+                accessibilityRole="radio"
+                accessibilityState={{
+                  checked: selected,
+                  disabled: updatingAccessibility,
+                }}
+                disabled={updatingAccessibility}
+                key={value}
+                onPress={() =>
+                  void updateAccessibilitySettings({ textScale: value })
+                }
+                style={[
+                  styles.sortOption,
+                  {
+                    backgroundColor: selected
+                      ? theme.tint
+                      : theme.secondaryBackground,
+                    borderColor: selected
+                      ? theme.tint
+                      : theme.tertiaryBackground,
+                  },
+                ]}
+              >
+                <Text style={{ color: selected ? theme.onTint : theme.text }}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <AccessibilitySwitch
+          disabled={updatingAccessibility}
+          label="High contrast colors"
+          onChange={highContrast =>
+            void updateAccessibilitySettings({ highContrast })
+          }
+          value={accessibilitySettings.highContrast}
+        />
+        <AccessibilitySwitch
+          disabled={updatingAccessibility}
+          label="Reduce motion"
+          onChange={reduceMotion =>
+            void updateAccessibilitySettings({ reduceMotion })
+          }
+          value={accessibilitySettings.reduceMotion}
+        />
+        <AccessibilitySwitch
+          disabled={updatingAccessibility}
+          label="Always expand content warnings"
+          onChange={alwaysExpandContentWarnings =>
+            void updateAccessibilitySettings({ alwaysExpandContentWarnings })
+          }
+          value={accessibilitySettings.alwaysExpandContentWarnings}
+        />
+        <AccessibilitySwitch
+          disabled={updatingAccessibility}
+          label="Show image descriptions below media"
+          onChange={showMediaDescriptions =>
+            void updateAccessibilitySettings({ showMediaDescriptions })
+          }
+          value={accessibilitySettings.showMediaDescriptions}
+        />
+        <Text style={[styles.label, { color: theme.secondaryText }]}>
+          App language
+        </Text>
+        <View style={styles.sortOptions}>
+          {(
+            [
+              ["system", "Device"],
+              ["en", "English"],
+              ["fr", "Français"],
+              ["es", "Español"],
+            ] as [StorageService.AppSettings["locale"], string][]
+          ).map(([value, label]) => {
+            const selected = accessibilitySettings.locale === value;
+            return (
+              <Pressable
+                accessibilityLabel={`Use ${label} language`}
+                accessibilityRole="radio"
+                accessibilityState={{
+                  checked: selected,
+                  disabled: updatingAccessibility,
+                }}
+                disabled={updatingAccessibility}
+                key={value}
+                onPress={() =>
+                  void updateAccessibilitySettings({ locale: value })
+                }
+                style={[
+                  styles.sortOption,
+                  {
+                    backgroundColor: selected
+                      ? theme.tint
+                      : theme.secondaryBackground,
+                    borderColor: selected
+                      ? theme.tint
+                      : theme.tertiaryBackground,
+                  },
+                ]}
+              >
+                <Text style={{ color: selected ? theme.onTint : theme.text }}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={[styles.hint, { color: theme.secondaryText }]}>
+          Device font scaling remains enabled in every text-size mode.
+        </Text>
+      </View>
+
       {Platform.OS === "android" ? (
         <View style={styles.section}>
           <Text style={styles.header}>NOTIFICATIONS</Text>
-          <View style={[styles.row, { borderBottomColor: theme.tertiaryBackground }]}>
+          <View
+            style={[
+              styles.row,
+              { borderBottomColor: theme.tertiaryBackground },
+            ]}
+          >
             <Text style={{ color: theme.text }}>Background notifications</Text>
             <Switch
               value={notificationEnabled}
@@ -534,7 +711,20 @@ export default function SettingsScreen() {
             allows it and shows local alerts this phone has not already
             surfaced.
           </Text>
-          <View style={[styles.statusRow, { borderBottomColor: theme.tertiaryBackground }]}>
+          <AppButton
+            title="Customize notification alerts"
+            onPress={() => navigation?.navigate("NotificationPreferences")}
+            color={theme.secondaryTint}
+            disabled={!ctx?.login || !navigation}
+            fullWidth
+            style={styles.notificationButton}
+          />
+          <View
+            style={[
+              styles.statusRow,
+              { borderBottomColor: theme.tertiaryBackground },
+            ]}
+          >
             <Text style={[styles.statusLabel, { color: theme.secondaryText }]}>
               Local alerts
             </Text>
@@ -542,7 +732,12 @@ export default function SettingsScreen() {
               {notificationPermissionText(notificationDiagnostics)}
             </Text>
           </View>
-          <View style={[styles.statusRow, { borderBottomColor: theme.tertiaryBackground }]}>
+          <View
+            style={[
+              styles.statusRow,
+              { borderBottomColor: theme.tertiaryBackground },
+            ]}
+          >
             <Text style={[styles.statusLabel, { color: theme.secondaryText }]}>
               Background polling
             </Text>
@@ -550,7 +745,12 @@ export default function SettingsScreen() {
               {notificationBackgroundText(notificationDiagnostics)}
             </Text>
           </View>
-          <View style={[styles.statusRow, { borderBottomColor: theme.tertiaryBackground }]}>
+          <View
+            style={[
+              styles.statusRow,
+              { borderBottomColor: theme.tertiaryBackground },
+            ]}
+          >
             <Text style={[styles.statusLabel, { color: theme.secondaryText }]}>
               Last check
             </Text>
@@ -558,7 +758,12 @@ export default function SettingsScreen() {
               {notificationLastCheckText(notificationDiagnostics)}
             </Text>
           </View>
-          <View style={[styles.statusRow, { borderBottomColor: theme.tertiaryBackground }]}>
+          <View
+            style={[
+              styles.statusRow,
+              { borderBottomColor: theme.tertiaryBackground },
+            ]}
+          >
             <Text style={[styles.statusLabel, { color: theme.secondaryText }]}>
               Last local alert
             </Text>
@@ -585,13 +790,19 @@ export default function SettingsScreen() {
               }
               onPress={handleOpenNotificationSettings}
               color={theme.secondaryTint}
-              disabled={openingNotificationSettings || updatingNotificationSetting}
+              disabled={
+                openingNotificationSettings || updatingNotificationSetting
+              }
               fullWidth
               style={styles.notificationButton}
             />
           ) : null}
           <AppButton
-            title={checkingNotificationsNow ? "Checking..." : "Check Notifications Now"}
+            title={
+              checkingNotificationsNow
+                ? "Checking..."
+                : "Check Notifications Now"
+            }
             onPress={handleCheckNotificationsNow}
             color={theme.tint}
             disabled={checkingNotificationsNow || updatingNotificationSetting}
@@ -600,7 +811,9 @@ export default function SettingsScreen() {
             testID="settings-check-notifications-now"
           />
           <AppButton
-            title={sendingTestNotification ? "Sending..." : "Send Test Notification"}
+            title={
+              sendingTestNotification ? "Sending..." : "Send Test Notification"
+            }
             onPress={handleSendTestNotification}
             color={theme.secondaryTint}
             disabled={sendingTestNotification || updatingNotificationSetting}
@@ -621,6 +834,30 @@ export default function SettingsScreen() {
         />
       </View>
     </ScrollView>
+  );
+}
+
+function AccessibilitySwitch({
+  disabled,
+  label,
+  onChange,
+  value,
+}: {
+  disabled: boolean;
+  label: string;
+  onChange: (value: boolean) => void;
+  value: boolean;
+}) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Switch
+        accessibilityLabel={label}
+        disabled={disabled}
+        onValueChange={onChange}
+        value={value}
+      />
+    </View>
   );
 }
 
@@ -718,7 +955,7 @@ const styles = StyleSheet.create({
   buttonContainer: {
     marginTop: 40,
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: SCROLL_FORM_BOTTOM_PADDING,
   },
 });
 

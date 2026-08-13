@@ -11,6 +11,7 @@
     Responsibilities:
 
         - Link to the signed-in profile and app settings
+        - Open drafts, scheduled posts, lists, and other daily workflows
         - Expose Worlds and feeds when the current server advertises them
         - Provide direct entry points for book and GPS route workflows
         - Keep optional server extensions out of the fixed bottom navigation
@@ -29,6 +30,7 @@ import SuggestLogin from "../components/SuggestLogin";
 import { Text, View } from "../components/Themed";
 import useTheme from "../hooks/useTheme";
 import { useLotideCtx } from "../hooks/useLotideCtx";
+import useI18n from "../hooks/useI18n";
 import {
   getInstance,
   getInstanceCapabilities,
@@ -52,6 +54,7 @@ const NO_EXTENSIONS: InstanceCapabilities = {
 export default function OptionsScreen({ navigation }: { navigation: any }) {
   const ctx = useLotideCtx();
   const theme = useTheme();
+  const { t } = useI18n();
   const account = ctx?.login?.user as unknown as UnfathomablyAccount | undefined;
   const [capabilities, setCapabilities] = useState(NO_EXTENSIONS);
 
@@ -83,42 +86,62 @@ export default function OptionsScreen({ navigation }: { navigation: any }) {
     </View>
     <Pressable accessibilityRole="button" accessibilityLabel="Open your profile and posts" onPress={() => navigation.navigate("AccountProfile")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
       <Icon name="person-circle-outline" size={25} color={theme.text} />
-      <Text style={styles.optionText}>Your profile and posts</Text>
+      <Text style={styles.optionText}>{t("more.profile")}</Text>
       <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
     </Pressable>
     <Pressable accessibilityRole="button" accessibilityLabel="Find people and manage follow requests" onPress={() => navigation.navigate("People")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
       <Icon name="person-add-outline" size={25} color={theme.text} />
-      <View style={styles.optionBody}><Text style={styles.optionText}>People</Text><Text secondary>Find accounts, follow people, and review requests</Text></View>
+      <View style={styles.optionBody}><Text style={styles.optionText}>{t("nav.people")}</Text><Text secondary>{t("more.peopleDescription")}</Text></View>
       <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
     </Pressable>
     <Pressable accessibilityRole="button" accessibilityLabel="Open saved posts" onPress={() => navigation.navigate("SavedPosts")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
       <Icon name="bookmark-outline" size={25} color={theme.text} />
-      <View style={styles.optionBody}><Text style={styles.optionText}>Saved posts</Text><Text secondary>Return to posts you bookmarked</Text></View>
+      <View style={styles.optionBody}><Text style={styles.optionText}>{t("nav.savedPosts")}</Text><Text secondary>{t("more.savedDescription")}</Text></View>
+      <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
+    </Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel="Open local post drafts" onPress={() => navigation.navigate("Drafts")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
+      <Icon name="document-text-outline" size={25} color={theme.text} />
+      <View style={styles.optionBody}><Text style={styles.optionText}>{t("nav.drafts")}</Text><Text secondary>{t("more.draftsDescription")}</Text></View>
+      <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
+    </Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel="Manage scheduled posts" onPress={() => navigation.navigate("ScheduledPosts")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
+      <Icon name="time-outline" size={25} color={theme.text} />
+      <View style={styles.optionBody}><Text style={styles.optionText}>{t("nav.scheduledPosts")}</Text><Text secondary>{t("more.scheduledDescription")}</Text></View>
+      <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
+    </Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel="Manage account lists" onPress={() => navigation.navigate("Lists")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
+      <Icon name="list-outline" size={25} color={theme.text} />
+      <View style={styles.optionBody}><Text style={styles.optionText}>{t("nav.lists")}</Text><Text secondary>{t("more.listsDescription")}</Text></View>
+      <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
+    </Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel="Manage content filters" onPress={() => navigation.navigate("Filters")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
+      <Icon name="filter-outline" size={25} color={theme.text} />
+      <View style={styles.optionBody}><Text style={styles.optionText}>{t("nav.contentFilters")}</Text><Text secondary>{t("more.filtersDescription")}</Text></View>
       <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
     </Pressable>
     {capabilities.worlds ? <Pressable accessibilityRole="button" accessibilityLabel="Explore Unfathomably Worlds" onPress={() => navigation.navigate("Worlds")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
       <Icon name="planet-outline" size={25} color={theme.text} />
-      <View style={styles.optionBody}><Text style={styles.optionText}>Worlds</Text><Text secondary>Books, media, events, software, communities, and more</Text></View>
+      <View style={styles.optionBody}><Text style={styles.optionText}>{t("nav.worlds")}</Text><Text secondary>{t("more.worldsDescription")}</Text></View>
       <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
     </Pressable> : null}
     {capabilities.worlds ? <Pressable accessibilityRole="button" accessibilityLabel="Manage your book library" onPress={() => navigation.navigate("BookLibrary")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
       <Icon name="library-outline" size={25} color={theme.text} />
-      <View style={styles.optionBody}><Text style={styles.optionText}>My books</Text><Text secondary>Reading shelves, progress, reviews, and quotations</Text></View>
+      <View style={styles.optionBody}><Text style={styles.optionText}>{t("nav.myBooks")}</Text><Text secondary>{t("more.booksDescription")}</Text></View>
       <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
     </Pressable> : null}
     {capabilities.worlds ? <Pressable accessibilityRole="button" accessibilityLabel="Record or import a GPS path" onPress={() => navigation.navigate("RouteRecorder")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
       <Icon name="navigate-circle-outline" size={25} color={theme.text} />
-      <View style={styles.optionBody}><Text style={styles.optionText}>GPS paths</Text><Text secondary>Record, import, export, and publish Routes tracks</Text></View>
+      <View style={styles.optionBody}><Text style={styles.optionText}>{t("nav.gpsPaths")}</Text><Text secondary>{t("more.routesDescription")}</Text></View>
       <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
     </Pressable> : null}
     {capabilities.sources ? <Pressable accessibilityRole="button" accessibilityLabel="Open followed feeds and sources" onPress={() => navigation.navigate("Sources")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
       <Icon name="newspaper-outline" size={25} color={theme.text} />
-      <View style={styles.optionBody}><Text style={styles.optionText}>Feeds and sources</Text><Text secondary>Follow publications and federated feeds</Text></View>
+      <View style={styles.optionBody}><Text style={styles.optionText}>{t("more.sources")}</Text><Text secondary>{t("more.sourcesDescription")}</Text></View>
       <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
     </Pressable> : null}
     <Pressable accessibilityRole="button" accessibilityLabel="Open app settings" onPress={() => navigation.navigate("Settings")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
       <Icon name="settings-outline" size={25} color={theme.text} />
-      <Text style={styles.optionText}>App settings</Text>
+      <Text style={styles.optionText}>{t("more.appSettings")}</Text>
       <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
     </Pressable>
   </ScrollView>;

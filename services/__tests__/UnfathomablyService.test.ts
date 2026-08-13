@@ -25,6 +25,7 @@
 import {
   buildOAuthAuthorizationUrl,
   bookmarkStatus,
+  cancelScheduledStatus,
   createStatus,
   deleteStatus,
   dislikeStatus,
@@ -33,6 +34,7 @@ import {
   getDiscoverableGroups,
   getGroup,
   getGroups,
+  getGroupedNotifications,
   getGroupTimeline,
   getGroupStatuses,
   getHomeTimeline,
@@ -41,23 +43,32 @@ import {
   getInstanceSoftware,
   getNotifications,
   getQuoteParameter,
+  getScheduledStatus,
+  getScheduledStatuses,
   getStatus,
   getStatusAncestors,
   getStatusCapabilities,
   getStatusContext,
   getStatusContextWindow,
   getStatusDescendants,
+  getStatusSource,
   getSupportedServerUrl,
   joinGroup,
   loginWithAuthorizationCode,
   loginWithPassword,
+  normalizeScheduledAt,
   normalizeServerUrl,
   readOAuthAuthorizationCode,
   reactToStatus,
   registerOAuthApplication,
   reblogStatus,
+  resolveStatusByUrl,
   setEventJoined,
   STATUS_CONTEXT_REQUEST_TIMEOUT_MS,
+  updateScheduledStatus,
+  updateStatus,
+  updateMediaDescription,
+  uploadMedia,
   voteOnPoll,
 } from "../UnfathomablyService";
 import {
@@ -95,6 +106,176 @@ describe("UnfathomablyService", () => {
     );
     expect(getSupportedServerUrl("http://remote.example")).toBeUndefined();
     expect(getSupportedServerUrl("not a host")).toBeUndefined();
+  });
+
+  test.each(["rebased", "unfathomably"] as const)(
+    "uses grouped notification v2 on %s",
+    async family => {
+      const payload = {
+        accounts: [],
+        notification_groups: [{
+          group_key: "favourite-status-bucket",
+          most_recent_notification_id: "9",
+          notifications_count: 4,
+          page_min_id: "6",
+          sample_account_ids: [],
+          status_id: "status-1",
+          type: "favourite",
+        }],
+        statuses: [],
+      };
+      mockFetch.mockResolvedValue({ ok: true, json: async () => payload });
+
+      await expect(getGroupedNotifications(makeContext(family), "older")).resolves.toEqual(payload);
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${FEDIVERSE_SERVERS[family].origin}/api/v2/notifications?limit=30&max_id=older`,
+        expect.any(Object),
+      );
+      mockFetch.mockReset();
+    },
+  );
+
+  test.each(["akkoma", "mastodon", "pleroma"] as const)(
+    "degrades cleanly when %s has no grouped notification API",
+    async family => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 404,
+        statusText: "Not Found",
+        text: async () => "",
+      });
+      await expect(getGroupedNotifications(makeContext(family))).resolves.toBeUndefined();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      mockFetch.mockReset();
+    },
+  );
+
+  test.each([
+    "akkoma",
+    "mastodon",
+    "pleroma",
+    "rebased",
+    "unfathomably",
+  ] as const)("resolves a federated status through %s v2 search", async family => {
+    const source = makeStatus("unfathomably");
+    const resolved = makeStatus(family, { url: source.url });
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ statuses: [resolved] }),
+    });
+
+    await expect(resolveStatusByUrl(makeContext(family), source.url!)).resolves.toEqual(resolved);
+    expect(mockFetch).toHaveBeenCalledWith(
+      `${FEDIVERSE_SERVERS[family].origin}/api/v2/search?limit=5&q=${encodeURIComponent(source.url!)}&resolve=true&type=statuses`,
+      expect.any(Object),
+    );
+    mockFetch.mockReset();
+  });
+
+  test("resolves and matches a canonical ActivityPub status URI", async () => {
+    const source = makeStatus("unfathomably");
+    const resolved = makeStatus("mastodon", { uri: source.uri });
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ statuses: [resolved] }),
+    });
+
+    await expect(
+      resolveStatusByUrl(makeContext("mastodon"), source.uri!),
+    ).resolves.toEqual(resolved);
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining(`q=${encodeURIComponent(source.uri!)}`),
+      expect.any(Object),
+    );
+  });
+
+  test("uses legacy status search only when v2 is unavailable", async () => {
+    const source = makeStatus("unfathomably");
+    const resolved = makeStatus("pleroma", { url: source.url });
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        statusText: "Not Found",
+        text: async () => "",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ statuses: [resolved] }),
+      });
+
+    await expect(resolveStatusByUrl(makeContext("pleroma"), source.url!)).resolves.toEqual(resolved);
+    expect(mockFetch.mock.calls.map(call => call[0])).toEqual([
+      expect.stringContaining("/api/v2/search?"),
+      expect.stringContaining("/api/v1/search?"),
+    ]);
+  });
+
+  test("rejects unsafe status addresses before cross-account resolution", async () => {
+    await expect(
+      resolveStatusByUrl(makeContext("unfathomably"), "javascript:alert(1)"),
+    ).rejects.toThrow("safe federated address");
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    "akkoma",
+    "mastodon",
+    "pleroma",
+    "rebased",
+    "unfathomably",
+  ] as const)("uploads described media through %s", async family => {
+    const attachment = {
+      id: `${family}-media-1`,
+      type: "image",
+      url: `${FEDIVERSE_SERVERS[family].origin}/media/one.jpg`,
+    };
+    mockFetch.mockResolvedValue({ ok: true, json: async () => attachment });
+
+    await expect(uploadMedia(makeContext(family), {
+      description: ` ${"alt ".repeat(500)} `,
+      mimeType: "image/jpeg",
+      name: "one.jpg",
+      uri: "file:///private/one.jpg",
+    })).resolves.toEqual(attachment);
+
+    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`${FEDIVERSE_SERVERS[family].origin}/api/v2/media`);
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeInstanceOf(FormData);
+    expect((init.headers as Record<string, string>)["Content-Type"]).toBeUndefined();
+    mockFetch.mockReset();
+  });
+
+  test("falls back to the older Pleroma media endpoint and updates alt text", async () => {
+    const attachment = {
+      id: "media/one",
+      type: "image",
+      url: "https://pleroma.example/media/one.jpg",
+    };
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        statusText: "Not Found",
+        text: async () => "",
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => attachment })
+      .mockResolvedValueOnce({ ok: true, json: async () => attachment });
+
+    await uploadMedia(makeContext("pleroma"), {
+      uri: "file:///private/one.jpg",
+    });
+    await updateMediaDescription(makeContext("pleroma"), "media/one", " New alt text ");
+
+    expect(mockFetch.mock.calls.map(call => [call[0], call[1].method])).toEqual([
+      ["https://pleroma.example/api/v2/media", "POST"],
+      ["https://pleroma.example/api/v1/media", "POST"],
+      ["https://pleroma.example/api/v1/media/media%2Fone", "PUT"],
+    ]);
+    expect(JSON.parse(mockFetch.mock.calls[2][1].body)).toEqual({
+      description: "New alt text",
+    });
   });
 
   test("refuses to send credentials or tokens to a remote plaintext server", async () => {
@@ -203,6 +384,31 @@ describe("UnfathomablyService", () => {
       scope: "read write follow push",
       state: "state-123",
     });
+  });
+
+  test("coalesces concurrent OAuth application registrations", async () => {
+    const registered = {
+      client_id: "shared-client",
+      client_secret: "shared-secret",
+    };
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => registered,
+    });
+
+    const registrations = await Promise.all([
+      registerOAuthApplication(
+        FEDIVERSE_SERVERS.unfathomably.origin,
+        "urn:ietf:wg:oauth:2.0:oob",
+      ),
+      registerOAuthApplication(
+        FEDIVERSE_SERVERS.unfathomably.origin,
+        "urn:ietf:wg:oauth:2.0:oob",
+      ),
+    ]);
+
+    expect(registrations).toEqual([registered, registered]);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   test("validates the browser callback state and authorization code", () => {
@@ -518,6 +724,147 @@ describe("UnfathomablyService", () => {
       status: "A plain reply",
       visibility: "public",
     });
+  });
+
+  test.each([
+    "akkoma",
+    "mastodon",
+    "pleroma",
+    "rebased",
+    "unfathomably",
+  ] as const)("schedules a %s post with portable fields and an idempotency key", async family => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: `${family}-schedule-1`,
+        media_attachments: [],
+        params: { text: "Later" },
+        scheduled_at: "2030-01-02T12:00:00.000Z",
+      }),
+    });
+
+    await createStatus(makeContext(family), "Later", {
+      idempotencyKey: `draft-${family}`,
+      language: "fr",
+      mediaIds: ["media-1", "media-1", "media-2"],
+      scheduledAt: "2030-01-02T12:00:00.000Z",
+      visibility: "private",
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      `${FEDIVERSE_SERVERS[family].origin}/api/v1/statuses`,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: `Bearer ${family}-access-token`,
+          "Idempotency-Key": `draft-${family}`,
+        }),
+        method: "POST",
+      }),
+    );
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+      language: "fr",
+      media_ids: ["media-1", "media-2"],
+      scheduled_at: "2030-01-02T12:00:00.000Z",
+      status: "Later",
+      visibility: "private",
+    });
+    mockFetch.mockReset();
+  });
+
+  test("rejects invalid or too-near schedules before making a request", async () => {
+    expect(() => normalizeScheduledAt("not a date", 1_000)).toThrow(
+      "valid date and time",
+    );
+    expect(() => normalizeScheduledAt(
+      new Date(300_999).toISOString(),
+      1_000,
+    )).toThrow("at least five minutes");
+    expect(normalizeScheduledAt(
+      new Date(301_000).toISOString(),
+      1_000,
+    )).toBe("1970-01-01T00:05:01.000Z");
+
+    expect(() => createStatus(makeContext("mastodon"), "Too soon", {
+      scheduledAt: new Date(Date.now() + 60_000).toISOString(),
+    })).toThrow("at least five minutes");
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  test("lists, loads, reschedules, and cancels scheduled posts", async () => {
+    const scheduled = {
+      id: "scheduled/one",
+      media_attachments: [],
+      params: { text: "Later" },
+      scheduled_at: "2030-02-01T14:30:00.000Z",
+    };
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => scheduled,
+    });
+    const context = makeContext("unfathomably");
+
+    await getScheduledStatuses(context, "older");
+    await getScheduledStatus(context, "scheduled/one");
+    await updateScheduledStatus(
+      context,
+      "scheduled/one",
+      "2030-02-01T14:30:00.000Z",
+    );
+    await cancelScheduledStatus(context, "scheduled/one");
+
+    expect(mockFetch.mock.calls.map(call => [call[0], call[1].method])).toEqual([
+      [`${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/scheduled_statuses?limit=40&max_id=older`, undefined],
+      [`${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/scheduled_statuses/scheduled%2Fone`, undefined],
+      [`${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/scheduled_statuses/scheduled%2Fone`, "PUT"],
+      [`${FEDIVERSE_SERVERS.unfathomably.origin}/api/v1/scheduled_statuses/scheduled%2Fone`, "DELETE"],
+    ]);
+    expect(JSON.parse(mockFetch.mock.calls[2][1].body)).toEqual({
+      scheduled_at: "2030-02-01T14:30:00.000Z",
+    });
+  });
+
+  test.each([
+    "akkoma",
+    "mastodon",
+    "pleroma",
+    "rebased",
+    "unfathomably",
+  ] as const)("loads source and edits an existing %s post", async family => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "status/one",
+          spoiler_text: "Old warning",
+          text: "Original source",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => makeStatus(family, { id: "status/one" }),
+      });
+    const context = makeContext(family);
+
+    await getStatusSource(context, "status/one");
+    await updateStatus(context, "status/one", "Revised source", {
+      contentWarning: "New warning",
+      language: "en",
+      mediaIds: ["attachment-1"],
+      sensitive: true,
+    });
+
+    expect(mockFetch.mock.calls.map(call => [call[0], call[1].method])).toEqual([
+      [`${FEDIVERSE_SERVERS[family].origin}/api/v1/statuses/status%2Fone/source`, undefined],
+      [`${FEDIVERSE_SERVERS[family].origin}/api/v1/statuses/status%2Fone`, "PUT"],
+    ]);
+    expect(JSON.parse(mockFetch.mock.calls[1][1].body)).toEqual({
+      language: "en",
+      media_ids: ["attachment-1"],
+      sensitive: true,
+      spoiler_text: "New warning",
+      status: "Revised source",
+    });
+    mockFetch.mockReset();
   });
 
   test("uses the Unfathomably group contract for discovery, discussion, and membership", async () => {

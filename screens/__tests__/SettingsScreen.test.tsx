@@ -232,7 +232,13 @@ describe("SettingsScreen", () => {
     await waitFor(async () => {
       await expect(AsyncStorage.getItem("@hoot_app_settings")).resolves.toBe(
         JSON.stringify({
+          alwaysExpandContentWarnings: false,
           defaultFeedSort: "new",
+          highContrast: false,
+          locale: "system",
+          reduceMotion: false,
+          showMediaDescriptions: false,
+          textScale: 1,
         }),
       );
     });

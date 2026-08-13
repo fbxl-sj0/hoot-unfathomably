@@ -30,10 +30,14 @@ import {
   Text as DefaultText,
   View as DefaultView,
   TextInput as DefaultTextInput,
+  StyleSheet,
 } from "react-native";
 
 import type { ColorsObject } from "../constants/Colors";
 import useTheme, { useInstanceColorScheme } from "../hooks/useTheme";
+import { useAccessibilityPreferences } from "../contexts/AccessibilityPreferencesContext";
+
+const BaseTextSizeContext = React.createContext(14);
 
 export function useThemeColor(
   props: { light?: ColorValue; dark?: ColorValue },
@@ -61,6 +65,18 @@ export type ViewProps = ThemeProps & DefaultView["props"];
 export function Text(props: TextProps) {
   const { style, secondary, tint, ...otherProps } = props;
   const theme = useTheme();
+  const parentTextSize = React.useContext(BaseTextSizeContext);
+  const { textScale } = useAccessibilityPreferences();
+  const flattenedStyle = StyleSheet.flatten(style);
+  const baseFontSize = typeof flattenedStyle?.fontSize === "number"
+    ? flattenedStyle.fontSize
+    : parentTextSize;
+  const scaledTextStyle = textScale === 1 ? undefined : {
+    fontSize: baseFontSize * textScale,
+    lineHeight: typeof flattenedStyle?.lineHeight === "number"
+      ? flattenedStyle.lineHeight * textScale
+      : undefined,
+  };
   const color =
     !secondary && !tint
       ? theme.text
@@ -70,7 +86,18 @@ export function Text(props: TextProps) {
       ? theme.tint
       : theme.secondaryTint;
 
-  return <DefaultText style={[{ color }, style]} {...otherProps} />;
+  return (
+    <DefaultText
+      allowFontScaling
+      maxFontSizeMultiplier={2}
+      style={[{ color }, style, scaledTextStyle]}
+      {...otherProps}
+    >
+      <BaseTextSizeContext.Provider value={baseFontSize}>
+        {props.children}
+      </BaseTextSizeContext.Provider>
+    </DefaultText>
+  );
 }
 
 export function View(props: ViewProps) {
@@ -86,6 +113,7 @@ export const TextInput = forwardRef<
 >((props: DefaultTextInput["props"], ref) => {
   const { style, placeholderTextColor, ...otherProps } = props;
   const theme = useTheme();
+  const { textScale } = useAccessibilityPreferences();
 
   const themeStyle = {
     backgroundColor: theme.secondaryBackground,
@@ -93,10 +121,13 @@ export const TextInput = forwardRef<
     paddingVertical: 5,
     borderRadius: 8,
     color: theme.text,
+    fontSize: 14 * textScale,
   };
   return (
     <DefaultTextInput
       ref={ref}
+      allowFontScaling
+      maxFontSizeMultiplier={2}
       style={[themeStyle, style]}
       placeholderTextColor={placeholderTextColor || theme.placeholderText}
       {...otherProps}

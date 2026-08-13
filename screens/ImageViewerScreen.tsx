@@ -32,6 +32,7 @@ import Animated, {
 
 import { Text, View } from "../components/Themed";
 import { RootStackScreenProps } from "../types";
+import { useAccessibilityPreferences } from "../contexts/AccessibilityPreferencesContext";
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 6;
@@ -56,6 +57,7 @@ export function getImageCandidates(
 }
 
 export default function ImageViewerScreen({ route }: RootStackScreenProps<"ImageViewer">) {
+  const { reduceMotion } = useAccessibilityPreferences();
   const imageCandidates = getImageCandidates(
     route.params.uri,
     route.params.fallbackUris,
@@ -77,8 +79,8 @@ export default function ImageViewerScreen({ route }: RootStackScreenProps<"Image
     .onEnd(() => {
       savedScale.value = scale.value;
       if (scale.value === MIN_SCALE) {
-        translateX.value = withSpring(0);
-        translateY.value = withSpring(0);
+        translateX.value = reduceMotion ? 0 : withSpring(0);
+        translateY.value = reduceMotion ? 0 : withSpring(0);
         savedTranslateX.value = 0;
         savedTranslateY.value = 0;
       }
@@ -99,11 +101,11 @@ export default function ImageViewerScreen({ route }: RootStackScreenProps<"Image
     .numberOfTaps(2)
     .onEnd(() => {
       const nextScale = scale.value > MIN_SCALE ? MIN_SCALE : 2.5;
-      scale.value = withSpring(nextScale);
+      scale.value = reduceMotion ? nextScale : withSpring(nextScale);
       savedScale.value = nextScale;
       if (nextScale === MIN_SCALE) {
-        translateX.value = withSpring(0);
-        translateY.value = withSpring(0);
+        translateX.value = reduceMotion ? 0 : withSpring(0);
+        translateY.value = reduceMotion ? 0 : withSpring(0);
         savedTranslateX.value = 0;
         savedTranslateY.value = 0;
       }

@@ -38,6 +38,15 @@ let mockCurrentCtx: LotideContext | null | undefined;
 jest.mock("react-redux", () => ({
   Provider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useDispatch: () => mockDispatch,
+  useSelector: (selector: (state: unknown) => unknown) => selector({
+    settings: {
+      alwaysExpandContentWarnings: false,
+      highContrast: false,
+      reduceMotion: false,
+      showMediaDescriptions: false,
+      textScale: 1,
+    },
+  }),
 }));
 
 jest.mock("../hooks/useCachedResources", () => ({

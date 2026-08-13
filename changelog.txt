@@ -1,6 +1,33 @@
 Hoot Unfathomably Changelog
 ===========================
 
+Version 0.6.0
+-------------
+
+- Add bounded, account-scoped offline caches for timelines, saved posts,
+  profiles, list timelines, group feeds, and notifications, with clear stale
+  data presentation when the network is unavailable.
+- Add complete local drafts with durable media copies and alt text, standard
+  server scheduling and rescheduling, authoritative existing-post editing, and
+  cross-account favourites, reposts, and emoji reactions.
+- Add standard account lists and membership management, Mastodon filter v2
+  with a legacy fallback, server translation, native post or account reports,
+  and profile text, fields, images, and privacy editing.
+- Add per-account notification categories, digest delivery, quiet hours,
+  sound and preview controls, grouped-notification use where available, and
+  account-aware notification dismissal and caching.
+- Add app text sizing, continued Android font scaling, high-contrast colors,
+  reduced motion, content-warning and image-description preferences, plus core
+  English, French, and Spanish localization.
+- Add guarded media persistence and upload fallbacks, post sharing, descriptive
+  bottom navigation labels, and extra-large-text responsive form layouts.
+- Authenticate 11 live workflows against isolated Docker builds of
+  Unfathomably `de930df6d18b`, Rebased `cb3e04623556`, Pleroma 2.10.2,
+  Akkoma 3.20.0, and Mastodon 4.6.5. Fix status URI resolution, concurrent OAuth
+  registration, Pleroma list payload fallback, and translation error handling
+  found by that matrix.
+- Raise the release to Android version code 22 and package version 0.6.0.
+
 Version 0.5.0
 -------------
 

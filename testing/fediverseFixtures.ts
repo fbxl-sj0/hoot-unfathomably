@@ -232,6 +232,7 @@ export function makeStatus(
     id: `${family}-status-1`,
     created_at: "2026-07-29T12:00:00.000Z",
     content: `<p>Hello from ${server.softwareName}.</p>`,
+    uri: `${server.origin}/objects/${family}-status-1`,
     url: `${server.origin}/notice/${family}-status-1`,
     in_reply_to_id: null,
     in_reply_to_account_id: null,

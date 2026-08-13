@@ -360,6 +360,23 @@ export default function AccountScreen({
               />
             )
           ) : null}
+          {isOwnAccount ? (
+            <AppButton
+              fullWidth
+              onPress={() => navigation.navigate("EditProfile")}
+              title="Edit profile"
+            />
+          ) : (
+            <AppButton
+              color={theme.secondaryTint}
+              fullWidth
+              onPress={() => navigation.navigate("Report", {
+                accountId,
+                accountLabel: account.acct,
+              })}
+              title="Report account"
+            />
+          )}
           {error ? (
             <RetryState compact message={error} onRetry={() => void refresh()} />
           ) : null}

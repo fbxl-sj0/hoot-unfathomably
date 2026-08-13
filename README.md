@@ -6,10 +6,12 @@ group discussions, first-class Worlds and Sources, and compatible features from
 [unfathomably-be](https://github.com/fbxl-sj0/unfathomably-be) and
 [unfathomably-fe](https://github.com/fbxl-sj0/unfathomably-fe).
 
-Version 0.5.0 completes the core people and relationship workflow on top of the
-live-tested Rebased, Pleroma, Akkoma, and Mastodon compatibility matrix. It was
-developed against unfathomably-be 3.5.0 and the paired August 12, 2026 frontend
-source. The client reads instance capabilities and frontend
+Version 0.6.0 adds offline reading, complete draft and scheduling workflows,
+standard lists and filters, translation and reporting, profile and existing-post
+editing, account-scoped notification controls, cross-account actions, and a
+substantial accessibility and localization layer. It was developed against
+unfathomably-be 3.5.0 and the paired August 12, 2026 frontend source. The client
+reads instance capabilities and frontend
 configuration at runtime, so optional workflows and colors follow the selected
 server rather than a hard-coded host or a guessed software version.
 
@@ -106,7 +108,23 @@ saved account therefore cannot silently redirect that account to FBXL Social.
   group while honoring posting, follow, moderation, and federation policy
   returned by the server.
 - Compose posts, replies, quote reposts, polls, content warnings, and
-  visibility-limited posts.
+  visibility-limited posts. Complete drafts, including copied media and alt
+  text, are stored per account and can be reopened without relying on the
+  source gallery item remaining available.
+- Schedule posts on servers that implement the standard scheduled-status API,
+  then review, reschedule, or cancel them. Edit your existing posts using the
+  server's authoritative source text.
+- Read the last successful home, group, profile, saved-post, list, and
+  notification responses while offline. Caches are bounded and isolated by
+  account, server, and timeline parameters.
+- Create focused account lists and manage their members. Create standard v2
+  content filters with a v1 fallback for older Pleroma-family servers.
+- Request server-supported post translation, report a post or account using
+  the native moderation API, and edit profile text, fields, images, and privacy
+  preferences.
+- Save multiple authenticated accounts and explicitly apply a favourite,
+  repost, or emoji reaction from selected accounts after resolving the post on
+  each account's own server.
 - Use server-supported reactions, including emoji reactions and positive or
   negative reactions.
 - Bookmark posts, revisit them under More, and remove the signed-in account's
@@ -115,6 +133,9 @@ saved account therefore cannot silently redirect that account to FBXL Social.
   leave events.
 - Read notifications for ordinary activity, groups, emoji reactions, polls,
   event reminders, event updates, and participation requests.
+- Choose local notification categories, individual or digest delivery, sound,
+  post previews, and local quiet hours. Notification preferences are stored per
+  account on this device.
 - Preview linked pages from server-supplied titles, descriptions, providers,
   and images; compatible servers without rich-card data retain a tappable link
   fallback.
@@ -124,6 +145,12 @@ saved account therefore cannot silently redirect that account to FBXL Social.
 On Android, the app asks once after the first account becomes active whether
 to enable background notifications. The choice can be changed later under
 More → App settings.
+
+Accessibility preferences include standard, large, and extra-large app text,
+continued Android font scaling, high-contrast colors, reduced motion, automatic
+content-warning expansion, and visible image descriptions. Core navigation and
+daily workflows are available in English, French, and Spanish, with the device
+locale used by default.
 
 GPS path recording asks for foreground location only when **Start recording**
 is pressed. It does not request background or always-on location access. Keep
@@ -139,8 +166,9 @@ compact without making actions hard to tap.
 The app communicates directly with the server you select; it has no analytics
 or advertising SDK. Login tokens are stored in the operating system's secure
 credential storage. Non-secret account metadata may be retained locally to
-restore the selected account, while logging out removes both the token and that
-metadata.
+restore the selected account. Bounded account-scoped timeline and notification
+caches, composer drafts, draft media copies, and app preferences are also kept
+on the device. Logging out removes the selected account's token and metadata.
 
 Remote servers must use HTTPS. Plain HTTP is accepted only for local Android
 development addresses such as `10.0.2.2` and `localhost`.
@@ -246,6 +274,11 @@ discussions, replies, reposts, favourites, and notifications. A strict contract
 check rejects retired service imports, old API routes, and server-version
 branching; the only retained pre-migration fixture verifies that existing users
 are moved safely away from an obsolete saved API URL.
+
+The authenticated Docker matrix runs 11 mutable workflows against isolated
+Unfathomably, Rebased, Pleroma, Akkoma, and Mastodon servers. Its loopback-only
+runner, exact tested revisions, and safe-use instructions are documented in
+[testing/docker-fediverse/README.md](testing/docker-fediverse/README.md).
 
 The exact compatibility boundary and intentional mobile exclusions are in
 [UNFATHOMABLY-COMPATIBILITY.md](UNFATHOMABLY-COMPATIBILITY.md).

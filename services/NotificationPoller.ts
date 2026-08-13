@@ -22,7 +22,10 @@ const ONBOARDING_PROMPTED_KEY =
   "@hoot_unfathomably/notification_onboarding_prompted";
 const STATE_KEY = "@hoot_unfathomably/notification_poll_state";
 const DIAGNOSTICS_KEY = "@hoot_unfathomably/notification_poll_diagnostics";
+const PREFERENCES_KEY = "@hoot_unfathomably/notification_preferences_v1";
 const NOTIFICATION_CHANNEL_ID = "hoot-unfathomably-notifications-v1";
+const SILENT_NOTIFICATION_CHANNEL_ID =
+  "hoot-unfathomably-notifications-silent-v1";
 
 const LEGACY_POLL_TASK_NAME = "hoot-mobile-lotide-notification-poll";
 const LEGACY_SETTINGS_KEY = "@lotide_notification_background_enabled";
@@ -94,6 +97,47 @@ export type NotificationNavigationTarget =
   | {
       screen: "Notifications";
     };
+
+export type NotificationCategory =
+  | "events"
+  | "follows"
+  | "groups"
+  | "mentions"
+  | "other"
+  | "polls"
+  | "reactions"
+  | "updates";
+
+export type NotificationDeliveryMode = "digest" | "individual";
+
+export type NotificationPreferences = {
+  categories: Record<NotificationCategory, boolean>;
+  deliveryMode: NotificationDeliveryMode;
+  quietHoursEnabled: boolean;
+  quietHoursEnd: string;
+  quietHoursStart: string;
+  showPostPreview: boolean;
+  sound: boolean;
+};
+
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  categories: {
+    events: true,
+    follows: true,
+    groups: true,
+    mentions: true,
+    other: true,
+    polls: true,
+    reactions: true,
+    updates: true,
+  },
+  deliveryMode: "individual",
+  quietHoursEnabled: false,
+  quietHoursEnd: "07:00",
+  quietHoursStart: "22:00",
+  showPostPreview: true,
+  sound: true,
+};
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -259,6 +303,98 @@ function buildAccountKey(ctx: LotideContext): string {
   return `${ctx.apiUrl || "unknown-server"}::${identity}`;
 }
 
+function asBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function normalizeClockTime(value: unknown, fallback: string): string {
+  if (typeof value !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) {
+    return fallback;
+  }
+  return value;
+}
+
+function normalizeNotificationPreferences(
+  value: unknown,
+): NotificationPreferences {
+  const record = isObject(value) ? value : {};
+  const categories = isObject(record.categories) ? record.categories : {};
+
+  return {
+    categories: {
+      events: asBoolean(categories.events, true),
+      follows: asBoolean(categories.follows, true),
+      groups: asBoolean(categories.groups, true),
+      mentions: asBoolean(categories.mentions, true),
+      other: asBoolean(categories.other, true),
+      polls: asBoolean(categories.polls, true),
+      reactions: asBoolean(categories.reactions, true),
+      updates: asBoolean(categories.updates, true),
+    },
+    deliveryMode: record.deliveryMode === "digest" ? "digest" : "individual",
+    quietHoursEnabled: asBoolean(record.quietHoursEnabled, false),
+    quietHoursEnd: normalizeClockTime(record.quietHoursEnd, "07:00"),
+    quietHoursStart: normalizeClockTime(record.quietHoursStart, "22:00"),
+    showPostPreview: asBoolean(record.showPostPreview, true),
+    sound: asBoolean(record.sound, true),
+  };
+}
+
+export async function getNotificationPreferences(
+  ctx: LotideContext,
+): Promise<NotificationPreferences> {
+  const store = parseJsonObject(await AsyncStorage.getItem(PREFERENCES_KEY));
+  return normalizeNotificationPreferences(store[buildAccountKey(ctx)]);
+}
+
+export async function setNotificationPreferences(
+  ctx: LotideContext,
+  preferences: NotificationPreferences,
+): Promise<NotificationPreferences> {
+  if (!ctx.login) throw new Error("Sign in before changing notification preferences.");
+  const normalized = normalizeNotificationPreferences(preferences);
+  const store = parseJsonObject(await AsyncStorage.getItem(PREFERENCES_KEY));
+  store[buildAccountKey(ctx)] = normalized;
+  await AsyncStorage.setItem(PREFERENCES_KEY, JSON.stringify(store));
+  return normalized;
+}
+
+export function notificationCategory(type: string): NotificationCategory {
+  if (type === "mention" || type === "pleroma:chat_mention") return "mentions";
+  if (type === "follow" || type === "follow_request") return "follows";
+  if (type.startsWith("group_")) return "groups";
+  if (
+    type === "favourite" ||
+    type === "reblog" ||
+    type === "pleroma:emoji_reaction"
+  ) return "reactions";
+  if (type === "poll") return "polls";
+  if (type === "status" || type === "update") return "updates";
+  if (type.startsWith("pleroma:event_") || type.startsWith("pleroma:participation_")) {
+    return "events";
+  }
+  return "other";
+}
+
+function clockMinutes(value: string): number {
+  const [hour, minute] = value.split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+export function isNotificationQuietTime(
+  preferences: NotificationPreferences,
+  now = new Date(),
+): boolean {
+  if (!preferences.quietHoursEnabled) return false;
+  const start = clockMinutes(preferences.quietHoursStart);
+  const end = clockMinutes(preferences.quietHoursEnd);
+  const current = now.getHours() * 60 + now.getMinutes();
+  if (start === end) return true;
+  return start < end
+    ? current >= start && current < end
+    : current >= start || current < end;
+}
+
 function normalizeNotificationStateEntry(
   value: unknown,
 ): NotificationStateEntry | undefined {
@@ -405,6 +541,7 @@ function actorName(
 
 function notificationContent(
   notification: UnfathomablyService.UnfathomablyNotification,
+  preferences: NotificationPreferences = DEFAULT_NOTIFICATION_PREFERENCES,
 ) {
   const actor = actorName(notification.account);
   const titles: Record<string, string> = {
@@ -434,9 +571,11 @@ function notificationContent(
       titles[notification.type] ??
       `New ${readableType || "account"} notification`,
     body:
-      plainStatusText(notification.status) ??
+      (preferences.showPostPreview
+        ? plainStatusText(notification.status)
+        : undefined) ??
       `Open Hoot Unfathomably to view activity from @${notification.account.acct}.`,
-    sound: "default" as const,
+    sound: preferences.sound ? "default" as const : undefined,
     data: {
       hootNotificationId: notification.id,
       hootNotificationKind: notification.type,
@@ -445,14 +584,17 @@ function notificationContent(
   };
 }
 
-function summaryNotificationContent(extraCount: number) {
+function summaryNotificationContent(
+  extraCount: number,
+  preferences: NotificationPreferences = DEFAULT_NOTIFICATION_PREFERENCES,
+) {
   return {
     title: "New Hoot Unfathomably notifications",
     body:
       extraCount === 1
         ? "1 more notification is waiting."
         : `${extraCount} more notifications are waiting.`,
-    sound: "default" as const,
+    sound: preferences.sound ? "default" as const : undefined,
     data: {
       hootNotificationKind: "notification_summary",
     },
@@ -484,11 +626,18 @@ function permissionStatusText(
 async function ensureChannel(): Promise<void> {
   if (Platform.OS !== "android") return;
 
-  await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNEL_ID, {
-    name: "Hoot Unfathomably notifications",
-    importance: Notifications.AndroidImportance.HIGH,
-    sound: "default",
-  });
+  await Promise.all([
+    Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNEL_ID, {
+      name: "Hoot Unfathomably notifications",
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: "default",
+    }),
+    Notifications.setNotificationChannelAsync(SILENT_NOTIFICATION_CHANNEL_ID, {
+      name: "Hoot Unfathomably silent notifications",
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: null,
+    }),
+  ]);
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {
@@ -534,39 +683,75 @@ async function runPollAndNotifyForContext(
     const notifications = await UnfathomablyService.getNotifications(ctx);
     const currentIds = notifications.map(item => item.id);
     const nextIds = trackedNotificationIds(currentIds, accountState.ids);
-    const candidates = accountState.initialized
-      ? notifications.filter(item => !knownIds.has(item.id))
-      : [];
+    const preferences = await getNotificationPreferences(ctx);
+
+    if (!accountState.initialized) {
+      await setNotificationStateEntry(accountKey, {
+        initialized: true,
+        ids: nextIds,
+      });
+      await recordPollResult(attemptAt, 0);
+      return 0;
+    }
+
+    const candidates = notifications.filter(item => !knownIds.has(item.id));
+
+    /*
+        Quiet hours defer eligible notifications instead of marking them seen.
+        The next permitted poll can still alert the user, while the server
+        remains the authoritative store if Android delays background work.
+    */
+    if (candidates.length > 0 && isNotificationQuietTime(preferences)) {
+      await recordPollResult(attemptAt, 0);
+      return 0;
+    }
 
     await setNotificationStateEntry(accountKey, {
       initialized: true,
       ids: nextIds,
     });
 
-    if (candidates.length === 0) {
+    const enabledCandidates = candidates.filter(notification =>
+      preferences.categories[notificationCategory(notification.type)],
+    );
+
+    if (enabledCandidates.length === 0) {
       await recordPollResult(attemptAt, 0);
       return 0;
     }
 
     await ensureChannel();
 
-    const individualCandidates = candidates.slice(
+    const channelId = preferences.sound
+      ? NOTIFICATION_CHANNEL_ID
+      : SILENT_NOTIFICATION_CHANNEL_ID;
+
+    if (preferences.deliveryMode === "digest") {
+      await Notifications.scheduleNotificationAsync({
+        content: summaryNotificationContent(enabledCandidates.length, preferences),
+        trigger: { channelId },
+      });
+      await recordPollResult(attemptAt, 1);
+      return 1;
+    }
+
+    const individualCandidates = enabledCandidates.slice(
       0,
       MAX_INDIVIDUAL_NOTIFICATIONS_PER_POLL,
     );
     const requests = individualCandidates.map(notification =>
       Notifications.scheduleNotificationAsync({
-        content: notificationContent(notification),
-        trigger: { channelId: NOTIFICATION_CHANNEL_ID },
+        content: notificationContent(notification, preferences),
+        trigger: { channelId },
       }),
     );
-    const hiddenCount = candidates.length - individualCandidates.length;
+    const hiddenCount = enabledCandidates.length - individualCandidates.length;
 
     if (hiddenCount > 0) {
       requests.push(
         Notifications.scheduleNotificationAsync({
-          content: summaryNotificationContent(hiddenCount),
-          trigger: { channelId: NOTIFICATION_CHANNEL_ID },
+          content: summaryNotificationContent(hiddenCount, preferences),
+          trigger: { channelId },
         }),
       );
     }

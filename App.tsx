@@ -43,6 +43,8 @@ import { getErrorMessage } from "./utils/error";
 import AppErrorBoundary from "./components/AppErrorBoundary";
 import InstanceThemeProvider from "./components/InstanceThemeProvider";
 import { logWarning } from "./utils/debugLog";
+import { AccessibilityPreferencesProvider } from "./contexts/AccessibilityPreferencesContext";
+import { I18nProvider } from "./hooks/useI18n";
 
 /* ------------------------------------------------------------------------- */
 /* Main Application Component                                                */
@@ -223,7 +225,11 @@ export default function AppRoot() {
   return (
     <AppErrorBoundary>
       <Provider store={reduxStore}>
-        <App />
+        <AccessibilityPreferencesProvider>
+          <I18nProvider>
+            <App />
+          </I18nProvider>
+        </AccessibilityPreferencesProvider>
       </Provider>
     </AppErrorBoundary>
   );

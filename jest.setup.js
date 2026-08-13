@@ -91,6 +91,43 @@ jest.mock("expo-font", () => ({
   loadAsync: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock("expo-file-system", () => {
+  function joinParts(parts) {
+    const values = parts.map(part => typeof part === "string" ? part : part.uri);
+    return values.reduce((path, value, index) => index === 0
+      ? value.replace(/\/$/, "")
+      : `${path}/${value.replace(/^\/+|\/+$/g, "")}`,
+    "");
+  }
+  class Directory {
+    constructor(...parts) {
+      this.uri = joinParts(parts);
+    }
+    create() {}
+  }
+  class File {
+    constructor(...parts) {
+      this.uri = joinParts(parts);
+      this.exists = true;
+    }
+    copy(destination) {
+      destination.exists = true;
+      return Promise.resolve();
+    }
+    delete() {
+      this.exists = false;
+    }
+  }
+  return {
+    Directory,
+    File,
+    Paths: {
+      cache: new Directory("file:///cache"),
+      document: new Directory("file:///documents"),
+    },
+  };
+});
+
 jest.mock("expo-haptics", () => ({
   ImpactFeedbackStyle: {
     Light: "light",
@@ -100,9 +137,18 @@ jest.mock("expo-haptics", () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock("expo-image-picker", () => ({
+  launchImageLibraryAsync: jest.fn(() => Promise.resolve({ canceled: true, assets: [] })),
+  requestMediaLibraryPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+}));
+
 jest.mock("expo-linking", () => ({
   createURL: jest.fn(path => `hoot://${path}`),
   openURL: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock("expo-localization", () => ({
+  getLocales: jest.fn(() => [{ languageCode: "en", languageTag: "en-CA" }]),
 }));
 
 jest.mock("expo-web-browser", () => ({

@@ -32,6 +32,7 @@ export type UnfathomablyAccount = {
   avatar_static?: string;
   bot?: boolean;
   created_at?: string;
+  discoverable?: boolean;
   fields?: { name: string; value: string; verified_at?: string | null }[];
   followers_count?: number;
   following_count?: number;
@@ -157,6 +158,14 @@ export type UnfathomablyMediaAttachment = {
   } | null;
 };
 
+export type MediaUploadInput = {
+  description?: string;
+  focus?: string;
+  mimeType?: string;
+  name?: string;
+  uri: string;
+};
+
 export type UnfathomablyEvent = {
   name: string;
   start_time?: string | null;
@@ -182,6 +191,7 @@ export type UnfathomablyStatus = {
   created_at: string;
   edited_at?: string | null;
   content: string;
+  uri?: string;
   url?: string;
   in_reply_to_id?: string | null;
   in_reply_to_account_id?: string | null;
@@ -207,6 +217,16 @@ export type UnfathomablyStatus = {
   disliked?: boolean;
   reblogged?: boolean;
   bookmarked?: boolean;
+  filtered?: {
+    filter: {
+      context?: string[];
+      filter_action?: "hide" | "warn" | string;
+      id: string;
+      title: string;
+    };
+    keyword_matches?: string[] | null;
+    status_matches?: string[] | null;
+  }[] | null;
   mentions?: UnfathomablyMention[];
   emoji_reactions?: { name: string; count: number; me?: boolean; url?: string }[] | null;
   pleroma?: {
@@ -243,6 +263,50 @@ export type UnfathomablyNotification = {
   target?: UnfathomablyAccount;
   emoji?: string;
   emoji_url?: string;
+};
+
+export type UnfathomablyNotificationGroup = {
+  group_key: string;
+  latest_page_notification_at?: string;
+  most_recent_notification_id: string;
+  notifications_count: number;
+  page_max_id?: string;
+  page_min_id?: string;
+  sample_account_ids: string[];
+  status_id?: string;
+  type: string;
+};
+
+export type UnfathomablyGroupedNotifications = {
+  accounts: UnfathomablyAccount[];
+  notification_groups: UnfathomablyNotificationGroup[];
+  statuses: UnfathomablyStatus[];
+};
+
+export type UnfathomablyStatusSource = {
+  id: string;
+  spoiler_text: string;
+  text: string;
+};
+
+export type UnfathomablyScheduledStatus = {
+  id: string;
+  media_attachments: UnfathomablyMediaAttachment[];
+  params: {
+    in_reply_to_id?: string | null;
+    media_ids?: string[] | null;
+    poll?: {
+      expires_in: number;
+      multiple: boolean;
+      options: string[];
+    } | null;
+    scheduled_at?: string | null;
+    sensitive?: boolean;
+    spoiler_text?: string | null;
+    text: string;
+    visibility?: string;
+  };
+  scheduled_at: string;
 };
 
 export type UnfathomablyInstance = {
@@ -637,23 +701,52 @@ export function getInstanceCapabilities(
   };
 }
 
+/*
+    Some Pleroma-family servers implement application registration as a
+    lookup followed by an insert without a database uniqueness constraint.
+    Coalescing identical in-flight requests prevents simultaneous account
+    logins from creating duplicate client records and breaking later logins.
+    Completed registrations are not retained, so client secrets remain only
+    as long as their immediate authorization flow needs them.
+*/
+const pendingOAuthRegistrations = new Map<string, Promise<OAuthApplication>>();
+
 export async function registerOAuthApplication(
   serverUrl: string,
   redirectUri: string,
 ): Promise<OAuthApplication> {
-  if (!redirectUri.trim()) {
+  const normalizedRedirectUri = redirectUri.trim();
+  if (!normalizedRedirectUri) {
     throw new Error("Cannot start server login without a redirect URI.");
   }
 
-  return request<OAuthApplication>({ apiUrl: serverUrl }, "/api/v1/apps", {
-    method: "POST",
-    body: JSON.stringify({
-      client_name: "Hoot Unfathomably",
-      redirect_uris: redirectUri,
-      scopes: OAUTH_SCOPES,
-      website: "https://github.com/fbxl-sj0/hoot-unfathomably",
-    }),
-  });
+  const normalizedServerUrl = requireSupportedServerUrl(serverUrl);
+  const registrationKey = `${normalizedServerUrl}\n${normalizedRedirectUri}`;
+  const existing = pendingOAuthRegistrations.get(registrationKey);
+  if (existing) return existing;
+
+  const pending = request<OAuthApplication>(
+    { apiUrl: normalizedServerUrl },
+    "/api/v1/apps",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        client_name: "Hoot Unfathomably",
+        redirect_uris: normalizedRedirectUri,
+        scopes: OAUTH_SCOPES,
+        website: "https://github.com/fbxl-sj0/hoot-unfathomably",
+      }),
+    },
+  );
+  pendingOAuthRegistrations.set(registrationKey, pending);
+
+  try {
+    return await pending;
+  } finally {
+    if (pendingOAuthRegistrations.get(registrationKey) === pending) {
+      pendingOAuthRegistrations.delete(registrationKey);
+    }
+  }
 }
 
 export function buildOAuthAuthorizationUrl(
@@ -796,6 +889,120 @@ export async function getGroupTimeline(
 
 export function getStatus(ctx: LotideContext, id: string) {
   return request<UnfathomablyStatus>(ctx, `/api/v1/statuses/${encodeURIComponent(id)}`);
+}
+
+function mediaUploadForm(input: MediaUploadInput): FormData {
+  const uri = input.uri.trim();
+  if (!uri || uri.length > 4_096) {
+    throw new Error("The selected media file is unavailable.");
+  }
+  const form = new FormData();
+  form.append("file", {
+    name: input.name?.trim().slice(0, 500) || "upload.jpg",
+    type: input.mimeType?.trim().slice(0, 200) || "image/jpeg",
+    uri,
+  } as unknown as Blob);
+  if (input.description?.trim()) {
+    form.append("description", input.description.trim().slice(0, 1_500));
+  }
+  if (input.focus?.trim()) {
+    form.append("focus", input.focus.trim().slice(0, 100));
+  }
+  return form;
+}
+
+export async function uploadMedia(
+  ctx: LotideContext,
+  input: MediaUploadInput,
+): Promise<UnfathomablyMediaAttachment> {
+  try {
+    return await request<UnfathomablyMediaAttachment>(ctx, "/api/v2/media", {
+      body: mediaUploadForm(input),
+      method: "POST",
+    });
+  } catch (error) {
+    const status = (error as Error & { status?: number })?.status;
+    if (!status || ![404, 405, 410, 501].includes(status)) throw error;
+
+    /* Pleroma and older Mastodon-compatible servers expose uploads at v1. */
+    return request<UnfathomablyMediaAttachment>(ctx, "/api/v1/media", {
+      body: mediaUploadForm(input),
+      method: "POST",
+    });
+  }
+}
+
+export function updateMediaDescription(
+  ctx: LotideContext,
+  id: string,
+  description: string,
+) {
+  return request<UnfathomablyMediaAttachment>(
+    ctx,
+    `/api/v1/media/${encodeURIComponent(id)}`,
+    {
+      body: JSON.stringify({ description: description.trim().slice(0, 1_500) }),
+      method: "PUT",
+    },
+  );
+}
+
+export async function resolveStatusByUrl(
+  ctx: LotideContext,
+  statusUrl: string,
+): Promise<UnfathomablyStatus> {
+  const normalizedUrl = statusUrl.trim();
+  let parsed: URL;
+
+  try {
+    parsed = new URL(normalizedUrl);
+  } catch {
+    throw new Error("This post does not have a valid federated address.");
+  }
+
+  if (
+    (parsed.protocol !== "https:" && parsed.protocol !== "http:") ||
+    normalizedUrl.length > 4_096
+  ) {
+    throw new Error("This post does not have a safe federated address.");
+  }
+
+  const parameters = query({
+    limit: 5,
+    q: normalizedUrl,
+    resolve: true,
+    type: "statuses",
+  });
+  let result: { statuses?: UnfathomablyStatus[] };
+
+  try {
+    result = await request<{ statuses?: UnfathomablyStatus[] }>(
+      ctx,
+      `/api/v2/search${parameters}`,
+    );
+  } catch (error) {
+    const status = (error as Error & { status?: number })?.status;
+    if (!status || ![404, 405, 410, 501].includes(status)) throw error;
+
+    /*
+        Older Pleroma-family servers expose the same search shape under v1.
+        Only endpoint-unavailable responses trigger this compatibility path.
+    */
+    result = await request<{ statuses?: UnfathomablyStatus[] }>(
+      ctx,
+      `/api/v1/search${parameters}`,
+    );
+  }
+
+  const exact = result.statuses?.find(
+    status => status.uri === normalizedUrl || status.url === normalizedUrl,
+  );
+  const resolved = exact || result.statuses?.[0];
+  if (!resolved) {
+    throw new Error("This account's server could not resolve the post.");
+  }
+
+  return resolved;
 }
 
 export function getStatusContext(ctx: LotideContext, id: string) {
@@ -1007,7 +1214,10 @@ export async function setEventJoined(
 export type CreateStatusOptions = {
   contentWarning?: string;
   groupId?: string;
+  idempotencyKey?: string;
   inReplyToId?: string;
+  language?: string;
+  mediaIds?: string[];
   poll?: {
     expiresIn: number;
     multiple: boolean;
@@ -1015,20 +1225,53 @@ export type CreateStatusOptions = {
   };
   quoteId?: string;
   quoteParameter?: QuoteParameter;
+  scheduledAt?: string;
   sensitive?: boolean;
   visibility?: string;
 };
 
-export function createStatus(
-  ctx: LotideContext,
-  content: string,
-  options: CreateStatusOptions = {},
-) {
+export type UpdateStatusOptions = Pick<
+  CreateStatusOptions,
+  "contentWarning" | "language" | "mediaIds" | "poll" | "sensitive"
+>;
+
+const MINIMUM_SCHEDULE_DELAY_MS = 5 * 60 * 1_000;
+
+export function normalizeScheduledAt(
+  value: string,
+  now = Date.now(),
+): string {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) {
+    throw new Error("Choose a valid date and time for this scheduled post.");
+  }
+  if (timestamp < now + MINIMUM_SCHEDULE_DELAY_MS) {
+    throw new Error("Scheduled posts must be at least five minutes in the future.");
+  }
+
+  return new Date(timestamp).toISOString();
+}
+
+function normalizeIdempotencyKey(value: string | undefined): string | undefined {
+  const key = value?.trim().slice(0, 255);
+  return key || undefined;
+}
+
+function normalizeMediaIds(value: string[] | undefined): string[] | undefined {
+  if (!value) return undefined;
+
+  const ids = Array.from(new Set(
+    value.map(id => id.trim()).filter(Boolean),
+  )).slice(0, 4);
+  return ids.length > 0 ? ids : undefined;
+}
+
+function createPollPayload(options: CreateStatusOptions) {
   const pollOptions = options.poll?.options
     .map(option => option.trim())
     .filter(Boolean)
     .slice(0, 4);
-  const poll = pollOptions && pollOptions.length >= 2
+  return pollOptions && pollOptions.length >= 2
     ? {
         expires_in: Math.max(
           300,
@@ -1038,24 +1281,112 @@ export function createStatus(
         options: pollOptions,
       }
     : undefined;
+}
+
+export function createStatus(
+  ctx: LotideContext,
+  content: string,
+  options: CreateStatusOptions = {},
+) {
+  const poll = createPollPayload(options);
 
   const quote = options.quoteId
     ? { [options.quoteParameter || "quote_id"]: options.quoteId }
     : {};
 
-  return request<UnfathomablyStatus>(ctx, "/api/v1/statuses", {
+  const scheduledAt = options.scheduledAt
+    ? normalizeScheduledAt(options.scheduledAt)
+    : undefined;
+  const idempotencyKey = normalizeIdempotencyKey(options.idempotencyKey);
+
+  return request<UnfathomablyStatus | UnfathomablyScheduledStatus>(ctx, "/api/v1/statuses", {
     method: "POST",
+    headers: idempotencyKey
+      ? { "Idempotency-Key": idempotencyKey }
+      : undefined,
     body: JSON.stringify({
       status: content,
       in_reply_to_id: options.inReplyToId,
       ...quote,
       group_id: options.groupId,
+      language: options.language?.trim() || undefined,
+      media_ids: normalizeMediaIds(options.mediaIds),
       poll,
+      scheduled_at: scheduledAt,
       sensitive: options.sensitive === true || undefined,
       spoiler_text: options.contentWarning?.trim() || undefined,
       visibility: options.visibility || (options.groupId ? "unlisted" : "public"),
     }),
   });
+}
+
+export function getStatusSource(ctx: LotideContext, id: string) {
+  return request<UnfathomablyStatusSource>(
+    ctx,
+    `/api/v1/statuses/${encodeURIComponent(id)}/source`,
+  );
+}
+
+export function updateStatus(
+  ctx: LotideContext,
+  id: string,
+  content: string,
+  options: UpdateStatusOptions = {},
+) {
+  return request<UnfathomablyStatus>(
+    ctx,
+    `/api/v1/statuses/${encodeURIComponent(id)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        language: options.language?.trim() || undefined,
+        media_ids: normalizeMediaIds(options.mediaIds),
+        poll: createPollPayload(options),
+        sensitive: options.sensitive === true || undefined,
+        spoiler_text: options.contentWarning?.trim() || undefined,
+        status: content,
+      }),
+    },
+  );
+}
+
+export function getScheduledStatuses(ctx: LotideContext, maxId?: string) {
+  return request<UnfathomablyScheduledStatus[]>(
+    ctx,
+    `/api/v1/scheduled_statuses${query({ limit: 40, max_id: maxId })}`,
+  );
+}
+
+export function getScheduledStatus(ctx: LotideContext, id: string) {
+  return request<UnfathomablyScheduledStatus>(
+    ctx,
+    `/api/v1/scheduled_statuses/${encodeURIComponent(id)}`,
+  );
+}
+
+export function updateScheduledStatus(
+  ctx: LotideContext,
+  id: string,
+  scheduledAt: string,
+) {
+  return request<UnfathomablyScheduledStatus>(
+    ctx,
+    `/api/v1/scheduled_statuses/${encodeURIComponent(id)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        scheduled_at: normalizeScheduledAt(scheduledAt),
+      }),
+    },
+  );
+}
+
+export function cancelScheduledStatus(ctx: LotideContext, id: string) {
+  return request<UnfathomablyScheduledStatus>(
+    ctx,
+    `/api/v1/scheduled_statuses/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
 }
 
 export async function getGroups(ctx: LotideContext, search = "") {
@@ -1155,6 +1486,33 @@ export async function joinGroup(ctx: LotideContext, id: string, leave = false) {
 
 export function getNotifications(ctx: LotideContext, maxId?: string) {
   return request<UnfathomablyNotification[]>(ctx, `/api/v1/notifications${query({ limit: 30, max_id: maxId })}`);
+}
+
+export async function getGroupedNotifications(
+  ctx: LotideContext,
+  maxId?: string,
+): Promise<UnfathomablyGroupedNotifications | undefined> {
+  try {
+    return await request<UnfathomablyGroupedNotifications>(
+      ctx,
+      `/api/v2/notifications${query({ limit: 30, max_id: maxId })}`,
+    );
+  } catch (error) {
+    const status = (error as Error & { status?: number })?.status;
+    if (status && [404, 405, 410, 501].includes(status)) return undefined;
+    throw error;
+  }
+}
+
+export function dismissGroupedNotification(
+  ctx: LotideContext,
+  groupKey: string,
+) {
+  return request<Record<string, never>>(
+    ctx,
+    `/api/v2/notifications/${encodeURIComponent(groupKey)}/dismiss`,
+    { method: "POST" },
+  );
 }
 
 export function getAccountStatuses(ctx: LotideContext, id: string, maxId?: string) {

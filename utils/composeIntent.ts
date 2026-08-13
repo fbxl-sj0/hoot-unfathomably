@@ -11,6 +11,8 @@ import type { QuoteParameter } from "../services/UnfathomablyService";
 
 export type ComposeIntent = {
   composeIntentId: string;
+  draftId?: string;
+  editStatusId?: string;
   groupId?: string;
   groupName?: string;
   inReplyToId?: string;
@@ -19,13 +21,16 @@ export type ComposeIntent = {
 };
 
 let composeIntentSequence = 0;
+const composeIntentSession = Date.now().toString(36);
 
 export function createComposeIntent(
   requested: Partial<Omit<ComposeIntent, "composeIntentId">> = {},
 ): ComposeIntent {
   composeIntentSequence += 1;
   return {
-    composeIntentId: `compose-${composeIntentSequence}`,
+    composeIntentId: `compose-${composeIntentSession}-${composeIntentSequence}`,
+    draftId: undefined,
+    editStatusId: undefined,
     groupId: undefined,
     groupName: undefined,
     inReplyToId: undefined,

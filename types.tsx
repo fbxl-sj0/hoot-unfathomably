@@ -30,6 +30,8 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { WorldFamily } from "./constants/Worlds";
 import type { BookReference } from "./services/UnfathomablyBooksService";
 import type { NativeResolvedResource } from "./services/UnfathomablyWorldsService";
+import type { FediverseList } from "./services/UnfathomablyListsService";
+import type { FediverseFilter } from "./services/UnfathomablyFiltersService";
 
 declare global {
   namespace ReactNavigation {
@@ -55,6 +57,18 @@ export type RootStackParamList = {
   };
   People: undefined;
   SavedPosts: undefined;
+  Drafts: undefined;
+  ScheduledPosts: undefined;
+  Lists: undefined;
+  ListEditor: { list?: FediverseList } | undefined;
+  ListDetail: { listId: string; title: string };
+  Filters: undefined;
+  FilterEditor: { filter?: FediverseFilter } | undefined;
+  StatusActions: { statusId: string };
+  Report: { accountId: string; accountLabel?: string; statusId?: string };
+  CrossAccountAction: { statusId: string };
+  EditProfile: undefined;
+  NotificationPreferences: undefined;
   Group: { groupId: string; title?: string };
   Worlds: { family?: WorldFamily; view?: "browse" | "feed" | "find" } | undefined;
   BookLibrary: { book?: BookReference } | undefined;
@@ -113,7 +127,7 @@ export type RootStackParamList = {
   SearchScreen: undefined;
   SourceListScreen: undefined;
   MessageListScreen: undefined;
-  NewPostScreen: { community?: Community; composeIntentId?: string; groupId?: string; groupName?: string; inReplyToId?: string; quoteId?: string; quoteParameter?: import("./services/UnfathomablyService").QuoteParameter };
+  NewPostScreen: { community?: Community; composeIntentId?: string; draftId?: string; editStatusId?: string; groupId?: string; groupName?: string; inReplyToId?: string; quoteId?: string; quoteParameter?: import("./services/UnfathomablyService").QuoteParameter };
   NotificationScreen: undefined;
   OptionsScreen: undefined;
   // Retained for the legacy profile screen; the Unfathomably UI opens it from Options.
@@ -132,7 +146,7 @@ export type RootTabParamList = {
   SearchScreen: undefined;
   SourceListScreen: undefined;
   MessageListScreen: undefined;
-  NewPostScreen: { community?: Community; composeIntentId?: string; groupId?: string; groupName?: string; inReplyToId?: string; quoteId?: string; quoteParameter?: import("./services/UnfathomablyService").QuoteParameter };
+  NewPostScreen: { community?: Community; composeIntentId?: string; draftId?: string; editStatusId?: string; groupId?: string; groupName?: string; inReplyToId?: string; quoteId?: string; quoteParameter?: import("./services/UnfathomablyService").QuoteParameter };
   NotificationScreen: undefined;
   OptionsScreen: undefined;
   ProfileScreen: undefined;

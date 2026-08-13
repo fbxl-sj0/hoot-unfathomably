@@ -39,7 +39,7 @@ export const settingsSlice = createSlice({
   initialState,
   reducers: {
     setAppSettings: (state, action: PayloadAction<AppSettings>) => {
-      state.defaultFeedSort = action.payload.defaultFeedSort;
+      Object.assign(state, action.payload);
       state.activeFeedSort = action.payload.defaultFeedSort;
     },
     setDefaultFeedSort: (state, action: PayloadAction<SortOption>) => {

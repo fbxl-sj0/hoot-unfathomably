@@ -6,7 +6,7 @@
 
     Purpose:
 
-        Persist Lotide context, saved account records, and app settings.
+        Persist Fediverse context, saved account records, and app settings.
 
     Responsibilities:
 
@@ -153,7 +153,9 @@ async function removeContextToken(ctx: LotideContext): Promise<void> {
   if (tokenKey) await SecureStore.deleteItemAsync(tokenKey);
 }
 
-function accountStoreKeyForContext(ctx: LotideContext): string | undefined {
+export function accountStoreKeyForContext(
+  ctx: LotideContext,
+): string | undefined {
   if (!ctx.apiUrl || !ctx.login?.user?.username) return undefined;
 
   return `${ctx.login.user.username}@${normalizeLotideApiUrl(ctx.apiUrl)}`;
@@ -286,18 +288,40 @@ export const lotideContextKV = {
 /* ------------------------------------------------------------------------- */
 
 export type AppSettings = {
+  alwaysExpandContentWarnings: boolean;
   defaultFeedSort: SortOption;
+  highContrast: boolean;
+  locale: "system" | "en" | "es" | "fr";
+  reduceMotion: boolean;
+  showMediaDescriptions: boolean;
+  textScale: 1 | 1.15 | 1.3;
 };
 
 const defaultAppSettings: AppSettings = {
+  alwaysExpandContentWarnings: false,
   defaultFeedSort: "hot",
+  highContrast: false,
+  locale: "system",
+  reduceMotion: false,
+  showMediaDescriptions: false,
+  textScale: 1,
 };
 
 function normalizeAppSettings(value: Record<string, unknown>): AppSettings {
   return {
+    alwaysExpandContentWarnings: value.alwaysExpandContentWarnings === true,
     defaultFeedSort:
       asSortOption(value.defaultFeedSort) ??
       defaultAppSettings.defaultFeedSort,
+    highContrast: value.highContrast === true,
+    locale: value.locale === "en" || value.locale === "es" || value.locale === "fr"
+      ? value.locale
+      : "system",
+    reduceMotion: value.reduceMotion === true,
+    showMediaDescriptions: value.showMediaDescriptions === true,
+    textScale: value.textScale === 1.15 || value.textScale === 1.3
+      ? value.textScale
+      : 1,
   };
 }
 

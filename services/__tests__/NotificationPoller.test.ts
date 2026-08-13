@@ -24,14 +24,18 @@ import {
   getLastNotificationNavigationTarget,
   getNotificationDiagnostics,
   getNotificationEnabled,
+  getNotificationPreferences,
   getNotificationOnboardingPrompted,
   getNotificationNavigationTarget,
   getNotificationNavigationTargetFromResponse,
   markNotificationOnboardingPrompted,
+  isNotificationQuietTime,
   pollNotificationsNow,
   registerNotificationPollTask,
   sendTestNotification,
   setNotificationEnabled,
+  setNotificationPreferences,
+  DEFAULT_NOTIFICATION_PREFERENCES,
 } from "../NotificationPoller";
 
 const mockStoredContextQuery = jest.fn();
@@ -171,6 +175,48 @@ describe("NotificationPoller", () => {
     ).resolves.toBe("true");
   });
 
+  test("stores complete notification preferences per account", async () => {
+    const preferences = {
+      ...DEFAULT_NOTIFICATION_PREFERENCES,
+      categories: {
+        ...DEFAULT_NOTIFICATION_PREFERENCES.categories,
+        reactions: false,
+      },
+      deliveryMode: "digest" as const,
+      quietHoursEnabled: true,
+      quietHoursEnd: "06:30",
+      quietHoursStart: "23:15",
+      showPostPreview: false,
+      sound: false,
+    };
+
+    await expect(setNotificationPreferences(ctx, preferences)).resolves.toEqual(preferences);
+    await expect(getNotificationPreferences(ctx)).resolves.toEqual(preferences);
+    await expect(getNotificationPreferences(makeContext("mastodon"))).resolves.toEqual(
+      DEFAULT_NOTIFICATION_PREFERENCES,
+    );
+  });
+
+  test("handles daytime and overnight quiet-hour windows", () => {
+    const daytime = {
+      ...DEFAULT_NOTIFICATION_PREFERENCES,
+      quietHoursEnabled: true,
+      quietHoursEnd: "14:00",
+      quietHoursStart: "12:00",
+    };
+    const overnight = {
+      ...daytime,
+      quietHoursEnd: "07:00",
+      quietHoursStart: "22:00",
+    };
+
+    expect(isNotificationQuietTime(daytime, new Date(2026, 0, 1, 13, 0))).toBe(true);
+    expect(isNotificationQuietTime(daytime, new Date(2026, 0, 1, 18, 0))).toBe(false);
+    expect(isNotificationQuietTime(overnight, new Date(2026, 0, 1, 23, 0))).toBe(true);
+    expect(isNotificationQuietTime(overnight, new Date(2026, 0, 1, 6, 30))).toBe(true);
+    expect(isNotificationQuietTime(overnight, new Date(2026, 0, 1, 12, 0))).toBe(false);
+  });
+
   test.each([
     ["Akkoma", "akkoma"],
     ["Mastodon", "mastodon"],
@@ -222,6 +268,78 @@ describe("NotificationPoller", () => {
       }),
       trigger: { channelId },
     });
+  });
+
+  test("filters categories and hides previews on the silent channel", async () => {
+    mockGetNotifications.mockResolvedValue([]);
+    await setNotificationEnabled(true, ctx);
+    await setNotificationPreferences(ctx, {
+      ...DEFAULT_NOTIFICATION_PREFERENCES,
+      categories: {
+        ...DEFAULT_NOTIFICATION_PREFERENCES.categories,
+        mentions: false,
+      },
+      showPostPreview: false,
+      sound: false,
+    });
+    mockScheduleNotification.mockClear();
+    mockGetNotifications.mockResolvedValue([
+      notification("102", "mention"),
+      notification("101", "favourite"),
+    ]);
+
+    await expect(pollNotificationsNow(ctx)).resolves.toBe(1);
+    expect(mockScheduleNotification).toHaveBeenCalledWith({
+      content: expect.objectContaining({
+        body: "Open Hoot Unfathomably to view activity from @remote@elsewhere.example.",
+        sound: undefined,
+        title: "Remote Person favourited your post",
+      }),
+      trigger: { channelId: "hoot-unfathomably-notifications-silent-v1" },
+    });
+  });
+
+  test("combines an eligible batch into one requested digest", async () => {
+    mockGetNotifications.mockResolvedValue([]);
+    await setNotificationEnabled(true, ctx);
+    await setNotificationPreferences(ctx, {
+      ...DEFAULT_NOTIFICATION_PREFERENCES,
+      deliveryMode: "digest",
+    });
+    mockScheduleNotification.mockClear();
+    mockGetNotifications.mockResolvedValue([
+      notification("102", "mention"),
+      notification("101", "favourite"),
+    ]);
+
+    await expect(pollNotificationsNow(ctx)).resolves.toBe(1);
+    expect(mockScheduleNotification).toHaveBeenCalledTimes(1);
+    expect(mockScheduleNotification).toHaveBeenCalledWith({
+      content: expect.objectContaining({
+        body: "2 more notifications are waiting.",
+      }),
+      trigger: { channelId },
+    });
+  });
+
+  test("defers new activity during quiet hours and delivers it later", async () => {
+    mockGetNotifications.mockResolvedValue([]);
+    await setNotificationEnabled(true, ctx);
+    await setNotificationPreferences(ctx, {
+      ...DEFAULT_NOTIFICATION_PREFERENCES,
+      quietHoursEnabled: true,
+      quietHoursEnd: "00:00",
+      quietHoursStart: "00:00",
+    });
+    mockScheduleNotification.mockClear();
+    mockGetNotifications.mockResolvedValue([notification("101")]);
+
+    await expect(pollNotificationsNow(ctx)).resolves.toBe(0);
+    expect(mockScheduleNotification).not.toHaveBeenCalled();
+
+    await setNotificationPreferences(ctx, DEFAULT_NOTIFICATION_PREFERENCES);
+    await expect(pollNotificationsNow(ctx)).resolves.toBe(1);
+    expect(mockScheduleNotification).toHaveBeenCalledTimes(1);
   });
 
   test("does not alert old history if migrated settings have no baseline", async () => {

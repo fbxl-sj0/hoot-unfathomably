@@ -41,6 +41,7 @@ import {
   createComposeIntent,
 } from "../utils/composeIntent";
 import { getErrorMessage } from "../utils/error";
+import { useAccessibilityPreferences } from "../contexts/AccessibilityPreferencesContext";
 
 export default function StatusCard({
   status,
@@ -54,6 +55,10 @@ export default function StatusCard({
   compact?: boolean;
 }) {
   const theme = useTheme();
+  const {
+    alwaysExpandContentWarnings,
+    showMediaDescriptions,
+  } = useAccessibilityPreferences();
   const [current, setCurrent] = useState(status);
   const visible = current.reblog || current;
   const account = visible.account;
@@ -73,6 +78,8 @@ export default function StatusCard({
   const [bookmarkPending, setBookmarkPending] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [removed, setRemoved] = useState(false);
+  const [filterRevealed, setFilterRevealed] = useState(false);
+  const [contentWarningOverride, setContentWarningOverride] = useState<boolean>();
   const bookmarkPendingRef = useRef(false);
   const deletePendingRef = useRef(false);
   const isMountedRef = useRef(true);
@@ -81,6 +88,8 @@ export default function StatusCard({
     !current.reblog &&
     ownAccountId !== "" &&
     ownAccountId === String(current.account.id);
+  const contentVisible = !visible.spoiler_text ||
+    (contentWarningOverride ?? alwaysExpandContentWarnings);
 
   useEffect(() => {
     return () => {
@@ -251,6 +260,49 @@ export default function StatusCard({
     );
   }
 
+  const matchedFilter = visible.filtered?.[0]?.filter;
+  if (matchedFilter && !filterRevealed) {
+    return (
+      <View
+        accessibilityLabel={`Filtered post by ${account.display_name || account.acct}`}
+        style={[
+          styles.card,
+          styles.filteredCard,
+          { borderColor: theme.secondaryBackground },
+        ]}
+      >
+        <View style={styles.header}>
+          {!!account.avatar && <Image source={{ uri: account.avatar }} style={styles.avatar} />}
+          <View style={styles.author}>
+            <Text numberOfLines={1} style={styles.displayName}>
+              {account.display_name || account.username}
+            </Text>
+            <Text secondary>@{account.acct}</Text>
+          </View>
+          <Icon
+            color={matchedFilter.filter_action === "hide" ? theme.red : theme.orange}
+            name={matchedFilter.filter_action === "hide" ? "eye-off-outline" : "warning-outline"}
+            size={24}
+          />
+        </View>
+        <Text style={styles.filterTitle}>
+          {matchedFilter.filter_action === "hide" ? "Hidden by filter" : "Filtered post"}: {matchedFilter.title}
+        </Text>
+        <Pressable
+          accessibilityLabel={`Show post filtered by ${matchedFilter.title}`}
+          accessibilityRole="button"
+          onPress={() => setFilterRevealed(true)}
+          style={[
+            styles.showFiltered,
+            { backgroundColor: theme.secondaryBackground },
+          ]}
+        >
+          <Text>Show anyway</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -329,61 +381,84 @@ export default function StatusCard({
           <Text style={{ color: theme.tint }}>{group.display_name}</Text>
         </Pressable>
       )}
-      {!!visible.spoiler_text && <Text style={styles.spoiler}>{visible.spoiler_text}</Text>}
-      {!!displayContent && (
-        <Text selectable style={styles.content}>{displayContent}</Text>
-      )}
-      <NativeStatusContext navigation={navigation} status={visible} />
-      <StatusEventContext ctx={ctx} status={visible} />
-      {visible.poll ? <StatusPoll ctx={ctx} poll={visible.poll} /> : null}
-      {displayedMedia.map(media => (
-        <StatusMediaAttachment
-          key={media.id}
-          compact={compact}
-          media={media}
-          onOpen={() => openMedia(media)}
-          secondaryBackground={theme.secondaryBackground}
-          tint={theme.tint}
-        />
-      ))}
-      {compact && visible.media_attachments.length > displayedMedia.length && (
-        <Text secondary style={styles.moreMedia}>
-          +{visible.media_attachments.length - displayedMedia.length} more attachment{visible.media_attachments.length - displayedMedia.length === 1 ? "" : "s"}
-        </Text>
-      )}
-      {!compact && (
-        <StatusLinkPreview card={visible.card} content={visible.content} />
-      )}
-      {!!quotedStatus && (
+      {!!visible.spoiler_text && (
         <Pressable
+          accessibilityLabel={contentVisible ? "Hide content warning details" : "Show content warning details"}
           accessibilityRole="button"
-          accessibilityLabel={`Open quoted post by ${
-            quotedStatus.account.display_name || quotedStatus.account.acct
-          }`}
           onPress={event => {
             event.stopPropagation();
-            navigation.navigate("Status", { statusId: quotedStatus.id });
+            setContentWarningOverride(!contentVisible);
           }}
-          style={[
-            styles.quotePreview,
-            { borderColor: theme.secondaryBackground },
-          ]}
+          style={[styles.contentWarning, { backgroundColor: theme.secondaryBackground }]}
         >
-          <Text style={styles.quoteAuthor} numberOfLines={1}>
-            {quotedStatus.account.display_name || quotedStatus.account.acct}
-            <Text secondary> @{quotedStatus.account.acct}</Text>
-          </Text>
-          <Text numberOfLines={4}>
-            {getStatusDisplayContent(quotedStatus) || "Quoted post"}
-          </Text>
-          {quotedStatus.media_attachments.length > 0 ? (
-            <Text secondary style={styles.quoteMedia}>
-              {quotedStatus.media_attachments.length} media attachment
-              {quotedStatus.media_attachments.length === 1 ? "" : "s"}
-            </Text>
-          ) : null}
+          <Icon name={contentVisible ? "eye-off-outline" : "eye-outline"} size={20} />
+          <Text style={styles.spoiler}>{visible.spoiler_text}</Text>
         </Pressable>
       )}
+      {contentVisible ? (
+        <>
+          {!!displayContent && (
+            <Text selectable style={styles.content}>{displayContent}</Text>
+          )}
+          <NativeStatusContext navigation={navigation} status={visible} />
+          <StatusEventContext ctx={ctx} status={visible} />
+          {visible.poll ? <StatusPoll ctx={ctx} poll={visible.poll} /> : null}
+          {displayedMedia.map(media => (
+            <React.Fragment key={media.id}>
+              <StatusMediaAttachment
+                compact={compact}
+                media={media}
+                onOpen={() => openMedia(media)}
+                secondaryBackground={theme.secondaryBackground}
+                tint={theme.tint}
+              />
+              {showMediaDescriptions && media.description ? (
+                <Text secondary style={styles.mediaDescription}>
+                  Image description: {media.description}
+                </Text>
+              ) : null}
+            </React.Fragment>
+          ))}
+          {compact && visible.media_attachments.length > displayedMedia.length && (
+            <Text secondary style={styles.moreMedia}>
+              +{visible.media_attachments.length - displayedMedia.length} more attachment{visible.media_attachments.length - displayedMedia.length === 1 ? "" : "s"}
+            </Text>
+          )}
+          {!compact && (
+            <StatusLinkPreview card={visible.card} content={visible.content} />
+          )}
+          {!!quotedStatus && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Open quoted post by ${
+                quotedStatus.account.display_name || quotedStatus.account.acct
+              }`}
+              onPress={event => {
+                event.stopPropagation();
+                navigation.navigate("Status", { statusId: quotedStatus.id });
+              }}
+              style={[
+                styles.quotePreview,
+                { borderColor: theme.secondaryBackground },
+              ]}
+            >
+              <Text style={styles.quoteAuthor} numberOfLines={1}>
+                {quotedStatus.account.display_name || quotedStatus.account.acct}
+                <Text secondary> @{quotedStatus.account.acct}</Text>
+              </Text>
+              <Text numberOfLines={4}>
+                {getStatusDisplayContent(quotedStatus) || "Quoted post"}
+              </Text>
+              {quotedStatus.media_attachments.length > 0 ? (
+                <Text secondary style={styles.quoteMedia}>
+                  {quotedStatus.media_attachments.length} media attachment
+                  {quotedStatus.media_attachments.length === 1 ? "" : "s"}
+                </Text>
+              ) : null}
+            </Pressable>
+          )}
+        </>
+      ) : null}
       <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"
@@ -457,6 +532,19 @@ export default function StatusCard({
         >
           <Text style={[styles.actionText, { color: visible.bookmarked ? theme.tint : theme.text }]}>
             <Icon name={visible.bookmarked ? "bookmark" : "bookmark-outline"} size={22} />
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="More post actions"
+          onPress={event => {
+            event.stopPropagation();
+            navigation.navigate("StatusActions", { statusId: visible.id });
+          }}
+          style={[styles.action, { backgroundColor: theme.secondaryBackground }]}
+        >
+          <Text style={styles.actionText}>
+            <Icon name="ellipsis-horizontal" size={23} />
           </Text>
         </Pressable>
         {canDelete && (
@@ -627,9 +715,11 @@ const styles = StyleSheet.create({
   replyContext: { alignItems: "center", flexDirection: "row", gap: 5, marginLeft: 49, marginTop: 7 },
   replyContextText: { flex: 1, fontSize: 13 },
   group: { alignSelf: "flex-start", flexDirection: "row", gap: 5, alignItems: "center", borderRadius: 14, paddingHorizontal: 9, paddingVertical: 5, marginTop: 12 },
-  spoiler: { fontWeight: "700", marginTop: 12 },
+  spoiler: { flex: 1, fontWeight: "700" },
+  contentWarning: { alignItems: "center", borderRadius: 10, flexDirection: "row", gap: 8, marginTop: 12, minHeight: 48, paddingHorizontal: 12 },
   content: { fontSize: 16, lineHeight: 22, marginTop: 12 },
   moreMedia: { fontSize: 12, marginTop: 6, textAlign: "right" },
+  mediaDescription: { fontSize: 13, marginTop: 5 },
   quotePreview: { borderRadius: 10, borderWidth: 1, gap: 6, marginTop: 12, padding: 12 },
   quoteAuthor: { fontWeight: "700" },
   quoteMedia: { fontSize: 12 },
@@ -640,6 +730,9 @@ const styles = StyleSheet.create({
   emojiChoice: { alignItems: "center", justifyContent: "center", minHeight: 48, minWidth: 42 },
   emojiText: { fontSize: 24 },
   removed: { alignItems: "center", borderBottomWidth: 8, flexDirection: "row", gap: 8, minHeight: 68, padding: 15 },
+  filteredCard: { gap: 12 },
+  filterTitle: { fontSize: 16, fontWeight: "700" },
+  showFiltered: { alignItems: "center", alignSelf: "flex-start", borderRadius: 8, justifyContent: "center", minHeight: 48, paddingHorizontal: 16 },
 });
 
 /* end of StatusCard.tsx */
