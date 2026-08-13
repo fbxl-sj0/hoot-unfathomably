@@ -70,6 +70,18 @@ describe("Fediverse account options", () => {
       expect(navigation.navigate).toHaveBeenCalledWith("AccountProfile");
 
       await fireEvent.press(
+        screen.getByRole("button", {
+          name: "Find people and manage follow requests",
+        }),
+      );
+      expect(navigation.navigate).toHaveBeenCalledWith("People");
+
+      await fireEvent.press(
+        screen.getByRole("button", { name: "Open saved posts" }),
+      );
+      expect(navigation.navigate).toHaveBeenCalledWith("SavedPosts");
+
+      await fireEvent.press(
         screen.getByRole("button", { name: "Open app settings" }),
       );
       expect(navigation.navigate).toHaveBeenCalledWith("Settings");

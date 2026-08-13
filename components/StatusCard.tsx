@@ -22,7 +22,7 @@
 */
 
 import Icon from "@expo/vector-icons/Ionicons";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Alert, Image, Pressable, StyleSheet } from "react-native";
 
 import { Text, View } from "./Themed";
@@ -70,6 +70,25 @@ export default function StatusCard({
     : visible.media_attachments;
   const capabilities = Unfathomably.getStatusCapabilities(visible);
   const [emojiMenuOpen, setEmojiMenuOpen] = useState(false);
+  const [bookmarkPending, setBookmarkPending] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
+  const [removed, setRemoved] = useState(false);
+  const bookmarkPendingRef = useRef(false);
+  const deletePendingRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const ownAccountId = String(ctx.login?.user?.id ?? "");
+  const canDelete =
+    !current.reblog &&
+    ownAccountId !== "" &&
+    ownAccountId === String(current.account.id);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      bookmarkPendingRef.current = false;
+      deletePendingRef.current = false;
+    };
+  }, []);
 
   function openMedia(media: Unfathomably.UnfathomablyMediaAttachment) {
     const candidates = getMediaOpenCandidates(media);
@@ -147,6 +166,61 @@ export default function StatusCard({
     }
   }
 
+  async function toggleBookmark() {
+    if (bookmarkPendingRef.current) return;
+
+    bookmarkPendingRef.current = true;
+    setBookmarkPending(true);
+    try {
+      const next = await Unfathomably.bookmarkStatus(
+        ctx,
+        visible.id,
+        !!visible.bookmarked,
+      );
+      if (isMountedRef.current) setCurrent(next);
+    } catch (error) {
+      if (isMountedRef.current) {
+        Alert.alert("Could not update saved post", getErrorMessage(error));
+      }
+    } finally {
+      bookmarkPendingRef.current = false;
+      if (isMountedRef.current) setBookmarkPending(false);
+    }
+  }
+
+  function confirmDelete() {
+    if (!canDelete || deletePendingRef.current) return;
+
+    Alert.alert(
+      "Delete this post?",
+      "This removes the post from your server and sends a deletion to federated copies.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deletePendingRef.current = true;
+            setDeletePending(true);
+            void Unfathomably.deleteStatus(ctx, current.id)
+              .then(() => {
+                if (isMountedRef.current) setRemoved(true);
+              })
+              .catch(error => {
+                if (isMountedRef.current) {
+                  Alert.alert("Could not delete post", getErrorMessage(error));
+                }
+              })
+              .finally(() => {
+                deletePendingRef.current = false;
+                if (isMountedRef.current) setDeletePending(false);
+              });
+          },
+        },
+      ],
+    );
+  }
+
   const actionPress = (callback: () => void) => (event: { stopPropagation: () => void }) => {
     event.stopPropagation();
     callback();
@@ -159,6 +233,23 @@ export default function StatusCard({
       params: createComposeIntent(params),
     });
   };
+  const openAccount = (
+    selectedAccount: Unfathomably.UnfathomablyAccount,
+  ) => {
+    navigation.navigate("Account", {
+      account: selectedAccount,
+      accountId: selectedAccount.id,
+    });
+  };
+
+  if (removed) {
+    return (
+      <View style={[styles.removed, { borderColor: theme.secondaryBackground }]}>
+        <Icon name="trash-outline" size={20} color={theme.secondaryText} />
+        <Text secondary>Post deleted.</Text>
+      </View>
+    );
+  }
 
   return (
     <Pressable
@@ -168,16 +259,36 @@ export default function StatusCard({
       style={[styles.card, { borderColor: theme.secondaryBackground }]}
     >
       {current.reblog && (
-        <Text style={[styles.boosted, { color: theme.secondaryText }]}>
-          <Icon name="repeat-outline" size={13} /> Boosted by {current.account.display_name || current.account.acct}
-        </Text>
+        <Pressable
+          accessibilityLabel={`Open profile for ${current.account.display_name || current.account.acct}`}
+          accessibilityRole="button"
+          onPress={event => {
+            event.stopPropagation();
+            openAccount(current.account);
+          }}
+          style={styles.boosted}
+        >
+          <Text style={{ color: theme.secondaryText }}>
+            <Icon name="repeat-outline" size={13} /> Boosted by {current.account.display_name || current.account.acct}
+          </Text>
+        </Pressable>
       )}
       <View style={styles.header}>
-        {!!account.avatar && <Image source={{ uri: account.avatar }} style={styles.avatar} />}
-        <View style={styles.author}>
-          <Text numberOfLines={1} style={styles.displayName}>{account.display_name || account.username}</Text>
-          <Text numberOfLines={1} secondary>@{account.acct}</Text>
-        </View>
+        <Pressable
+          accessibilityLabel={`Open profile for ${account.display_name || account.acct}`}
+          accessibilityRole="button"
+          onPress={event => {
+            event.stopPropagation();
+            openAccount(account);
+          }}
+          style={styles.account}
+        >
+          {!!account.avatar && <Image source={{ uri: account.avatar }} style={styles.avatar} />}
+          <View style={styles.author}>
+            <Text numberOfLines={1} style={styles.displayName}>{account.display_name || account.username}</Text>
+            <Text numberOfLines={1} secondary>@{account.acct}</Text>
+          </View>
+        </Pressable>
         <Text secondary>{new Date(visible.created_at).toLocaleDateString()}</Text>
       </View>
       {!!visible.in_reply_to_id && (
@@ -333,6 +444,38 @@ export default function StatusCard({
             <Text style={[styles.actionText, { color: visible.disliked ? theme.tint : theme.text }]}><Icon name="thumbs-down-outline" size={22} /> {visible.dislikes_count || ""}</Text>
           </Pressable>
         )}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={visible.bookmarked ? "Remove from saved posts" : "Save post"}
+          accessibilityState={{ disabled: bookmarkPending }}
+          disabled={bookmarkPending}
+          onPress={event => {
+            event.stopPropagation();
+            void toggleBookmark();
+          }}
+          style={[styles.action, { backgroundColor: theme.secondaryBackground }]}
+        >
+          <Text style={[styles.actionText, { color: visible.bookmarked ? theme.tint : theme.text }]}>
+            <Icon name={visible.bookmarked ? "bookmark" : "bookmark-outline"} size={22} />
+          </Text>
+        </Pressable>
+        {canDelete && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Delete post"
+            accessibilityState={{ disabled: deletePending }}
+            disabled={deletePending}
+            onPress={event => {
+              event.stopPropagation();
+              confirmDelete();
+            }}
+            style={[styles.action, { backgroundColor: theme.secondaryBackground }]}
+          >
+            <Text style={[styles.actionText, { color: theme.red }]}>
+              <Icon name="trash-outline" size={22} />
+            </Text>
+          </Pressable>
+        )}
         {capabilities.emojiReactions && emojiMenuOpen && (
           <View style={[styles.emojiMenu, { backgroundColor: theme.secondaryBackground }]}>
             {["❤️", "😂", "😮", "😢", "🔥", "🎉"].map(emoji => (
@@ -475,8 +618,9 @@ function normalizeAccount(value?: string): string {
 
 const styles = StyleSheet.create({
   card: { borderBottomWidth: 8, padding: 15 },
-  boosted: { fontSize: 12, marginBottom: 8, marginLeft: 4 },
+  boosted: { alignSelf: "flex-start", justifyContent: "center", marginBottom: 8, marginLeft: 4, minHeight: 28 },
   header: { flexDirection: "row", alignItems: "center", gap: 9 },
+  account: { alignItems: "center", flex: 1, flexDirection: "row", gap: 9, minHeight: 48 },
   avatar: { height: 40, width: 40, borderRadius: 20 },
   author: { flex: 1 },
   displayName: { fontWeight: "700", fontSize: 16 },
@@ -495,6 +639,7 @@ const styles = StyleSheet.create({
   emojiMenu: { borderRadius: 10, flexDirection: "row", gap: 4, justifyContent: "space-around", padding: 6, width: "100%" },
   emojiChoice: { alignItems: "center", justifyContent: "center", minHeight: 48, minWidth: 42 },
   emojiText: { fontSize: 24 },
+  removed: { alignItems: "center", borderBottomWidth: 8, flexDirection: "row", gap: 8, minHeight: 68, padding: 15 },
 });
 
 /* end of StatusCard.tsx */

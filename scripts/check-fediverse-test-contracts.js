@@ -58,12 +58,14 @@ const forbiddenPatterns = [
 const requiredContractFiles = [
   "testing/fediverseFixtures.ts",
   "services/__tests__/UnfathomablyService.test.ts",
+  "services/__tests__/UnfathomablyAccountService.test.ts",
   "scripts/__tests__/FediverseCompatibilityProbe.test.ts",
   "components/__tests__/StatusCard.test.tsx",
   "screens/__tests__/FediverseFeedScreens.test.tsx",
   "screens/__tests__/FediverseGroupsScreens.test.tsx",
   "screens/__tests__/FediverseDiscussionScreens.test.tsx",
   "screens/__tests__/FediverseAccountScreens.test.tsx",
+  "screens/__tests__/FediverseRelationshipScreens.test.tsx",
   "screens/__tests__/FediverseOptionsScreen.test.tsx",
 ];
 const requiredFamilies = [

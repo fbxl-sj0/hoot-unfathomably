@@ -1,6 +1,6 @@
 # Unfathomably compatibility
 
-Hoot Unfathomably 0.4.5 was reviewed against these upstream revisions:
+Hoot Unfathomably 0.5.0 was reviewed against these upstream revisions:
 
 - unfathomably-be 3.5.0, commit `de930df6d18bf0f9cd124c4beb9d85dc23303620`
 - unfathomably-fe, commit `5cf055beeb9f0a1453dca99b3559d1b786ae7f82`
@@ -80,6 +80,10 @@ The app supports:
 - event time, place, attendance, approval mode, and explicit participation
 - image zoom plus guarded audio and video playback
 - normal status threads, interactions, link cards, profiles, and notifications
+- account lookup, local or remote account search, relationship state, follow,
+  pending-request cancellation, unfollow, follower and following lists
+- incoming follow-request approval and rejection, plus account mute and block
+- standard bookmarks, a saved-post timeline, and signed-in account post deletion
 
 Worlds search and source discovery are requested only from the selected local
 server. The app does not contact a remote provider itself. Opening a discovery
@@ -112,6 +116,7 @@ The common baseline remains available when an optional extension is absent:
 - status threads and bounded context fallback
 - ordinary posts and replies
 - reposts and favourites
+- profiles, account search, follow relationships, bookmarks, and own-post deletion
 - notifications and link previews
 - classic user and notification live streams when the server provides them
 - image and supported media viewing

@@ -1,6 +1,22 @@
 Hoot Unfathomably Changelog
 ===========================
 
+Version 0.5.0
+-------------
+
+- Open relationship-aware profiles from post authors, boosts, and actor-only
+  notifications across Unfathomably, Rebased, Pleroma, Akkoma, and Mastodon.
+- Find local or remote accounts, follow them, cancel pending requests, unfollow,
+  and browse follower or following lists.
+- Accept or decline incoming follow requests from People or directly from the
+  corresponding notification.
+- Add confirmed mute, unmute, block, and unblock controls for account safety.
+- Save and unsave posts, browse saved posts under More, and delete only posts
+  owned by the signed-in account after an explicit confirmation.
+- Add five-family account API contracts, relationship screen coverage, account
+  profile checks to the read-only live matrix, and a documented critical
+  workflow audit.
+
 Version 0.4.5
 -------------
 

@@ -61,6 +61,10 @@ describe("LinkingConfiguration", () => {
     ["new-post", "NewPostScreen"],
     ["notifications", "NotificationScreen"],
     ["options", "OptionsScreen"],
+    ["people", "People"],
+    ["saved", "SavedPosts"],
+    ["accounts/account-1", "Account"],
+    ["accounts/account-1/followers", "AccountConnections"],
     ["worlds/books/library", "BookLibrary"],
     ["worlds/routes/record", "RouteRecorder"],
   ])("maps the current '%s' destination", (path, screenName) => {

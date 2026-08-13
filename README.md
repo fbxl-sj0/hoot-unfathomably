@@ -6,10 +6,10 @@ group discussions, first-class Worlds and Sources, and compatible features from
 [unfathomably-be](https://github.com/fbxl-sj0/unfathomably-be) and
 [unfathomably-fe](https://github.com/fbxl-sj0/unfathomably-fe).
 
-Version 0.4.5 adds a live-tested Rebased, Pleroma, Akkoma, and Mastodon
-compatibility matrix alongside per-instance themes and reader-aware live
-timeline updates. It was developed against unfathomably-be 3.5.0 and the paired August
-12, 2026 frontend source. The client reads instance capabilities and frontend
+Version 0.5.0 completes the core people and relationship workflow on top of the
+live-tested Rebased, Pleroma, Akkoma, and Mastodon compatibility matrix. It was
+developed against unfathomably-be 3.5.0 and the paired August 12, 2026 frontend
+source. The client reads instance capabilities and frontend
 configuration at runtime, so optional workflows and colors follow the selected
 server rather than a hard-coded host or a guessed software version.
 
@@ -52,7 +52,8 @@ discussion experience; group features
 appear when the server provides the Unfathomably-compatible group endpoints.
 Older or capability-degraded servers retain the shared
 Mastodon-compatible experience: login, home timeline, status discussions,
-replies, reposts, favourites, notifications, and account timelines. Optional
+replies, reposts, favourites, profiles, follows, bookmarks, notifications, and
+account timelines. Optional
 quote, emoji, and negative-reaction controls appear only when the server's
 responses advertise the corresponding extension. Group screens use the group
 extension when present and show a clear unavailable state otherwise.
@@ -73,6 +74,11 @@ saved account therefore cannot silently redirect that account to FBXL Social.
 ## What it does
 
 - Browse your home timeline and a dedicated followed-groups timeline.
+- Open author profiles from posts and actor-only notifications; search for local
+  or federated people; follow, cancel requests, unfollow, and browse follower or
+  following lists.
+- Accept or decline incoming follow requests, and mute or block an account with
+  an explicit confirmation.
 - Receive foreground timeline edits through the server's live WebSocket API.
   Home, notifications, followed groups, individual groups, followed Sources,
   and individual Sources use their dedicated current streams. REST refreshes
@@ -103,6 +109,8 @@ saved account therefore cannot silently redirect that account to FBXL Social.
   visibility-limited posts.
 - Use server-supported reactions, including emoji reactions and positive or
   negative reactions.
+- Bookmark posts, revisit them under More, and remove the signed-in account's
+  own posts after a destructive-action confirmation.
 - Vote in polls, read event details, and explicitly join, request to join, or
   leave events.
 - Read notifications for ordinary activity, groups, emoji reactions, polls,
@@ -241,6 +249,8 @@ are moved safely away from an obsolete saved API URL.
 
 The exact compatibility boundary and intentional mobile exclusions are in
 [UNFATHOMABLY-COMPATIBILITY.md](UNFATHOMABLY-COMPATIBILITY.md).
+The requirement-by-requirement core workflow review is in
+[docs/CRITICAL-WORKFLOW-AUDIT.md](docs/CRITICAL-WORKFLOW-AUDIT.md).
 
 To repeat the read-only public-server check, run:
 

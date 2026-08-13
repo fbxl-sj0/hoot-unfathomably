@@ -36,6 +36,7 @@ import {
 const mockDispatch = jest.fn();
 const mockGetAccountStatuses = jest.fn();
 const mockGetNotifications = jest.fn();
+const mockResolveFollowRequest = jest.fn();
 const mockLogout = jest.fn();
 const mockRemoveActiveContext = jest.fn();
 const mockUseStream = jest.fn();
@@ -73,6 +74,11 @@ jest.mock("../../services/StorageService", () => ({
   },
 }));
 
+jest.mock("../../services/UnfathomablyAccountService", () => ({
+  resolveFollowRequest: (...args: unknown[]) =>
+    mockResolveFollowRequest(...args),
+}));
+
 jest.mock("../../services/UnfathomablyService", () => ({
   getAccountStatuses: (...args: unknown[]) =>
     mockGetAccountStatuses(...args),
@@ -104,6 +110,10 @@ describe("Fediverse account screens", () => {
     mockCurrentContext = makeContext("unfathomably");
     mockGetAccountStatuses.mockResolvedValue([]);
     mockGetNotifications.mockResolvedValue([]);
+    mockResolveFollowRequest.mockResolvedValue({
+      followed_by: true,
+      id: "request-account",
+    });
     mockLogout.mockResolvedValue(undefined);
     mockRemoveActiveContext.mockResolvedValue(undefined);
   });
@@ -177,6 +187,60 @@ describe("Fediverse account screens", () => {
         "notice-1",
       );
       expect(mockGetNotifications).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  test("opens the actor profile for a notification without a status", async () => {
+    const account = makeNotification("mastodon").account;
+    mockGetNotifications.mockResolvedValue([
+      makeNotification("mastodon", {
+        account,
+        status: undefined,
+        type: "follow",
+      }),
+    ]);
+    const navigation = { navigate: jest.fn() };
+    const screen = await render(
+      <UnfathomablyNotificationsScreen navigation={navigation} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/followed you/)).toBeTruthy();
+    });
+    await fireEvent.press(
+      screen.getByRole("button", {
+        name: `Open profile for ${account.display_name}`,
+      }),
+    );
+    expect(navigation.navigate).toHaveBeenCalledWith("Account", {
+      account,
+      accountId: account.id,
+    });
+  });
+
+  test("accepts a follow request directly from its notification", async () => {
+    const notification = makeNotification("unfathomably", {
+      account: {
+        ...makeNotification("unfathomably").account,
+        id: "request-account",
+      },
+      status: undefined,
+      type: "follow_request",
+    });
+    mockGetNotifications.mockResolvedValue([notification]);
+    const screen = await render(
+      <UnfathomablyNotificationsScreen navigation={{ navigate: jest.fn() }} />,
+    );
+
+    await waitFor(() => expect(screen.getByText(/requested to follow you/)).toBeTruthy());
+    await fireEvent.press(screen.getByRole("button", { name: "Accept" }));
+    await waitFor(() => {
+      expect(mockResolveFollowRequest).toHaveBeenCalledWith(
+        makeContext("unfathomably"),
+        "request-account",
+        true,
+      );
+      expect(screen.queryByText(/requested to follow you/)).toBeNull();
     });
   });
 

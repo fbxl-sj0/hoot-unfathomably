@@ -44,6 +44,17 @@ export type RootStackParamList = {
   Modal: { postId: PostId; highlightedComments?: CommentId[] };
   Post: { postId: PostId; highlightedComments?: CommentId[] };
   Status: { statusId: string };
+  Account: {
+    accountId: string;
+    account?: import("./services/UnfathomablyService").UnfathomablyAccount;
+  };
+  AccountConnections: {
+    accountId: string;
+    mode: "followers" | "following";
+    title?: string;
+  };
+  People: undefined;
+  SavedPosts: undefined;
   Group: { groupId: string; title?: string };
   Worlds: { family?: WorldFamily; view?: "browse" | "feed" | "find" } | undefined;
   BookLibrary: { book?: BookReference } | undefined;

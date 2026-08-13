@@ -10,7 +10,7 @@
 
     Responsibilities:
 
-        - Read public instance metadata and timeline response shapes
+        - Read public instance metadata, timeline, and account response shapes
         - Identify Unfathomably, Rebased, Pleroma, Akkoma, and Mastodon
         - Confirm Soapbox and Pleroma FE theme configuration where advertised
         - Report authentication-gated public timelines as valid server policy
@@ -182,6 +182,18 @@ function validateStatusShape(status) {
   return undefined;
 }
 
+function validateAccountShape(account) {
+  if (!isRecord(account)) return "account is not an object";
+
+  for (const field of ["acct", "display_name", "id", "note", "username"]) {
+    if (typeof account[field] !== "string") {
+      return `account.${field} is not a string`;
+    }
+  }
+
+  return undefined;
+}
+
 function hasSoapboxConfiguration(value) {
   if (!isRecord(value) || !isRecord(value.soapbox_fe)) return false;
   const config = value.soapbox_fe;
@@ -255,6 +267,7 @@ async function probeTarget(target) {
   ]);
 
   let timelineResult;
+  let accountResult = "not-observed";
   if (timeline.status === 401 || timeline.status === 403) {
     timelineResult = "auth-required";
   } else if (timeline.status === 200 && Array.isArray(timeline.json)) {
@@ -262,6 +275,22 @@ async function probeTarget(target) {
     const shapeError = first ? validateStatusShape(first) : undefined;
     if (shapeError) throw new Error(shapeError);
     timelineResult = `${timeline.json.length}-status`;
+
+    if (first) {
+      const account = await readPublicJson(
+        origin,
+        `/api/v1/accounts/${encodeURIComponent(first.account.id)}`,
+      );
+      if (account.status === 200) {
+        const accountShapeError = validateAccountShape(account.json);
+        if (accountShapeError) throw new Error(accountShapeError);
+        accountResult = "available";
+      } else if (account.status === 401 || account.status === 403) {
+        accountResult = "auth-required";
+      } else {
+        throw new Error(`public account lookup returned ${account.status}`);
+      }
+    }
   } else {
     throw new Error(`public timeline returned ${timeline.status}`);
   }
@@ -288,6 +317,7 @@ async function probeTarget(target) {
   }
 
   return {
+    account: accountResult,
     family,
     origin,
     soapbox,
@@ -317,7 +347,7 @@ async function main(arguments_ = process.argv.slice(2)) {
       const result = await probeTarget(target);
       process.stdout.write(
         `PASS ${target.label}: ${result.family} ${result.version}; ` +
-        `timeline=${result.timeline}; v2=${result.v2}; ` +
+        `timeline=${result.timeline}; account=${result.account}; v2=${result.v2}; ` +
         `theme=${result.theme}; ` +
         `streaming=${result.streaming}\n`,
       );
@@ -338,6 +368,7 @@ module.exports = {
   hasPleromaThemeColors,
   pleromaThemeName,
   probeTarget,
+  validateAccountShape,
   validateStatusShape,
 };
 

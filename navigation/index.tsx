@@ -64,6 +64,10 @@ import SettingsScreen from "../screens/SettingsScreen/SettingsScreen";
 import NotFoundScreen from "../screens/NotFoundScreen";
 import NotificationScreen from "../screens/UnfathomablyNotificationsScreen";
 import StatusThreadScreen from "../screens/StatusThreadScreen";
+import AccountScreen from "../screens/AccountScreen";
+import AccountConnectionsScreen from "../screens/AccountConnectionsScreen";
+import PeopleScreen from "../screens/PeopleScreen";
+import SavedPostsScreen from "../screens/SavedPostsScreen";
 import ImageViewerScreen from "../screens/ImageViewerScreen";
 import MediaViewerScreen from "../screens/MediaViewerScreen";
 import GroupScreen from "../screens/GroupScreen";
@@ -241,6 +245,10 @@ function RootNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen name="Status" component={StatusThreadScreen} options={{ title: "Discussion" }} />
+      <Stack.Screen name="Account" component={AccountScreen} options={({ route }) => ({ title: route.params.account?.display_name || route.params.account?.username || "Profile" })} />
+      <Stack.Screen name="AccountConnections" component={AccountConnectionsScreen} options={({ route }) => ({ title: `${route.params.title || "Account"} ${route.params.mode}` })} />
+      <Stack.Screen name="People" component={PeopleScreen} options={{ title: "People" }} />
+      <Stack.Screen name="SavedPosts" component={SavedPostsScreen} options={{ title: "Saved posts" }} />
       <Stack.Screen name="ImageViewer" component={ImageViewerScreen} options={{ title: "Image" }} />
       <Stack.Screen name="MediaViewer" component={MediaViewerScreen} options={{ title: "Media" }} />
       <Stack.Screen name="Group" component={GroupScreen} options={({ route }) => ({ title: route.params.title || "Group" })} />

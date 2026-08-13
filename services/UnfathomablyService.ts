@@ -29,8 +29,38 @@ export type UnfathomablyAccount = {
   acct: string;
   display_name: string;
   avatar: string;
+  avatar_static?: string;
+  bot?: boolean;
+  created_at?: string;
+  fields?: { name: string; value: string; verified_at?: string | null }[];
+  followers_count?: number;
+  following_count?: number;
+  header?: string;
+  header_static?: string;
+  locked?: boolean;
   note: string;
+  statuses_count?: number;
   url: string;
+  pleroma?: {
+    relationship?: UnfathomablyAccountRelationship | null;
+  };
+};
+
+export type UnfathomablyAccountRelationship = {
+  id: string;
+  blocked_by?: boolean;
+  blocking: boolean;
+  domain_blocking?: boolean;
+  endorsed?: boolean;
+  followed_by: boolean;
+  following: boolean;
+  muting: boolean;
+  muting_notifications?: boolean;
+  note?: string;
+  notifying?: boolean;
+  requested: boolean;
+  showing_reblogs?: boolean;
+  subscribing?: boolean;
 };
 
 export type UnfathomablyMention = {
@@ -895,6 +925,26 @@ export async function dislikeStatus(ctx: LotideContext, id: string, remove = fal
 
 export function reblogStatus(ctx: LotideContext, id: string, remove = false) {
   return request<UnfathomablyStatus>(ctx, `/api/v1/statuses/${encodeURIComponent(id)}/${remove ? "unreblog" : "reblog"}`, { method: "POST" });
+}
+
+export function bookmarkStatus(
+  ctx: LotideContext,
+  id: string,
+  remove = false,
+) {
+  return request<UnfathomablyStatus>(
+    ctx,
+    `/api/v1/statuses/${encodeURIComponent(id)}/${remove ? "unbookmark" : "bookmark"}`,
+    { method: "POST" },
+  );
+}
+
+export function deleteStatus(ctx: LotideContext, id: string) {
+  return request<UnfathomablyStatus>(
+    ctx,
+    `/api/v1/statuses/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
 }
 
 export async function reactToStatus(ctx: LotideContext, id: string, emoji: string, remove = false) {

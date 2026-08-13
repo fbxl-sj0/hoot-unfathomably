@@ -23,7 +23,7 @@
 
 import * as React from "react";
 import { Alert } from "react-native";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { openURL } from "expo-linking";
 
 import StatusCard, {
@@ -62,6 +62,8 @@ jest.mock("../../services/UnfathomablyService", () => {
   return {
     __esModule: true,
     ...actual,
+    bookmarkStatus: jest.fn(),
+    deleteStatus: jest.fn(),
     dislikeStatus: jest.fn(),
     favouriteStatus: jest.fn(),
     reactToStatus: jest.fn(),
@@ -72,6 +74,14 @@ jest.mock("../../services/UnfathomablyService", () => {
 const mockDislikeStatus =
   UnfathomablyService.dislikeStatus as jest.MockedFunction<
     typeof UnfathomablyService.dislikeStatus
+  >;
+const mockBookmarkStatus =
+  UnfathomablyService.bookmarkStatus as jest.MockedFunction<
+    typeof UnfathomablyService.bookmarkStatus
+  >;
+const mockDeleteStatus =
+  UnfathomablyService.deleteStatus as jest.MockedFunction<
+    typeof UnfathomablyService.deleteStatus
   >;
 const mockFavouriteStatus =
   UnfathomablyService.favouriteStatus as jest.MockedFunction<
@@ -250,6 +260,114 @@ describe("StatusCard Fediverse contracts", () => {
       ).toBeNull();
     },
   );
+
+  test("opens the status author profile without opening the discussion", async () => {
+    const navigation = { navigate: jest.fn() };
+    const status = makeStatus("unfathomably");
+    const screen = await render(
+      <StatusCard
+        status={status}
+        ctx={makeContext("unfathomably")}
+        navigation={navigation}
+      />,
+    );
+
+    await fireEvent.press(
+      screen.getByRole("button", {
+        name: `Open profile for ${status.account.display_name}`,
+      }),
+      { stopPropagation: jest.fn() },
+    );
+    expect(navigation.navigate).toHaveBeenCalledWith("Account", {
+      account: status.account,
+      accountId: status.account.id,
+    });
+    expect(navigation.navigate).not.toHaveBeenCalledWith("Status", expect.anything());
+  });
+
+  test("bookmarks and unbookmarks a status using returned server state", async () => {
+    const status = makeStatus("mastodon", { bookmarked: false });
+    mockBookmarkStatus
+      .mockResolvedValueOnce({ ...status, bookmarked: true })
+      .mockResolvedValueOnce({ ...status, bookmarked: false });
+    const screen = await render(
+      <StatusCard
+        status={status}
+        ctx={makeContext("mastodon")}
+        navigation={{ navigate: jest.fn() }}
+      />,
+    );
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Save post" }),
+      { stopPropagation: jest.fn() },
+    );
+    await waitFor(() => {
+      expect(mockBookmarkStatus).toHaveBeenCalledWith(
+        makeContext("mastodon"),
+        status.id,
+        false,
+      );
+      expect(
+        screen.getByRole("button", { name: "Remove from saved posts" }),
+      ).toBeTruthy();
+    });
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Remove from saved posts" }),
+      { stopPropagation: jest.fn() },
+    );
+    await waitFor(() => {
+      expect(mockBookmarkStatus).toHaveBeenLastCalledWith(
+        makeContext("mastodon"),
+        status.id,
+        true,
+      );
+    });
+  });
+
+  test("deletes only the signed-in account's post after confirmation", async () => {
+    const status = makeStatus("unfathomably");
+    mockDeleteStatus.mockResolvedValue(status);
+    const screen = await render(
+      <StatusCard
+        status={status}
+        ctx={makeContext("unfathomably")}
+        navigation={{ navigate: jest.fn() }}
+      />,
+    );
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Delete post" }),
+      { stopPropagation: jest.fn() },
+    );
+    const buttons = (Alert.alert as jest.Mock).mock.calls.at(-1)?.[2];
+    await act(async () => {
+      buttons?.[1].onPress();
+    });
+
+    await waitFor(() => {
+      expect(mockDeleteStatus).toHaveBeenCalledWith(
+        makeContext("unfathomably"),
+        status.id,
+      );
+      expect(screen.getByText("Post deleted.")).toBeTruthy();
+    });
+  });
+
+  test("does not offer deletion for another account's post", async () => {
+    const screen = await render(
+      <StatusCard
+        status={makeStatus("pleroma", {
+          account: makeStatus("pleroma").account,
+        })}
+        ctx={makeContext("unfathomably")}
+        navigation={{ navigate: jest.fn() }}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Delete post" })).toBeNull();
+  });
 
   test("opens Unfathomably group, reply, quote, and image destinations", async () => {
     const navigation = { navigate: jest.fn() };

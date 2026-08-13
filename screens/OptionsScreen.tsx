@@ -23,7 +23,7 @@
 
 import Icon from "@expo/vector-icons/Ionicons";
 import React, { useEffect, useState } from "react";
-import { Image, Pressable, StyleSheet } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet } from "react-native";
 
 import SuggestLogin from "../components/SuggestLogin";
 import { Text, View } from "../components/Themed";
@@ -70,7 +70,10 @@ export default function OptionsScreen({ navigation }: { navigation: any }) {
 
   if (!ctx?.login || !account) return <SuggestLogin />;
 
-  return <View style={styles.root}>
+  return <ScrollView
+    contentContainerStyle={styles.root}
+    style={{ backgroundColor: theme.background }}
+  >
     <View style={styles.account}>
       {!!account.avatar && <Image source={{ uri: account.avatar }} style={styles.avatar} />}
       <View style={{ flex: 1 }}>
@@ -81,6 +84,16 @@ export default function OptionsScreen({ navigation }: { navigation: any }) {
     <Pressable accessibilityRole="button" accessibilityLabel="Open your profile and posts" onPress={() => navigation.navigate("AccountProfile")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
       <Icon name="person-circle-outline" size={25} color={theme.text} />
       <Text style={styles.optionText}>Your profile and posts</Text>
+      <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
+    </Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel="Find people and manage follow requests" onPress={() => navigation.navigate("People")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
+      <Icon name="person-add-outline" size={25} color={theme.text} />
+      <View style={styles.optionBody}><Text style={styles.optionText}>People</Text><Text secondary>Find accounts, follow people, and review requests</Text></View>
+      <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
+    </Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel="Open saved posts" onPress={() => navigation.navigate("SavedPosts")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
+      <Icon name="bookmark-outline" size={25} color={theme.text} />
+      <View style={styles.optionBody}><Text style={styles.optionText}>Saved posts</Text><Text secondary>Return to posts you bookmarked</Text></View>
       <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
     </Pressable>
     {capabilities.worlds ? <Pressable accessibilityRole="button" accessibilityLabel="Explore Unfathomably Worlds" onPress={() => navigation.navigate("Worlds")} style={[styles.option, { borderColor: theme.secondaryBackground }]}>
@@ -108,9 +121,9 @@ export default function OptionsScreen({ navigation }: { navigation: any }) {
       <Text style={styles.optionText}>App settings</Text>
       <Icon name="chevron-forward-outline" size={22} color={theme.secondaryText} />
     </Pressable>
-  </View>;
+  </ScrollView>;
 }
 
-const styles = StyleSheet.create({ root: { flex: 1, padding: 16, gap: 12 }, account: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 }, avatar: { width: 58, height: 58, borderRadius: 29 }, name: { fontSize: 20, fontWeight: "700" }, option: { alignItems: "center", borderBottomWidth: 1, flexDirection: "row", gap: 14, minHeight: 56, paddingVertical: 10 }, optionBody: { flex: 1, gap: 2 }, optionText: { fontSize: 17 } });
+const styles = StyleSheet.create({ root: { flexGrow: 1, padding: 16, gap: 12 }, account: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 }, avatar: { width: 58, height: 58, borderRadius: 29 }, name: { fontSize: 20, fontWeight: "700" }, option: { alignItems: "center", borderBottomWidth: 1, flexDirection: "row", gap: 14, minHeight: 56, paddingVertical: 10 }, optionBody: { flex: 1, gap: 2 }, optionText: { fontSize: 17 } });
 
 /* end of OptionsScreen.tsx */

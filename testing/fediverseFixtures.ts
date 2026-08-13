@@ -173,7 +173,12 @@ export function makeAccount(
     acct: `alice@${new URL(server.origin).hostname}`,
     display_name: `${server.softwareName} Alice`,
     avatar: `${server.origin}/media/alice.png`,
+    followers_count: 12,
+    following_count: 7,
+    header: `${server.origin}/media/alice-header.png`,
+    locked: false,
     note: `<p>Testing ${server.softwareName} compatibility.</p>`,
+    statuses_count: 34,
     url: `${server.origin}/users/alice`,
     ...overrides,
   };

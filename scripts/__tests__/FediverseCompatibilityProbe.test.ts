@@ -26,6 +26,7 @@ const {
   detectFamily,
   hasPleromaThemeColors,
   pleromaThemeName,
+  validateAccountShape,
   validateStatusShape,
 } = jest.requireActual("../probe-fediverse-compatibility.js") as {
   DEFAULT_TARGETS: {
@@ -36,6 +37,7 @@ const {
   detectFamily: (instance: unknown) => string;
   hasPleromaThemeColors: (theme: unknown) => boolean;
   pleromaThemeName: (configuration: unknown) => string | undefined;
+  validateAccountShape: (account: unknown) => string | undefined;
   validateStatusShape: (status: unknown) => string | undefined;
 };
 
@@ -82,6 +84,19 @@ describe("Fediverse compatibility probe", () => {
     })).toBeUndefined();
     expect(validateStatusShape({ id: "incomplete" })).toBe(
       "status.content is not a string",
+    );
+  });
+
+  test("accepts the account fields required by profiles and follows", () => {
+    expect(validateAccountShape({
+      acct: "alice@example.test",
+      display_name: "Alice",
+      id: "account-1",
+      note: "<p>Hello.</p>",
+      username: "alice",
+    })).toBeUndefined();
+    expect(validateAccountShape({ id: "incomplete" })).toBe(
+      "account.acct is not a string",
     );
   });
 

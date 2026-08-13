@@ -12,7 +12,8 @@
 
         - Paginate the stable per-event notification API
         - Describe group, emoji, event, poll, and ordinary social activity
-        - Open the status attached by the server when one is present
+        - Open the related status or actor profile
+        - Accept or decline incoming account follow requests
 
     This file intentionally does NOT contain:
 
@@ -24,20 +25,23 @@
 import Icon from "@expo/vector-icons/Ionicons";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useState } from "react";
-import { FlatList, Image, Pressable, StyleSheet } from "react-native";
+import { Alert, FlatList, Image, Pressable, StyleSheet } from "react-native";
 
+import AppButton from "../components/AppButton";
 import SuggestLogin from "../components/SuggestLogin";
 import RetryState from "../components/RetryState";
 import { stripHtml } from "../components/StatusCard";
 import { Text, View } from "../components/Themed";
 import { useLotideCtx } from "../hooks/useLotideCtx";
 import useUnfathomablyStream from "../hooks/useUnfathomablyStream";
+import * as Accounts from "../services/UnfathomablyAccountService";
 import * as Unfathomably from "../services/UnfathomablyService";
 import {
   getStreamedNotification,
   getStreamedStatus,
   UnfathomablyStreamingEvent,
 } from "../services/UnfathomablyStreamingService";
+import { getErrorMessage } from "../utils/error";
 
 const labels: Record<string, string> = {
   favourite: "favourited your post",
@@ -79,17 +83,30 @@ export default function UnfathomablyNotificationsScreen({ navigation }: { naviga
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [pendingFollowRequestId, setPendingFollowRequestId] = useState<string>();
+  const followRequestPendingRef = React.useRef(false);
+  const isMountedRef = React.useRef(true);
+
+  React.useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      followRequestPendingRef.current = false;
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!ctx?.login) return;
     setRefreshing(true);
     try {
       setError("");
-      setItems(await Unfathomably.getNotifications(ctx));
+      const next = await Unfathomably.getNotifications(ctx);
+      if (isMountedRef.current) setItems(next);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not load notifications.");
+      if (isMountedRef.current) {
+        setError(reason instanceof Error ? reason.message : "Could not load notifications.");
+      }
     } finally {
-      setRefreshing(false);
+      if (isMountedRef.current) setRefreshing(false);
     }
   }, [ctx]);
 
@@ -99,14 +116,17 @@ export default function UnfathomablyNotificationsScreen({ navigation }: { naviga
     setLoadingMore(true);
     try {
       const next = await Unfathomably.getNotifications(ctx, lastId);
+      if (!isMountedRef.current) return;
       setItems(current => [
         ...current,
         ...next.filter(item => !current.some(existing => existing.id === item.id)),
       ]);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not load more notifications.");
+      if (isMountedRef.current) {
+        setError(reason instanceof Error ? reason.message : "Could not load more notifications.");
+      }
     } finally {
-      setLoadingMore(false);
+      if (isMountedRef.current) setLoadingMore(false);
     }
   }, [ctx, items, loadingMore, refreshing]);
 
@@ -152,9 +172,107 @@ export default function UnfathomablyNotificationsScreen({ navigation }: { naviga
     },
   );
 
+  const decideFollowRequest = useCallback(async (
+    item: Unfathomably.UnfathomablyNotification,
+    accept: boolean,
+  ) => {
+    if (!ctx?.login || followRequestPendingRef.current) return;
+
+    followRequestPendingRef.current = true;
+    setPendingFollowRequestId(item.account.id);
+    try {
+      await Accounts.resolveFollowRequest(ctx, item.account.id, accept);
+      if (!isMountedRef.current) return;
+      setItems(current => current.filter(notification => notification.id !== item.id));
+    } catch (reason) {
+      if (isMountedRef.current) {
+        Alert.alert(
+          accept ? "Could not accept follow request" : "Could not decline follow request",
+          getErrorMessage(reason),
+        );
+      }
+    } finally {
+      followRequestPendingRef.current = false;
+      if (isMountedRef.current) setPendingFollowRequestId(undefined);
+    }
+  }, [ctx]);
+
   if (!ctx?.login) return <SuggestLogin />;
-  return <FlatList testID="fediverse-notifications-list" data={items} keyExtractor={item => item.id} onRefresh={() => void refresh()} refreshing={refreshing} onEndReached={() => void loadMore()} onEndReachedThreshold={0.7} ListEmptyComponent={error ? <RetryState message={error} onRetry={() => void refresh()} /> : !refreshing ? <Text style={styles.empty}>All caught up.</Text> : null} renderItem={({ item }) => <Pressable style={styles.row} accessibilityRole={item.status ? "button" : "text"} disabled={!item.status} onPress={() => item.status && navigation.navigate("Status", { statusId: item.status.id })}>{!!item.account.avatar && <Image source={{ uri: item.account.avatar }} style={styles.avatar} />}<View style={styles.body}><Text><Text style={styles.name}>{item.account.display_name || item.account.acct}</Text> {notificationLabel(item)}</Text>{item.status && <Text secondary numberOfLines={2}>{stripHtml(item.status.content)}</Text>}</View>{item.status ? <Icon name="chevron-forward-outline" size={20} /> : null}</Pressable>} />;
+  return (
+    <FlatList
+      testID="fediverse-notifications-list"
+      data={items}
+      keyExtractor={item => item.id}
+      onRefresh={() => void refresh()}
+      refreshing={refreshing}
+      onEndReached={() => void loadMore()}
+      onEndReachedThreshold={0.7}
+      ListEmptyComponent={
+        error ? (
+          <RetryState message={error} onRetry={() => void refresh()} />
+        ) : !refreshing ? (
+          <Text style={styles.empty}>All caught up.</Text>
+        ) : null
+      }
+      renderItem={({ item }) => (
+        <View>
+          <Pressable
+            style={styles.row}
+            accessibilityLabel={
+              item.status
+                ? `Open related post from ${item.account.display_name || item.account.acct}`
+                : `Open profile for ${item.account.display_name || item.account.acct}`
+            }
+            accessibilityRole="button"
+            onPress={() => {
+              if (item.status) {
+                navigation.navigate("Status", { statusId: item.status.id });
+                return;
+              }
+
+              navigation.navigate("Account", {
+                account: item.account,
+                accountId: item.account.id,
+              });
+            }}
+          >
+            {!!item.account.avatar && (
+              <Image source={{ uri: item.account.avatar }} style={styles.avatar} />
+            )}
+            <View style={styles.body}>
+              <Text>
+                <Text style={styles.name}>
+                  {item.account.display_name || item.account.acct}
+                </Text>{" "}
+                {notificationLabel(item)}
+              </Text>
+              {item.status && (
+                <Text secondary numberOfLines={2}>
+                  {stripHtml(item.status.content)}
+                </Text>
+              )}
+            </View>
+            <Icon name="chevron-forward-outline" size={20} />
+          </Pressable>
+          {item.type === "follow_request" ? (
+            <View style={styles.followRequestActions}>
+              <AppButton
+                title={pendingFollowRequestId === item.account.id ? "Saving..." : "Accept"}
+                disabled={pendingFollowRequestId !== undefined}
+                onPress={() => void decideFollowRequest(item, true)}
+              />
+              <AppButton
+                title="Decline"
+                disabled={pendingFollowRequestId !== undefined}
+                onPress={() => void decideFollowRequest(item, false)}
+              />
+            </View>
+          ) : null}
+        </View>
+      )}
+    />
+  );
 }
-const styles = StyleSheet.create({ row: { alignItems: "center", flexDirection: "row", gap: 12, minHeight: 68, padding: 15 }, avatar: { width: 42, height: 42, borderRadius: 21 }, body: { flex: 1, gap: 5 }, name: { fontWeight: "700" }, empty: { padding: 30, textAlign: "center" } });
+const styles = StyleSheet.create({ row: { alignItems: "center", flexDirection: "row", gap: 12, minHeight: 68, padding: 15 }, avatar: { width: 42, height: 42, borderRadius: 21 }, body: { flex: 1, gap: 5 }, name: { fontWeight: "700" }, followRequestActions: { flexDirection: "row", gap: 8, justifyContent: "flex-end", paddingBottom: 12, paddingHorizontal: 15 }, empty: { padding: 30, textAlign: "center" } });
 
 /* end of UnfathomablyNotificationsScreen.tsx */
