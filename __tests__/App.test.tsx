@@ -65,6 +65,11 @@ jest.mock("../components/AppErrorBoundary", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+jest.mock("../components/InstanceThemeProvider", () => ({
+  __esModule: true,
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 jest.mock("../services/StorageService", () => ({
   __esModule: true,
   lotideContext: {

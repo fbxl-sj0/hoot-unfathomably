@@ -28,7 +28,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import useCachedResources from "./hooks/useCachedResources";
-import useColorScheme from "./hooks/useColorScheme";
+import { useInstanceColorScheme } from "./hooks/useTheme";
 import Navigation from "./navigation";
 import * as StorageService from "./services/StorageService";
 import * as UnfathomablyService from "./services/UnfathomablyService";
@@ -41,6 +41,7 @@ import { useLotideCtx } from "./hooks/useLotideCtx";
 import { Alert, Platform } from "react-native";
 import { getErrorMessage } from "./utils/error";
 import AppErrorBoundary from "./components/AppErrorBoundary";
+import InstanceThemeProvider from "./components/InstanceThemeProvider";
 import { logWarning } from "./utils/debugLog";
 
 /* ------------------------------------------------------------------------- */
@@ -49,7 +50,6 @@ import { logWarning } from "./utils/debugLog";
 
 function App() {
   const isLoadingComplete = useCachedResources();
-  const colorScheme = useColorScheme();
   const ctx = useLotideCtx();
   const dispatch = useDispatch();
   const notificationOnboardingStartedRef = useRef(false);
@@ -197,13 +197,23 @@ function App() {
   } else {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <SafeAreaProvider>
-          <Navigation colorScheme={colorScheme} />
-          <StatusBar />
-        </SafeAreaProvider>
+        <InstanceThemeProvider>
+          <ApplicationSurface />
+        </InstanceThemeProvider>
       </GestureHandlerRootView>
     );
   }
+}
+
+function ApplicationSurface() {
+  const colorScheme = useInstanceColorScheme();
+
+  return (
+    <SafeAreaProvider>
+      <Navigation />
+      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+    </SafeAreaProvider>
+  );
 }
 
 /**

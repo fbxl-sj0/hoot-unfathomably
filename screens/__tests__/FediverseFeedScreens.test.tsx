@@ -22,7 +22,12 @@
 */
 
 import * as React from "react";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import {
+  act,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react-native";
 
 import UnfathomablyFeedScreen from "../UnfathomablyFeedScreen";
 import UnfathomablyGroupFeedScreen from "../UnfathomablyGroupFeedScreen";
@@ -105,6 +110,7 @@ describe("Fediverse feed screens", () => {
       makeContext(family),
       { stream: "user" },
       expect.objectContaining({ onEvent: expect.any(Function) }),
+      true,
     );
   });
 
@@ -158,7 +164,65 @@ describe("Fediverse feed screens", () => {
       makeContext("unfathomably"),
       { stream: "user:groups" },
       expect.objectContaining({ onCatchUp: expect.any(Function) }),
+      true,
     );
+  });
+
+  test("pauses new-post updates away from the top and catches up on return", async () => {
+    const firstStatus = makeStatus("unfathomably", { id: "initial-status" });
+    mockGetHomeTimeline.mockResolvedValue([firstStatus]);
+    const screen = await render(
+      <UnfathomablyFeedScreen navigation={{ navigate: jest.fn() }} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("status:initial-status")).toBeTruthy();
+    });
+
+    const list = screen.getByTestId("timeline-list");
+    await act(async () => {
+      fireEvent.scroll(list, {
+        nativeEvent: { contentOffset: { x: 0, y: 180 } },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockUseStream).toHaveBeenLastCalledWith(
+        makeContext("unfathomably"),
+        { stream: "user" },
+        expect.objectContaining({ onEvent: expect.any(Function) }),
+        false,
+      );
+    });
+    const pausedCallbacks = mockUseStream.mock.calls.at(-1)?.[2] as {
+      onEvent: (event: { event: string; payload: unknown; stream: string[] }) => void;
+    };
+
+    await act(async () => {
+      pausedCallbacks.onEvent({
+        event: "update",
+        payload: makeStatus("unfathomably", { id: "missed-status" }),
+        stream: ["user"],
+      });
+    });
+    expect(screen.queryByText("status:missed-status")).toBeNull();
+    expect(mockGetHomeTimeline).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      fireEvent.scroll(list, {
+        nativeEvent: { contentOffset: { x: 0, y: 0 } },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockGetHomeTimeline).toHaveBeenCalledTimes(2);
+      expect(mockUseStream).toHaveBeenLastCalledWith(
+        makeContext("unfathomably"),
+        { stream: "user" },
+        expect.objectContaining({ onCatchUp: expect.any(Function) }),
+        true,
+      );
+    });
   });
 
   test("shows a retry state when Pleroma does not provide the group extension", async () => {

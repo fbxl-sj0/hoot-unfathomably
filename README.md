@@ -6,18 +6,20 @@ group discussions, first-class Worlds and Sources, and compatible features from
 [unfathomably-be](https://github.com/fbxl-sj0/unfathomably-be) and
 [unfathomably-fe](https://github.com/fbxl-sj0/unfathomably-fe).
 
-Version 0.4.2 is the Unfathomably 3.5 brand-alignment release. It was developed
-against unfathomably-be 3.5.0 and the paired August 12, 2026 frontend source.
-The client reads the instance feature manifest at runtime, so optional screens
-and controls follow the selected server rather than a hard-coded host or a
-guessed software version.
+Version 0.4.3 adds per-instance frontend themes and reader-aware live timeline
+updates. It was developed against unfathomably-be 3.5.0 and the paired August
+12, 2026 frontend source. The client reads instance capabilities and frontend
+configuration at runtime, so optional workflows and colors follow the selected
+server rather than a hard-coded host or a guessed software version.
 
-The native palette follows the current Unfathomably frontend: oxblood primary
-controls, black dark-mode surfaces, cool neutral light-mode surfaces, and the
-canonical blue galaxy mark. The launcher icon, splash screen, login identity,
-navigation, links, buttons, and selected controls share that identity. Lighter
-dark-mode variants preserve the same color families while keeping text and
-controls readable on phone displays.
+After an account becomes active, the native palette reads the host's public
+`soapbox_fe`, compatible Unfathomably frontend configuration, or
+`/instance/soapbox.json`. It follows the instance's light, dark, black, or
+system default and uses its primary, accent, neutral, success, and danger
+colors when supplied. Server data is validated before use, controls retain
+accessible contrast, and the last valid theme is cached per host for offline
+startup. The canonical galaxy launcher, splash, and login mark continue to
+identify Hoot Unfathomably itself.
 
 It connects directly to an Unfathomably server. Compatible Pleroma and Rebased
 servers provide the normal timeline and discussion experience; group features
@@ -47,7 +49,9 @@ saved account therefore cannot silently redirect that account to FBXL Social.
 - Receive foreground timeline edits through the server's live WebSocket API.
   Home, notifications, followed groups, individual groups, followed Sources,
   and individual Sources use their dedicated current streams. REST refreshes
-  fill gaps after focus changes, Android sleep, and network reconnects.
+  fill gaps after focus changes, Android sleep, and network reconnects. Home
+  and followed-groups streams pause while the reader is away from the top of
+  the list, then perform one authoritative catch-up before resuming.
 - Explore all 16 Worlds families, including books, culture, audio, video,
   photography, articles, events, software, routes, communities, and
   marketplace material. Native posts retain their structured facts, bridge
@@ -105,6 +109,11 @@ metadata.
 
 Remote servers must use HTTPS. Plain HTTP is accepted only for local Android
 development addresses such as `10.0.2.2` and `localhost`.
+
+The app makes unauthenticated requests to the selected host's public frontend
+configuration endpoints to match its colors. It sends no account token with
+these requests and stores only the validated color configuration in the
+host-scoped local cache.
 
 Live connections use the streaming origin advertised by the selected server,
 with a same-origin fallback for older compatible hosts. OAuth tokens are sent

@@ -44,8 +44,7 @@ import {
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 
-import Colors from "../constants/Colors";
-import useColorScheme, { AppColorScheme } from "../hooks/useColorScheme";
+import useTheme, { useInstanceColorScheme } from "../hooks/useTheme";
 import {
   RootStackParamList,
   RootStackScreenProps,
@@ -148,12 +147,10 @@ function useFeedSort(
   };
 }
 
-export default function Navigation({
-  colorScheme,
-}: {
-  colorScheme: AppColorScheme;
-}) {
+export default function Navigation() {
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
+  const colorScheme = useInstanceColorScheme();
+  const theme = useTheme();
   const pendingNotificationTarget =
     useRef<NotificationPoller.NotificationNavigationTarget | undefined>(
       undefined,
@@ -162,12 +159,12 @@ export default function Navigation({
     ...(colorScheme === "dark" ? DarkTheme : DefaultTheme),
     colors: {
       ...(colorScheme === "dark" ? DarkTheme.colors : DefaultTheme.colors),
-      primary: Colors[colorScheme].tint,
-      background: Colors[colorScheme].background,
-      card: Colors[colorScheme].tabBar,
-      text: Colors[colorScheme].text,
-      border: Colors[colorScheme].tertiaryBackground,
-      notification: Colors[colorScheme].tint,
+      primary: theme.tint,
+      background: theme.background,
+      card: theme.tabBar,
+      text: theme.text,
+      border: theme.tertiaryBackground,
+      notification: theme.tint,
     },
   };
 
@@ -272,7 +269,7 @@ function RootNavigator() {
 const BottomTab = createBottomTabNavigator<RootTabParamList>();
 
 function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const supportsTop = false;
   const { safeSort, changeSort } = useFeedSort(navigation, supportsTop);
 
@@ -289,7 +286,9 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
     <BottomTab.Navigator
       initialRouteName="FeedScreen"
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme].tint,
+        tabBarActiveTintColor: theme.tint,
+        tabBarInactiveTintColor: theme.tabIconDefault,
+        tabBarStyle: { backgroundColor: theme.tabBar },
         tabBarShowLabel: false,
       }}
     >
@@ -344,7 +343,7 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
               <Icon
                 name={bottomTabSortIcons[safeSort]}
                 size={25}
-                color={Colors[colorScheme].tint}
+                color={theme.tint}
               />
             </Pressable>
           ),
@@ -411,7 +410,7 @@ function BottomTabNavigator({ navigation }: { navigation: RootNavigation }) {
 const Drawer = createDrawerNavigator<RootTabParamList>();
 
 function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
-  const colorScheme = useColorScheme();
+  const theme = useTheme();
   const supportsTop = false;
   const { safeSort, changeSort } = useFeedSort(navigation, supportsTop);
 
@@ -419,8 +418,9 @@ function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
     <Drawer.Navigator
       initialRouteName="FeedScreen"
       screenOptions={{
-        drawerActiveTintColor: Colors[colorScheme].tint,
-        drawerInactiveTintColor: Colors[colorScheme].text,
+        drawerActiveTintColor: theme.tint,
+        drawerInactiveTintColor: theme.text,
+        drawerStyle: { backgroundColor: theme.tabBar },
         drawerType: "permanent",
       }}
     >
@@ -454,7 +454,7 @@ function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
               <Icon
                 name={drawerSortIcons[safeSort]}
                 size={25}
-                color={Colors[colorScheme].tint}
+                color={theme.tint}
               />
             </Pressable>
           ),
@@ -528,7 +528,7 @@ function DrawerNavigator({ navigation }: { navigation: RootNavigation }) {
               <Icon
                 name="settings-outline"
                 size={25}
-                color={Colors[colorScheme].secondaryText}
+                color={theme.secondaryText}
               />
             </Pressable>
           ),

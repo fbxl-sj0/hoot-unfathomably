@@ -6,11 +6,27 @@
 
     Purpose:
 
-        Show the signed-in account's standard Unfathomably home timeline.
+        Show a live home or followed-groups timeline for the active account.
+
+    Responsibilities:
+
+        - Load and paginate the selected timeline
+        - Apply live updates only while the list is at its newest edge
+        - Pause the WebSocket while the reader is reviewing older posts
+
+    This file intentionally does NOT contain:
+
+        - WebSocket protocol handling
+        - Status rendering internals
 */
 
-import React, { useCallback, useEffect, useState } from "react";
-import { FlatList, StyleSheet } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  FlatList,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  StyleSheet,
+} from "react-native";
 
 import StatusCard from "../components/StatusCard";
 import SuggestLogin from "../components/SuggestLogin";
@@ -20,6 +36,13 @@ import { useLotideCtx } from "../hooks/useLotideCtx";
 import useUnfathomablyStream from "../hooks/useUnfathomablyStream";
 import * as Unfathomably from "../services/UnfathomablyService";
 import { applyStatusStreamingEvent } from "../services/UnfathomablyStreamingService";
+
+/*
+    Small platform scroll offsets can remain after pull-to-refresh settles.
+    Treat the first 24 device-independent pixels as the newest edge so harmless
+    bounce does not repeatedly close and reopen the live connection.
+*/
+const AUTOMATIC_UPDATE_TOP_THRESHOLD = 24;
 
 export default function UnfathomablyFeedScreen({
   navigation,
@@ -32,9 +55,13 @@ export default function UnfathomablyFeedScreen({
   const [statuses, setStatuses] = useState<Unfathomably.UnfathomablyStatus[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [automaticUpdatesEnabled, setAutomaticUpdatesEnabled] = useState(true);
+  const automaticUpdatesEnabledRef = useRef(true);
+  const loadInFlightRef = useRef(false);
 
   const load = useCallback(async (append = false) => {
-    if (!ctx?.login || loading) return;
+    if (!ctx?.login || loadInFlightRef.current) return;
+    loadInFlightRef.current = true;
     setLoading(true);
     setError("");
     try {
@@ -45,9 +72,10 @@ export default function UnfathomablyFeedScreen({
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not load this feed.");
     } finally {
+      loadInFlightRef.current = false;
       setLoading(false);
     }
-  }, [ctx, loading, scope, statuses]);
+  }, [ctx, scope, statuses]);
 
   useEffect(() => {
     if (!ctx?.login) return;
@@ -70,6 +98,8 @@ export default function UnfathomablyFeedScreen({
   }, [ctx, scope]);
 
   const handleStreamingEvent = useCallback((event: Parameters<typeof applyStatusStreamingEvent>[1]) => {
+    if (!automaticUpdatesEnabledRef.current) return;
+
     setStatuses(current => applyStatusStreamingEvent(
       current,
       event,
@@ -77,13 +107,36 @@ export default function UnfathomablyFeedScreen({
     ));
   }, [scope]);
 
+  const handleCatchUp = useCallback(() => {
+    if (automaticUpdatesEnabledRef.current) void load();
+  }, [load]);
+
+  const handleScroll = useCallback((
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) => {
+    const isAtTop = event.nativeEvent.contentOffset.y <=
+      AUTOMATIC_UPDATE_TOP_THRESHOLD;
+    if (isAtTop === automaticUpdatesEnabledRef.current) return;
+
+    automaticUpdatesEnabledRef.current = isAtTop;
+    setAutomaticUpdatesEnabled(isAtTop);
+
+    /*
+        Re-entering the newest edge performs an authoritative REST refresh.
+        This closes the gap even when the socket was paused before its first
+        connection completed or the server does not retain missed events.
+    */
+    if (isAtTop) void load();
+  }, [load]);
+
   useUnfathomablyStream(
     ctx,
     { stream: scope === "groups" ? "user:groups" : "user" },
     {
-      onCatchUp: () => { void load(); },
+      onCatchUp: handleCatchUp,
       onEvent: handleStreamingEvent,
     },
+    automaticUpdatesEnabled,
   );
 
   if (!ctx?.login) return <SuggestLogin />;
@@ -94,9 +147,12 @@ export default function UnfathomablyFeedScreen({
       <FlatList
         data={statuses}
         keyExtractor={status => status.id}
+        testID="timeline-list"
         renderItem={({ item }) => <StatusCard status={item} ctx={ctx} navigation={navigation} />}
         refreshing={loading && statuses.length === 0}
         onRefresh={() => void load()}
+        onScroll={handleScroll}
+        scrollEventThrottle={100}
         onEndReached={() => void load(true)}
         onEndReachedThreshold={0.7}
         ListEmptyComponent={error ? <RetryState message={error} onRetry={() => void load()} /> : loading ? null : <Text style={styles.empty}>Nothing here yet.</Text>}

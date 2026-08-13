@@ -32,21 +32,21 @@ import {
   TextInput as DefaultTextInput,
 } from "react-native";
 
-import Colors from "../constants/Colors";
-import useColorScheme from "../hooks/useColorScheme";
-import useTheme from "../hooks/useTheme";
+import type { ColorsObject } from "../constants/Colors";
+import useTheme, { useInstanceColorScheme } from "../hooks/useTheme";
 
 export function useThemeColor(
   props: { light?: ColorValue; dark?: ColorValue },
-  colorName: keyof typeof Colors.light & keyof typeof Colors.dark,
+  colorName: keyof ColorsObject,
 ): ColorValue {
-  const theme = useColorScheme();
-  const colorFromProps = props[theme];
+  const colorScheme = useInstanceColorScheme();
+  const theme = useTheme();
+  const colorFromProps = props[colorScheme];
 
   if (colorFromProps) {
     return colorFromProps;
   } else {
-    return Colors[theme][colorName];
+    return theme[colorName];
   }
 }
 

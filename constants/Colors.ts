@@ -6,18 +6,17 @@
 
     Purpose:
 
-        Define the native client palette from Unfathomably's current frontend
-        identity.
+        Define the native client's safe fallback palette.
 
     Responsibilities:
 
-        - Preserve the upstream oxblood, black, gray, and galaxy-blue identity
+        - Preserve Unfathomably's oxblood, black, gray, and galaxy-blue fallback
         - Define accessible light and dark variants for interactive controls
         - Provide strongly typed color names consumed by components
 
     This file intentionally does not contain:
 
-        • Theme switching logic (handled by hooks/useTheme.ts)
+        • Instance theme loading (handled by services/InstanceThemeService.ts)
         • Network or API request logic
 */
 
