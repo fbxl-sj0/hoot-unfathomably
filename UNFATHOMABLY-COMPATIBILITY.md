@@ -1,6 +1,6 @@
 # Unfathomably compatibility
 
-Hoot Unfathomably 0.4.4 was reviewed against these upstream revisions:
+Hoot Unfathomably 0.4.5 was reviewed against these upstream revisions:
 
 - unfathomably-be 3.5.0, commit `de930df6d18bf0f9cd124c4beb9d85dc23303620`
 - unfathomably-fe, commit `5cf055beeb9f0a1453dca99b3559d1b786ae7f82`

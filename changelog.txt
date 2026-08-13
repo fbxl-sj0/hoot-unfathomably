@@ -1,6 +1,12 @@
 Hoot Unfathomably Changelog
 ===========================
 
+Version 0.4.5
+-------------
+
+- Preview a selected server's public color scheme on the login screen without
+  creating an account, persisting a profile, or sending credentials.
+
 Version 0.4.4
 -------------
 

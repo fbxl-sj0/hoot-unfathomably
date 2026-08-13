@@ -6,14 +6,14 @@ group discussions, first-class Worlds and Sources, and compatible features from
 [unfathomably-be](https://github.com/fbxl-sj0/unfathomably-be) and
 [unfathomably-fe](https://github.com/fbxl-sj0/unfathomably-fe).
 
-Version 0.4.4 adds a live-tested Rebased, Pleroma, Akkoma, and Mastodon
+Version 0.4.5 adds a live-tested Rebased, Pleroma, Akkoma, and Mastodon
 compatibility matrix alongside per-instance themes and reader-aware live
 timeline updates. It was developed against unfathomably-be 3.5.0 and the paired August
 12, 2026 frontend source. The client reads instance capabilities and frontend
 configuration at runtime, so optional workflows and colors follow the selected
 server rather than a hard-coded host or a guessed software version.
 
-After an account becomes active, the native palette reads the host's public
+After a server is selected, the native palette reads the host's public
 `soapbox_fe`, compatible Unfathomably frontend configuration, or
 `/instance/soapbox.json`. Pleroma FE and Akkoma hosts use the advertised default
 theme preset from `/static/themes` when they do not run Soapbox. The app follows
@@ -24,6 +24,27 @@ the last valid theme is cached per host for offline startup. Hosts such as
 Mastodon that do not publish a supported color configuration use the accessible
 Hoot Unfathomably palette. The canonical galaxy launcher, splash, and login
 mark continue to identify Hoot Unfathomably itself.
+
+The selected palette is previewed on the login screen before authentication.
+This preview is kept in memory and does not create or persist an account.
+
+### Instance theme examples
+
+![Eight Android login screens using their selected instance themes](docs/screenshots/instance-themes/gallery.png)
+
+Full-size captures: [FBXL Social](docs/screenshots/instance-themes/fbxl-social.png),
+[TECI Social](docs/screenshots/instance-themes/teci-social.png),
+[Poast](docs/screenshots/instance-themes/poast.png),
+[Pleroma/Soykaf](docs/screenshots/instance-themes/pleroma-soykaf.png),
+[Udongein](docs/screenshots/instance-themes/udongein.png),
+[Outmo.de](docs/screenshots/instance-themes/outmo.png),
+[Fosstodon](docs/screenshots/instance-themes/fosstodon.png), and
+[mstdn.social](docs/screenshots/instance-themes/mstdn-social.png).
+
+These were captured from the release Android app using public theme requests
+without starting an OAuth flow or supplying credentials. Fosstodon and
+mstdn.social intentionally show the accessible fallback because Mastodon does
+not publish a supported instance palette contract.
 
 It connects directly to the Fediverse server selected at login. Compatible
 Rebased, Pleroma, Akkoma, and Mastodon servers provide the normal timeline and
