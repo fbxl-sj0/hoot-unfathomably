@@ -6,11 +6,11 @@
 
     Purpose:
 
-        Return the active server-aware Hoot color palette.
+        Return active server-aware presentation settings.
 
     Responsibilities:
 
-        - Expose instance theme values to application components
+        - Expose instance theme and quick-reaction values to components
         - Fall back to the platform scheme outside the theme provider
 
     This file intentionally does NOT contain:
@@ -19,24 +19,15 @@
         - frontend configuration requests
 */
 
-import { createContext, useContext } from "react";
+import { useContext } from "react";
 
 import Colors from "../constants/Colors";
-import type { ColorsObject } from "../constants/Colors";
+import { InstancePresentationContext } from "../contexts/InstancePresentationContext";
 import useColorScheme from "./useColorScheme";
 import { useAccessibilityPreferences } from "../contexts/AccessibilityPreferencesContext";
 
-export type InstanceThemeContextValue = {
-  colorScheme: "light" | "dark";
-  colors: ColorsObject;
-};
-
-export const InstanceThemeContext = createContext<
-  InstanceThemeContextValue | undefined
->(undefined);
-
 export default function useTheme() {
-  const instanceTheme = useContext(InstanceThemeContext);
+  const instanceTheme = useContext(InstancePresentationContext);
   const systemColorScheme = useColorScheme();
   const { highContrast } = useAccessibilityPreferences();
   const colorScheme = instanceTheme?.colorScheme ?? systemColorScheme;
@@ -57,7 +48,7 @@ export default function useTheme() {
 }
 
 export function useInstanceColorScheme(): "light" | "dark" {
-  const instanceTheme = useContext(InstanceThemeContext);
+  const instanceTheme = useContext(InstancePresentationContext);
   const systemColorScheme = useColorScheme();
 
   return instanceTheme?.colorScheme ?? systemColorScheme;

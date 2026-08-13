@@ -29,6 +29,7 @@ import {
   createStatus,
   deleteStatus,
   dislikeStatus,
+  emojiReactionNamesEqual,
   favouriteStatus,
   getAccountStatuses,
   getDiscoverableGroups,
@@ -51,6 +52,8 @@ import {
   getStatusContext,
   getStatusContextWindow,
   getStatusDescendants,
+  getStatusEmojiReactions,
+  getEmojiReactionRequestName,
   getStatusSource,
   getSupportedServerUrl,
   joinGroup,
@@ -60,6 +63,7 @@ import {
   normalizeServerUrl,
   readOAuthAuthorizationCode,
   reactToStatus,
+  reconcileEmojiReactionMutation,
   registerOAuthApplication,
   reblogStatus,
   resolveStatusByUrl,
@@ -599,6 +603,75 @@ describe("UnfathomablyService", () => {
       quotes: true,
       worlds: false,
     });
+  });
+
+  test("uses populated Pleroma reactions when a top-level array is empty", () => {
+    const status = makeStatus("pleroma", {
+      emoji_reactions: [],
+      pleroma: {
+        emoji_reactions: [
+          {
+            account_ids: ["pleroma-account-1"],
+            count: 2,
+            me: true,
+            name: "❤️",
+            url: null,
+          },
+        ],
+      },
+    });
+
+    expect(getStatusEmojiReactions(status)).toEqual([
+      expect.objectContaining({ count: 2, me: true, name: "❤️" }),
+    ]);
+  });
+
+  test("preserves the current account marker after an incomplete reaction response", () => {
+    const previous = makeStatus("pleroma", {
+      emoji_reactions: undefined,
+      pleroma: { emoji_reactions: [] },
+    });
+    const returned = makeStatus("pleroma", {
+      emoji_reactions: undefined,
+      pleroma: {
+        emoji_reactions: [{ count: 1, me: false, name: "❤" }],
+      },
+    });
+
+    const reconciled = reconcileEmojiReactionMutation(
+      returned,
+      previous,
+      "❤️",
+      false,
+      "pleroma-account-1",
+    );
+
+    expect(getStatusEmojiReactions(reconciled)).toEqual([
+      expect.objectContaining({
+        account_ids: ["pleroma-account-1"],
+        count: 1,
+        me: true,
+        name: "❤",
+      }),
+    ]);
+  });
+
+  test("matches custom reaction shortcodes with and without Pleroma colons", () => {
+    const customReaction = {
+      count: 1,
+      me: true,
+      name: "dinosaur",
+      url: "https://pleroma.example/emoji/dinosaur.gif",
+    };
+
+    expect(emojiReactionNamesEqual(":dinosaur:", "dinosaur")).toBe(true);
+    expect(getEmojiReactionRequestName(customReaction)).toBe(":dinosaur:");
+    expect(getEmojiReactionRequestName({
+      count: 1,
+      me: true,
+      name: "😮",
+      url: null,
+    })).toBe("😮");
   });
 
   test.each([

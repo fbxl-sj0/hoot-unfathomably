@@ -35,6 +35,7 @@ import StatusLinkPreview from "./StatusLinkPreview";
 import StatusEventContext from "./StatusEventContext";
 import StatusPoll from "./StatusPoll";
 import useTheme from "../hooks/useTheme";
+import { useInstanceQuickEmoji } from "../hooks/useInstanceEmoji";
 import * as Unfathomably from "../services/UnfathomablyService";
 import {
   ComposeIntent,
@@ -55,6 +56,7 @@ export default function StatusCard({
   compact?: boolean;
 }) {
   const theme = useTheme();
+  const quickEmoji = useInstanceQuickEmoji();
   const {
     alwaysExpandContentWarnings,
     showMediaDescriptions,
@@ -70,11 +72,22 @@ export default function StatusCard({
   );
   const displayContent = getStatusDisplayContent(visible);
   const quotedStatus = Unfathomably.getQuotedStatus(visible);
+  const ownAccountId = String(ctx.login?.user?.id ?? "");
+  const emojiReactions = Unfathomably.getStatusEmojiReactions(visible);
+  const ownsEmoji = (emoji: string) => emojiReactions.some(
+    reaction =>
+      Unfathomably.emojiReactionNamesEqual(reaction.name, emoji) &&
+      Unfathomably.isOwnEmojiReaction(reaction, ownAccountId),
+  );
+  const hasOwnEmojiReaction = emojiReactions.some(
+    reaction => Unfathomably.isOwnEmojiReaction(reaction, ownAccountId),
+  );
   const displayedMedia = compact
     ? visible.media_attachments.slice(0, 1)
     : visible.media_attachments;
   const capabilities = Unfathomably.getStatusCapabilities(visible);
   const [emojiMenuOpen, setEmojiMenuOpen] = useState(false);
+  const [emojiPending, setEmojiPending] = useState(false);
   const [bookmarkPending, setBookmarkPending] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [removed, setRemoved] = useState(false);
@@ -83,7 +96,6 @@ export default function StatusCard({
   const bookmarkPendingRef = useRef(false);
   const deletePendingRef = useRef(false);
   const isMountedRef = useRef(true);
-  const ownAccountId = String(ctx.login?.user?.id ?? "");
   const canDelete =
     !current.reblog &&
     ownAccountId !== "" &&
@@ -163,15 +175,31 @@ export default function StatusCard({
     }
   }
 
-  async function reactWithEmoji(emoji: string) {
-    const reactions = visible.emoji_reactions || visible.pleroma?.emoji_reactions || [];
-    const ownReaction = reactions.some(reaction => reaction.name === emoji && reaction.me);
+  async function reactWithEmoji(emoji: string, emojiUrl?: string) {
+    if (emojiPending) return;
+
+    const ownReaction = ownsEmoji(emoji);
+
+    setEmojiPending(true);
     try {
       const next = await Unfathomably.reactToStatus(ctx, visible.id, emoji, ownReaction);
-      setCurrent(next);
+      const reconciled = Unfathomably.reconcileEmojiReactionMutation(
+        next,
+        visible,
+        emoji,
+        ownReaction,
+        ownAccountId,
+        emojiUrl,
+      );
+
+      setCurrent(existing => existing.reblog
+        ? { ...existing, reblog: reconciled }
+        : reconciled);
       setEmojiMenuOpen(false);
     } catch (error) {
-      Alert.alert("Could not add emoji reaction", getErrorMessage(error));
+      Alert.alert("Could not update emoji reaction", getErrorMessage(error));
+    } finally {
+      setEmojiPending(false);
     }
   }
 
@@ -459,6 +487,61 @@ export default function StatusCard({
           )}
         </>
       ) : null}
+      {emojiReactions.length > 0 && (
+        <View
+          accessibilityLabel="Emoji reactions"
+          style={styles.emojiReactions}
+        >
+          {emojiReactions.map(reaction => {
+            const ownReaction = Unfathomably.isOwnEmojiReaction(
+              reaction,
+              ownAccountId,
+            );
+            const displayEmoji = reaction.url
+              ? `:${reaction.name}:`
+              : reaction.name;
+
+            return (
+              <Pressable
+                accessibilityLabel={`${ownReaction ? "Remove" : "React with"} ${displayEmoji} reaction, ${reaction.count} total`}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: emojiPending, selected: ownReaction }}
+                disabled={emojiPending}
+                key={`${reaction.name}:${reaction.url || "unicode"}`}
+                onPress={actionPress(() => {
+                  void reactWithEmoji(
+                    Unfathomably.getEmojiReactionRequestName(reaction),
+                    reaction.url || undefined,
+                  );
+                })}
+                style={[
+                  styles.emojiReaction,
+                  {
+                    backgroundColor: ownReaction
+                      ? theme.tint
+                      : theme.secondaryBackground,
+                  },
+                ]}
+              >
+                {reaction.url ? (
+                  <CustomEmojiImage
+                    fallbackFontSize={14}
+                    label={displayEmoji}
+                    selected={ownReaction}
+                    size={24}
+                    url={reaction.url}
+                  />
+                ) : (
+                  <Text style={styles.emojiReactionText}>{displayEmoji}</Text>
+                )}
+                <Text style={{ color: ownReaction ? theme.onTint : theme.text }}>
+                  {reaction.count}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
       <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"
@@ -494,11 +577,42 @@ export default function StatusCard({
         {capabilities.emojiReactions && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Choose an emoji reaction"
+            accessibilityLabel={hasOwnEmojiReaction
+              ? "Choose or remove an emoji reaction"
+              : "Choose an emoji reaction"}
+            accessibilityState={{
+              disabled: emojiPending,
+              expanded: emojiMenuOpen,
+              selected: hasOwnEmojiReaction,
+            }}
+            disabled={emojiPending}
             onPress={actionPress(() => setEmojiMenuOpen(open => !open))}
-            style={[styles.action, emojiMenuOpen && { backgroundColor: theme.tint }]}
+            style={[
+              styles.action,
+              {
+                backgroundColor: emojiMenuOpen
+                  ? theme.tint
+                  : theme.secondaryBackground,
+              },
+            ]}
           >
-            <Text style={[styles.actionText, emojiMenuOpen && { color: theme.onTint }]}><Icon name="happy-outline" size={23} /></Text>
+            <Text
+              style={[
+                styles.actionText,
+                {
+                  color: emojiMenuOpen
+                    ? theme.onTint
+                    : hasOwnEmojiReaction
+                    ? theme.tint
+                    : theme.text,
+                },
+              ]}
+            >
+              <Icon
+                name={hasOwnEmojiReaction ? "happy" : "happy-outline"}
+                size={23}
+              />
+            </Text>
           </Pressable>
         )}
         <Pressable
@@ -566,21 +680,86 @@ export default function StatusCard({
         )}
         {capabilities.emojiReactions && emojiMenuOpen && (
           <View style={[styles.emojiMenu, { backgroundColor: theme.secondaryBackground }]}>
-            {["❤️", "😂", "😮", "😢", "🔥", "🎉"].map(emoji => (
-              <Pressable
-                key={emoji}
-                accessibilityRole="button"
-                accessibilityLabel={`React with ${emoji}`}
-                onPress={actionPress(() => { void reactWithEmoji(emoji); })}
-                style={styles.emojiChoice}
-              >
-                <Text style={styles.emojiText}>{emoji}</Text>
-              </Pressable>
-            ))}
+            {quickEmoji.map(emoji => {
+              const ownReaction = ownsEmoji(emoji);
+
+              return (
+                <Pressable
+                  key={emoji}
+                  accessibilityRole="button"
+                  accessibilityLabel={ownReaction
+                    ? `Remove ${emoji} reaction`
+                    : `React with ${emoji}`}
+                  accessibilityState={{ disabled: emojiPending, selected: ownReaction }}
+                  disabled={emojiPending}
+                  onPress={actionPress(() => {
+                    void reactWithEmoji(emoji);
+                  })}
+                  style={[
+                    styles.emojiChoice,
+                    ownReaction && { backgroundColor: theme.tint },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.emojiText,
+                      ownReaction && { color: theme.onTint },
+                    ]}
+                  >
+                    {emoji}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         )}
       </View>
     </Pressable>
+  );
+}
+
+function CustomEmojiImage({
+  fallbackFontSize,
+  label,
+  selected,
+  size,
+  url,
+}: {
+  fallbackFontSize: number;
+  label: string;
+  selected: boolean;
+  size: number;
+  url: string;
+}) {
+  const theme = useTheme();
+  const [failed, setFailed] = useState(false);
+
+  /*
+      Custom emoji catalogs are controlled by each instance and can outlive
+      their image files. Keep the reaction usable and identifiable if Fresco
+      cannot load the advertised image.
+  */
+  if (failed) {
+    return (
+      <Text
+        style={{
+          color: selected ? theme.onTint : theme.text,
+          fontSize: fallbackFontSize,
+        }}
+      >
+        {label}
+      </Text>
+    );
+  }
+
+  return (
+    <Image
+      accessibilityIgnoresInvertColors
+      onError={() => setFailed(true)}
+      source={{ uri: url }}
+      style={{ height: size, width: size }}
+      testID={`custom-emoji-${label}`}
+    />
   );
 }
 
@@ -726,8 +905,11 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 16 },
   action: { alignItems: "center", borderRadius: 10, justifyContent: "center", minHeight: 52, minWidth: 50, paddingHorizontal: 4, width: "15%" },
   actionText: { fontSize: 14, fontWeight: "600", textAlign: "center" },
-  emojiMenu: { borderRadius: 10, flexDirection: "row", gap: 4, justifyContent: "space-around", padding: 6, width: "100%" },
-  emojiChoice: { alignItems: "center", justifyContent: "center", minHeight: 48, minWidth: 42 },
+  emojiReactions: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 12 },
+  emojiReaction: { alignItems: "center", borderRadius: 18, flexDirection: "row", gap: 6, justifyContent: "center", minHeight: 44, paddingHorizontal: 12 },
+  emojiReactionText: { fontSize: 20 },
+  emojiMenu: { borderRadius: 10, flexDirection: "row", flexWrap: "wrap", gap: 4, justifyContent: "flex-start", padding: 6, width: "100%" },
+  emojiChoice: { alignItems: "center", borderRadius: 10, justifyContent: "center", minHeight: 48, minWidth: 42 },
   emojiText: { fontSize: 24 },
   removed: { alignItems: "center", borderBottomWidth: 8, flexDirection: "row", gap: 8, minHeight: 68, padding: 15 },
   filteredCard: { gap: 12 },

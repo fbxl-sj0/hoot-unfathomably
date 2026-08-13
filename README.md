@@ -6,12 +6,12 @@ group discussions, first-class Worlds and Sources, and compatible features from
 [unfathomably-be](https://github.com/fbxl-sj0/unfathomably-be) and
 [unfathomably-fe](https://github.com/fbxl-sj0/unfathomably-fe).
 
-Version 0.6.0 adds offline reading, complete draft and scheduling workflows,
-standard lists and filters, translation and reporting, profile and existing-post
-editing, account-scoped notification controls, cross-account actions, and a
-substantial accessibility and localization layer. It was developed against
-unfathomably-be 3.5.0 and the paired August 12, 2026 frontend source. The client
-reads instance capabilities and frontend
+Version 0.6.1 adds per-instance quick reactions, visible reaction ownership and
+counts, and reliable reaction-state reconciliation across Unfathomably,
+Rebased, Pleroma, and Akkoma response shapes. It builds on the offline reading,
+drafts, scheduling, lists, filters, translation, moderation, accessibility, and
+localization workflows introduced in 0.6.0. The client reads instance
+capabilities and frontend
 configuration at runtime, so optional workflows and colors follow the selected
 server rather than a hard-coded host or a guessed software version.
 

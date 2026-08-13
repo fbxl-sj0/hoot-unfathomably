@@ -45,6 +45,8 @@ import {
   makeStatus,
 } from "../../testing/fediverseFixtures";
 
+let mockQuickEmoji: readonly string[] = ["👍", "❤️", "😆", "😮", "😢", "😩"];
+
 jest.mock("../../hooks/useTheme", () => ({
   __esModule: true,
   default: () => ({
@@ -54,6 +56,10 @@ jest.mock("../../hooks/useTheme", () => ({
     text: "#111",
     tint: "#d87900",
   }),
+}));
+
+jest.mock("../../hooks/useInstanceEmoji", () => ({
+  useInstanceQuickEmoji: () => mockQuickEmoji,
 }));
 
 jest.mock("../../services/UnfathomablyService", () => {
@@ -99,6 +105,7 @@ const mockReblogStatus =
 describe("StatusCard Fediverse contracts", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockQuickEmoji = ["👍", "❤️", "😆", "😮", "😢", "😩"];
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
   });
 
@@ -825,6 +832,61 @@ describe("StatusCard Fediverse contracts", () => {
       />,
     );
 
+    expect(
+      screen.getByRole("button", {
+        name: "Remove ❤️ reaction, 2 total",
+      }),
+    ).toBeTruthy();
+    await fireEvent.press(
+      screen.getByRole("button", {
+        name: "Choose or remove an emoji reaction",
+      }),
+      { stopPropagation: jest.fn() },
+    );
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Remove ❤️ reaction" }),
+      { stopPropagation: jest.fn() },
+    );
+
+    await waitFor(() => {
+      expect(mockReactToStatus).toHaveBeenCalledWith(
+        makeContext("pleroma"),
+        "pleroma-status-1",
+        "❤️",
+        true,
+      );
+      expect(
+        screen.getByRole("button", {
+          name: "React with ❤️ reaction, 1 total",
+        }),
+      ).toBeTruthy();
+      expect(
+        screen.getByRole("button", { name: "Choose an emoji reaction" }),
+      ).toBeTruthy();
+    });
+  });
+
+  test("shows an emoji as selected after a successful reaction", async () => {
+    mockReactToStatus.mockResolvedValue(
+      makeStatus("pleroma", {
+        emoji_reactions: [],
+        pleroma: {
+          emoji_reactions: [{ count: 1, me: false, name: "❤" }],
+        },
+      }),
+    );
+    const context = makeContext("pleroma");
+    const screen = await render(
+      <StatusCard
+        status={makeStatus("pleroma", {
+          emoji_reactions: [],
+          pleroma: { emoji_reactions: [] },
+        })}
+        ctx={context}
+        navigation={{ navigate: jest.fn() }}
+      />,
+    );
+
     await fireEvent.press(
       screen.getByRole("button", { name: "Choose an emoji reaction" }),
       { stopPropagation: jest.fn() },
@@ -836,12 +898,43 @@ describe("StatusCard Fediverse contracts", () => {
 
     await waitFor(() => {
       expect(mockReactToStatus).toHaveBeenCalledWith(
-        makeContext("pleroma"),
+        context,
         "pleroma-status-1",
         "❤️",
-        true,
+        false,
       );
+      expect(
+        screen.getByRole("button", {
+          name: "Remove ❤ reaction, 1 total",
+        }),
+      ).toBeTruthy();
+      expect(
+        screen.getByRole("button", {
+          name: "Choose or remove an emoji reaction",
+        }),
+      ).toBeTruthy();
     });
+  });
+
+  test("uses the current instance's configured quick reactions", async () => {
+    mockQuickEmoji = ["👍", "🤔", "😩"];
+    const screen = await render(
+      <StatusCard
+        status={makeStatus("unfathomably")}
+        ctx={makeContext("unfathomably")}
+        navigation={{ navigate: jest.fn() }}
+      />,
+    );
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Choose an emoji reaction" }),
+      { stopPropagation: jest.fn() },
+    );
+
+    expect(screen.getByRole("button", { name: "React with 👍" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "React with 🤔" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "React with 😩" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "React with 🔥" })).toBeNull();
   });
 
   test("uses favourite and dislike endpoints for thumbs up and down", async () => {

@@ -1,6 +1,20 @@
 Hoot Unfathomably Changelog
 ===========================
 
+Version 0.6.1
+-------------
+
+- Read each host's `allowedEmoji` list from supported Unfathomably, Soapbox,
+  and Pleroma frontend configuration endpoints, cache it per host, and use the
+  current Unfathomably frontend order when the server omits an override.
+- Add the heart reaction immediately after thumbs up in the default quick
+  reaction order.
+- Display reaction counts and the signed-in account's selected state directly
+  on each post, including custom remote emoji images with shortcode fallback.
+- Reconcile incomplete Pleroma-family mutation responses so a successful
+  reaction remains visibly selected and can be removed.
+- Raise the release to Android version code 23 and package version 0.6.1.
+
 Version 0.6.0
 -------------
 

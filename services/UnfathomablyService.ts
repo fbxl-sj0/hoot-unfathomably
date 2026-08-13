@@ -158,6 +158,14 @@ export type UnfathomablyMediaAttachment = {
   } | null;
 };
 
+export type UnfathomablyEmojiReaction = {
+  account_ids?: (string | number)[];
+  count: number;
+  me?: boolean;
+  name: string;
+  url?: string | null;
+};
+
 export type MediaUploadInput = {
   description?: string;
   focus?: string;
@@ -228,9 +236,9 @@ export type UnfathomablyStatus = {
     status_matches?: string[] | null;
   }[] | null;
   mentions?: UnfathomablyMention[];
-  emoji_reactions?: { name: string; count: number; me?: boolean; url?: string }[] | null;
+  emoji_reactions?: UnfathomablyEmojiReaction[] | null;
   pleroma?: {
-    emoji_reactions?: { name: string; count: number; me?: boolean; url?: string }[] | null;
+    emoji_reactions?: UnfathomablyEmojiReaction[] | null;
     in_reply_to_account_acct?: string | null;
     parent_visible?: boolean;
     quote?: UnfathomablyStatus | null;
@@ -590,6 +598,192 @@ export function getStatusCapabilities(
         status.pleroma?.quote_visible !== undefined ||
         status.pleroma?.quotes_count !== undefined
       ),
+  };
+}
+
+export function getStatusEmojiReactions(
+  status: UnfathomablyStatus,
+): UnfathomablyEmojiReaction[] {
+  const direct = normalizeEmojiReactions(status.emoji_reactions);
+  const nested = normalizeEmojiReactions(status.pleroma?.emoji_reactions);
+
+  /*
+      Akkoma commonly publishes reactions at the top level, while Pleroma,
+      Rebased, and Unfathomably publish the same data under `pleroma`. Some
+      compatible servers include an empty top-level array alongside populated
+      Pleroma data. Others publish both shapes. Merge by reaction name without
+      adding duplicate counts, and retain either shape's current-user marker.
+  */
+  return [...direct, ...nested].reduce<UnfathomablyEmojiReaction[]>(
+    (result, reaction) => {
+      const existingIndex = result.findIndex(existing =>
+        emojiReactionNamesEqual(existing.name, reaction.name)
+      );
+
+      if (existingIndex < 0) {
+        result.push(reaction);
+        return result;
+      }
+
+      const existing = result[existingIndex];
+      result[existingIndex] = {
+        ...existing,
+        ...reaction,
+        account_ids: mergeReactionAccountIds(
+          existing.account_ids,
+          reaction.account_ids,
+        ),
+        count: Math.max(existing.count, reaction.count),
+        me: existing.me === true || reaction.me === true,
+        url: reaction.url || existing.url,
+      };
+      return result;
+    },
+    [],
+  );
+}
+
+export function emojiReactionNamesEqual(left: string, right: string): boolean {
+  return normalizeEmojiReactionName(left) === normalizeEmojiReactionName(right);
+}
+
+export function getEmojiReactionRequestName(
+  reaction: UnfathomablyEmojiReaction,
+): string {
+  const name = reaction.name.trim();
+  return reaction.url && /^[a-z0-9_+-]{1,100}$/i.test(name)
+    ? `:${name}:`
+    : name;
+}
+
+export function isOwnEmojiReaction(
+  reaction: UnfathomablyEmojiReaction,
+  accountId?: string,
+): boolean {
+  if (reaction.me === true) return true;
+  if (!accountId || !Array.isArray(reaction.account_ids)) return false;
+
+  return reaction.account_ids.some(id => String(id) === accountId);
+}
+
+export function reconcileEmojiReactionMutation(
+  returnedStatus: UnfathomablyStatus,
+  previousStatus: UnfathomablyStatus,
+  emoji: string,
+  remove: boolean,
+  accountId?: string,
+  emojiUrl?: string,
+): UnfathomablyStatus {
+  const returned = getStatusEmojiReactions(returnedStatus);
+  const previous = getStatusEmojiReactions(previousStatus);
+  const returnedHasReaction = returned.some(reaction =>
+    emojiReactionNamesEqual(reaction.name, emoji)
+  );
+  const source = returnedHasReaction || remove ? returned : previous;
+  let foundReaction = false;
+  const reactions = source.map(reaction => {
+    if (!emojiReactionNamesEqual(reaction.name, emoji)) return reaction;
+
+    foundReaction = true;
+    const count = !remove && !returnedHasReaction &&
+      !isOwnEmojiReaction(reaction, accountId)
+      ? reaction.count + 1
+      : reaction.count;
+
+    return {
+      ...reaction,
+      account_ids: updateReactionAccountIds(
+        reaction.account_ids,
+        accountId,
+        remove,
+      ),
+      count: Math.max(1, count),
+      me: !remove,
+      url: reaction.url || emojiUrl,
+    };
+  });
+
+  if (!remove && !foundReaction) {
+    reactions.push({
+      account_ids: accountId ? [accountId] : undefined,
+      count: 1,
+      me: true,
+      name: emoji,
+      url: emojiUrl,
+    });
+  }
+
+  return setStatusEmojiReactions(returnedStatus, reactions);
+}
+
+function normalizeEmojiReactions(
+  reactions?: UnfathomablyEmojiReaction[] | null,
+): UnfathomablyEmojiReaction[] {
+  if (!Array.isArray(reactions)) return [];
+
+  return reactions.flatMap(reaction => {
+    if (
+      !reaction ||
+      typeof reaction.name !== "string" ||
+      reaction.name.trim() === "" ||
+      typeof reaction.count !== "number" ||
+      !Number.isFinite(reaction.count)
+    ) {
+      return [];
+    }
+
+    return [{
+      ...reaction,
+      count: Math.max(0, Math.floor(reaction.count)),
+      name: reaction.name.trim(),
+    }];
+  });
+}
+
+function normalizeEmojiReactionName(name: string): string {
+  /*
+      Variation selectors change presentation, not identity. Pleroma accepts
+      local custom emoji as :shortcode: but returns its name without colons.
+  */
+  return name
+    .trim()
+    .normalize("NFC")
+    .replace(/\uFE0F/gu, "")
+    .replace(/^:([a-z0-9_+-]{1,100}):$/iu, "$1");
+}
+
+function mergeReactionAccountIds(
+  left?: (string | number)[],
+  right?: (string | number)[],
+): string[] | undefined {
+  if (!left && !right) return undefined;
+
+  return Array.from(new Set([...(left || []), ...(right || [])].map(String)));
+}
+
+function updateReactionAccountIds(
+  accountIds: (string | number)[] | undefined,
+  accountId: string | undefined,
+  remove: boolean,
+): string[] | undefined {
+  if (!accountId) return accountIds?.map(String);
+
+  const ids = new Set((accountIds || []).map(String));
+  if (remove) ids.delete(accountId);
+  else ids.add(accountId);
+  return Array.from(ids);
+}
+
+function setStatusEmojiReactions(
+  status: UnfathomablyStatus,
+  reactions: UnfathomablyEmojiReaction[],
+): UnfathomablyStatus {
+  return {
+    ...status,
+    emoji_reactions: reactions,
+    pleroma: status.pleroma
+      ? { ...status.pleroma, emoji_reactions: reactions }
+      : status.pleroma,
   };
 }
 

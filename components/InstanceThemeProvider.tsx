@@ -11,8 +11,8 @@
 
     Responsibilities:
 
-        - Select the theme for the active account host
-        - Show cached colors immediately when they are available
+        - Select the presentation settings for the active account host
+        - Show cached colors and quick reactions when they are available
         - Refresh configuration without blocking application startup
         - Prevent an old host request from changing a newly selected account
 
@@ -25,12 +25,15 @@
 
 import React, { ReactNode, useEffect, useMemo, useState } from "react";
 
+import { InstancePresentationContext } from "../contexts/InstancePresentationContext";
 import { useLotideCtx } from "../hooks/useLotideCtx";
 import useColorScheme from "../hooks/useColorScheme";
-import { InstanceThemeContext } from "../hooks/useTheme";
 import {
+  DEFAULT_QUICK_EMOJI,
   InstanceThemeConfiguration,
+  loadCachedInstanceQuickEmoji,
   loadCachedInstanceTheme,
+  refreshInstanceQuickEmoji,
   refreshInstanceTheme,
   resolveInstanceTheme,
 } from "../services/InstanceThemeService";
@@ -47,9 +50,16 @@ export default function InstanceThemeProvider({
     apiUrl: string;
     configuration: InstanceThemeConfiguration;
   } | undefined>(undefined);
+  const [loadedQuickEmoji, setLoadedQuickEmoji] = useState<{
+    apiUrl: string;
+    emoji: string[];
+  } | undefined>(undefined);
   const configuration = loadedTheme && loadedTheme.apiUrl === apiUrl
     ? loadedTheme.configuration
     : undefined;
+  const quickEmoji = loadedQuickEmoji && loadedQuickEmoji.apiUrl === apiUrl
+    ? loadedQuickEmoji.emoji
+    : configuration?.quickEmoji;
 
   useEffect(() => {
     let active = true;
@@ -72,20 +82,31 @@ export default function InstanceThemeProvider({
       }
     });
 
+    loadCachedInstanceQuickEmoji(apiUrl).then(emoji => {
+      if (active && emoji) setLoadedQuickEmoji({ apiUrl, emoji });
+    });
+
+    refreshInstanceQuickEmoji(apiUrl).then(emoji => {
+      if (active && emoji) setLoadedQuickEmoji({ apiUrl, emoji });
+    });
+
     return () => {
       active = false;
     };
   }, [apiUrl]);
 
-  const theme = useMemo(
-    () => resolveInstanceTheme(configuration, systemColorScheme),
-    [configuration, systemColorScheme],
+  const presentation = useMemo(
+    () => ({
+      ...resolveInstanceTheme(configuration, systemColorScheme),
+      quickEmoji: quickEmoji ?? DEFAULT_QUICK_EMOJI,
+    }),
+    [configuration, quickEmoji, systemColorScheme],
   );
 
   return (
-    <InstanceThemeContext.Provider value={theme}>
+    <InstancePresentationContext.Provider value={presentation}>
       {children}
-    </InstanceThemeContext.Provider>
+    </InstancePresentationContext.Provider>
   );
 }
 

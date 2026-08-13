@@ -6,12 +6,12 @@
 
     Purpose:
 
-        Read an instance's public Soapbox or Unfathomably frontend colors and
-        turn them into an accessible native application palette.
+        Read an instance's public Soapbox or Unfathomably presentation
+        settings and turn them into safe native application values.
 
     Responsibilities:
 
-        - Load frontend configuration from supported public endpoints
+        - Load colors and quick reactions from supported public endpoints
         - Validate and bound all server-controlled theme data
         - Cache validated configuration per server for offline startup
         - Resolve light, dark, black, and system theme modes
@@ -48,6 +48,7 @@ export type InstanceThemeConfiguration = {
   backgroundColor?: string;
   brandColor: string;
   colors: FrontendColors;
+  quickEmoji?: string[];
   secondaryBackgroundColor?: string;
   textColor?: string;
   themeMode: InstanceThemeMode;
@@ -82,7 +83,14 @@ type CachedTheme = {
   version: 1;
 };
 
+type CachedQuickEmoji = {
+  emoji: string[];
+  storedAt: number;
+  version: 1;
+};
+
 const CACHE_KEY_PREFIX = "@hoot_instance_theme_v1:";
+const QUICK_EMOJI_CACHE_KEY_PREFIX = "@hoot_instance_quick_emoji_v1:";
 const CONFIGURATION_PATHS = [
   "/api/pleroma/frontend_configurations",
   "/api/v1/pleroma/frontend_configurations",
@@ -95,8 +103,28 @@ const FRONTEND_CONFIGURATION_KEYS = [
 ] as const;
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 const MAX_CONFIGURATION_CHARACTERS = 256 * 1024;
+const MAX_QUICK_EMOJI = 24;
+const MAX_QUICK_EMOJI_CHARACTERS = 64;
 const PLEROMA_THEME_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,127}$/i;
 const REQUEST_TIMEOUT_MS = 8_000;
+
+/*
+    Unfathomably FE uses this compact reaction order when an instance does not
+    publish an allowedEmoji override. Keeping the fallback here makes native
+    and web clients agree when a server relies on the frontend default.
+*/
+export const DEFAULT_QUICK_EMOJI: readonly string[] = Object.freeze([
+  "👍",
+  "❤️",
+  "🤔",
+  "😆",
+  "😮",
+  "😡",
+  "😢",
+  "😏",
+  "🇫",
+]);
+
 const THEME_SHADES: ThemeShade[] = [
   "50",
   "100",
@@ -113,6 +141,14 @@ const THEME_SHADES: ThemeShade[] = [
 const refreshesByOrigin = new Map<
   string,
   Promise<InstanceThemeConfiguration | undefined>
+>();
+const quickEmojiRefreshesByOrigin = new Map<
+  string,
+  Promise<string[] | undefined>
+>();
+const configurationDocumentRefreshes = new Map<
+  string,
+  Promise<unknown[]>
 >();
 
 /* ------------------------------------------------------------------------- */
@@ -170,6 +206,53 @@ function normalizeThemeMode(value: unknown): InstanceThemeMode {
   return "system";
 }
 
+function normalizeQuickEmoji(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+
+  const quickEmoji: string[] = [];
+  const seen = new Set<string>();
+
+  for (const candidate of value) {
+    if (typeof candidate !== "string") continue;
+
+    const emoji = candidate.trim();
+    if (
+      !emoji ||
+      emoji.length > MAX_QUICK_EMOJI_CHARACTERS ||
+      /[\u0000-\u001f\u007f]/u.test(emoji) ||
+      seen.has(emoji)
+    ) {
+      continue;
+    }
+
+    quickEmoji.push(emoji);
+    seen.add(emoji);
+    if (quickEmoji.length === MAX_QUICK_EMOJI) break;
+  }
+
+  return quickEmoji.length > 0 ? quickEmoji : undefined;
+}
+
+export function normalizeInstanceQuickEmoji(
+  responseBody: unknown,
+): string[] | undefined {
+  if (!isRecord(responseBody)) return undefined;
+
+  for (const key of FRONTEND_CONFIGURATION_KEYS) {
+    const candidate = responseBody[key];
+    if (!isRecord(candidate)) continue;
+
+    const quickEmoji = normalizeQuickEmoji(
+      candidate.allowedEmoji ?? candidate.quickEmoji,
+    );
+    if (quickEmoji) return quickEmoji;
+  }
+
+  return normalizeQuickEmoji(
+    responseBody.allowedEmoji ?? responseBody.quickEmoji,
+  );
+}
+
 function normalizeFrontendConfiguration(
   candidate: Record<string, unknown>,
 ): InstanceThemeConfiguration | undefined {
@@ -190,6 +273,9 @@ function normalizeFrontendConfiguration(
     backgroundColor: normalizeHexColor(candidate.backgroundColor),
     brandColor,
     colors,
+    quickEmoji: normalizeQuickEmoji(
+      candidate.allowedEmoji ?? candidate.quickEmoji,
+    ),
     secondaryBackgroundColor: normalizeHexColor(
       candidate.secondaryBackgroundColor,
     ),
@@ -546,6 +632,10 @@ function cacheKey(origin: string): string {
   return `${CACHE_KEY_PREFIX}${encodeURIComponent(origin)}`;
 }
 
+function quickEmojiCacheKey(origin: string): string {
+  return `${QUICK_EMOJI_CACHE_KEY_PREFIX}${encodeURIComponent(origin)}`;
+}
+
 async function requestConfigurationDocument(
   origin: string,
   path: string,
@@ -595,6 +685,22 @@ async function requestConfigurationDocument(
   }
 }
 
+function requestConfigurationDocuments(origin: string): Promise<unknown[]> {
+  const existing = configurationDocumentRefreshes.get(origin);
+  if (existing) return existing;
+
+  const refresh = Promise.all(
+    CONFIGURATION_PATHS.map(path => requestConfigurationDocument(origin, path)),
+  ).then(documents => documents.filter(
+    (document): document is unknown => document !== undefined,
+  )).finally(() => {
+    configurationDocumentRefreshes.delete(origin);
+  });
+
+  configurationDocumentRefreshes.set(origin, refresh);
+  return refresh;
+}
+
 function getPleromaThemeName(responseBody: unknown): string | undefined {
   if (!isRecord(responseBody) || !isRecord(responseBody.pleroma_fe)) {
     return undefined;
@@ -616,13 +722,18 @@ async function requestCurrentTheme(
       public and independent, so running them together avoids making a missing
       or slow optional endpoint delay startup by a second timeout period.
   */
-  const documents = await Promise.all(
-    CONFIGURATION_PATHS.map(path => requestConfigurationDocument(origin, path)),
-  );
+  const documents = await requestConfigurationDocuments(origin);
+  const quickEmoji = documents
+    .map(normalizeInstanceQuickEmoji)
+    .find((candidate): candidate is string[] => !!candidate);
 
   for (const document of documents) {
     const configuration = normalizeInstanceThemeConfiguration(document);
-    if (configuration) return configuration;
+    if (configuration) {
+      return quickEmoji && !configuration.quickEmoji
+        ? { ...configuration, quickEmoji }
+        : configuration;
+    }
   }
 
   const themeName = documents
@@ -640,7 +751,39 @@ async function requestCurrentTheme(
     origin,
     `/static/themes/${encodeURIComponent(themeName)}.json`,
   );
-  return normalizeInstanceThemeConfiguration(themeDocument);
+  const configuration = normalizeInstanceThemeConfiguration(themeDocument);
+  return configuration && quickEmoji
+    ? { ...configuration, quickEmoji }
+    : configuration;
+}
+
+async function requestCurrentQuickEmoji(
+  origin: string,
+): Promise<string[] | undefined> {
+  const documents = await requestConfigurationDocuments(origin);
+  return documents
+    .map(normalizeInstanceQuickEmoji)
+    .find((candidate): candidate is string[] => !!candidate);
+}
+
+async function storeCachedQuickEmoji(
+  origin: string,
+  emoji: string[],
+): Promise<void> {
+  const cached: CachedQuickEmoji = {
+    emoji,
+    storedAt: Date.now(),
+    version: 1,
+  };
+
+  try {
+    await AsyncStorage.setItem(
+      quickEmojiCacheKey(origin),
+      JSON.stringify(cached),
+    );
+  } catch (error) {
+    logWarning("Failed to cache instance quick emoji", error);
+  }
 }
 
 export async function loadCachedInstanceTheme(
@@ -672,6 +815,57 @@ export async function loadCachedInstanceTheme(
   }
 }
 
+export async function loadCachedInstanceQuickEmoji(
+  apiUrl: string,
+): Promise<string[] | undefined> {
+  const origin = normalizedOrigin(apiUrl);
+  if (!origin) return undefined;
+
+  try {
+    const stored = await AsyncStorage.getItem(quickEmojiCacheKey(origin));
+    if (!stored) return undefined;
+
+    const parsed = JSON.parse(stored) as unknown;
+    if (!isRecord(parsed) || parsed.version !== 1) {
+      await AsyncStorage.removeItem(quickEmojiCacheKey(origin));
+      return undefined;
+    }
+
+    const normalized = normalizeQuickEmoji(parsed.emoji);
+    if (!normalized) {
+      await AsyncStorage.removeItem(quickEmojiCacheKey(origin));
+      return undefined;
+    }
+
+    return normalized;
+  } catch (error) {
+    logWarning("Failed to read cached instance quick emoji", error);
+    return undefined;
+  }
+}
+
+export async function refreshInstanceQuickEmoji(
+  apiUrl: string,
+): Promise<string[] | undefined> {
+  const origin = normalizedOrigin(apiUrl);
+  if (!origin) return undefined;
+
+  const existingRefresh = quickEmojiRefreshesByOrigin.get(origin);
+  if (existingRefresh) return existingRefresh;
+
+  const refresh = requestCurrentQuickEmoji(origin)
+    .then(async emoji => {
+      if (emoji) await storeCachedQuickEmoji(origin, emoji);
+      return emoji;
+    })
+    .finally(() => {
+      quickEmojiRefreshesByOrigin.delete(origin);
+    });
+
+  quickEmojiRefreshesByOrigin.set(origin, refresh);
+  return refresh;
+}
+
 export async function refreshInstanceTheme(
   apiUrl: string,
 ): Promise<InstanceThemeConfiguration | undefined> {
@@ -695,6 +889,10 @@ export async function refreshInstanceTheme(
         await AsyncStorage.setItem(cacheKey(origin), JSON.stringify(cached));
       } catch (error) {
         logWarning("Failed to cache instance theme", error);
+      }
+
+      if (theme.quickEmoji) {
+        await storeCachedQuickEmoji(origin, theme.quickEmoji);
       }
 
       return theme;

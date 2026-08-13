@@ -26,8 +26,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
   contrastRatio,
+  DEFAULT_QUICK_EMOJI,
+  loadCachedInstanceQuickEmoji,
   loadCachedInstanceTheme,
+  normalizeInstanceQuickEmoji,
   normalizeInstanceThemeConfiguration,
+  refreshInstanceQuickEmoji,
   refreshInstanceTheme,
   resolveInstanceTheme,
 } from "../InstanceThemeService";
@@ -60,12 +64,14 @@ describe("InstanceThemeService", () => {
     expect(normalizeInstanceThemeConfiguration({
       soapbox_fe: {
         accentColor: "#7E0000",
+        allowedEmoji: ["👍", "❤️", "👍", "", 7, "😩"],
         brandColor: "#7e0000",
         defaultSettings: { themeMode: "black" },
       },
     })).toMatchObject({
       accentColor: "#7e0000",
       brandColor: "#7e0000",
+      quickEmoji: ["👍", "❤️", "😩"],
       themeMode: "black",
     });
 
@@ -105,6 +111,26 @@ describe("InstanceThemeService", () => {
     expect(normalizeInstanceThemeConfiguration({
       brandColor: "javascript:alert(1)",
     })).toBeUndefined();
+
+    expect(normalizeInstanceQuickEmoji({
+      unfathomably_fe: {
+        allowedEmoji: ["👍", "", "👍", "🤔", "x".repeat(65), null],
+      },
+    })).toEqual(["👍", "🤔"]);
+  });
+
+  test("uses the current Unfathomably FE quick-reaction default", () => {
+    expect(DEFAULT_QUICK_EMOJI).toEqual([
+      "👍",
+      "❤️",
+      "🤔",
+      "😆",
+      "😮",
+      "😡",
+      "😢",
+      "😏",
+      "🇫",
+    ]);
   });
 
   test("uses a server's light, dark, and black defaults", () => {
@@ -168,6 +194,7 @@ describe("InstanceThemeService", () => {
         }
 
         return mockResponse({
+          allowedEmoji: ["👍", "❤️", "😩"],
           brandColor: "#7e0000",
           defaultSettings: { themeMode: "black" },
         });
@@ -180,6 +207,7 @@ describe("InstanceThemeService", () => {
 
     expect(refreshed).toMatchObject({
       brandColor: "#167a3c",
+      quickEmoji: ["👍", "❤️", "😩"],
       themeMode: "light",
     });
     expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -199,8 +227,38 @@ describe("InstanceThemeService", () => {
       loadCachedInstanceTheme("https://themes.example"),
     ).resolves.toMatchObject({
       brandColor: "#167a3c",
+      quickEmoji: ["👍", "❤️", "😩"],
       themeMode: "light",
     });
+    await expect(
+      loadCachedInstanceQuickEmoji("https://themes.example"),
+    ).resolves.toEqual(["👍", "❤️", "😩"]);
+  });
+
+  test("caches allowedEmoji without requiring usable theme colors", async () => {
+    const fetchMock = jest.spyOn(global, "fetch").mockImplementation(
+      async request => String(request).endsWith(
+        "/api/pleroma/frontend_configurations",
+      )
+        ? mockResponse({
+            soapbox_fe: {
+              allowedEmoji: ["👍", "❤️", "🤔", "😆"],
+            },
+          })
+        : mockResponse({}),
+    );
+
+    const [theme, quickEmoji] = await Promise.all([
+      refreshInstanceTheme("https://reactions.example"),
+      refreshInstanceQuickEmoji("https://reactions.example"),
+    ]);
+
+    expect(theme).toBeUndefined();
+    expect(quickEmoji).toEqual(["👍", "❤️", "🤔", "😆"]);
+    await expect(
+      loadCachedInstanceQuickEmoji("https://reactions.example"),
+    ).resolves.toEqual(["👍", "❤️", "🤔", "😆"]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   test("loads the Pleroma FE default theme preset from its public static path", async () => {
